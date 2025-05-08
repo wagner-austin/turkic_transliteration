@@ -2,9 +2,6 @@
 requires = ["setuptools>=68", "wheel"]
 build-backend = "setuptools.build_meta"
 
-[tool.setuptools]
-package-data = {"turkic_translit" = ["../sitecustomize.py"]}
-include-package-data = true
 
 [project]
 name            = "turkic_transliterate"
@@ -14,17 +11,33 @@ authors         = [ {name="Austin Wagner", email="awagner@uci.edu"} ]
 requires-python = ">=3.9"
 
 dependencies = [
-    "PyICU>=2.13",
-    "sentencepiece>=0.2.0",
-    "fasttext-wheel>=0.9.2; platform_system!='Darwin'",
+    # Core dependencies (alphabetized)
+    "epitran>=1.0,<1.27",           # 1.26.0 is the latest on PyPI
+    # Universal fasttext-wheel for all platforms and Python 3.10-3.13
+    "fasttext-wheel>=0.9.2",
+    "numpy<2",
+    "packaging>=23.0",              # Used in tests/test_fasttext.py
+    "panphon>=0.20,<0.22",          # 0.21.2 is the newest published wheel
+    # Source build for non-Windows platforms
+    "PyICU>=2.15 ; sys_platform != 'win32'",
+    # Windows wheels for PyICU
+    "PyICU @ https://github.com/cgohlke/pyicu-build/releases/download/v2.15/pyicu-2.15-cp310-cp310-win_amd64.whl ; sys_platform == 'win32' and python_version == '3.10'",
+    "PyICU @ https://github.com/cgohlke/pyicu-build/releases/download/v2.15/pyicu-2.15-cp311-cp311-win_amd64.whl ; sys_platform == 'win32' and python_version == '3.11'",
+    "PyICU @ https://github.com/cgohlke/pyicu-build/releases/download/v2.15/pyicu-2.15-cp312-cp312-win_amd64.whl ; sys_platform == 'win32' and python_version == '3.12'",
+    "PyICU @ https://github.com/cgohlke/pyicu-build/releases/download/v2.15/pyicu-2.15-cp313-cp313-win_amd64.whl ; sys_platform == 'win32' and python_version == '3.13'",
+    "pytest>=8.0",                  # Test runner
     "rapidfuzz>=3.5",
-    "epitran>=1.0",
-    "numpy>=2",
-    "panphon>=0.20"
+    "sentencepiece>=0.2.0"
 ]
 
 [project.optional-dependencies]
-dev = ["pytest", "black", "ruff"]
+# winlid dependency kept for backward compatibility but empty since fasttext-wheel is now in main dependencies
+winlid = []
+
+# Development tools
+dev = ["black", "ruff"]
+# User interface dependencies
+ui = ["gradio"]
 
 [project.scripts]
 turkic-translit = "turkic_translit.cli:main"

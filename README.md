@@ -10,6 +10,26 @@ conda activate turkic
 python verification.py     # all green ✔
 ```
 
+### Pip installation
+You can also install using pip with optional extras:
+
+```bash
+pip install -e .[dev,ui,winlid]
+```
+
+- `dev`: Development tools (pytest, black, ruff)
+- `ui`: Web interface (gradio)
+- `winlid`: Windows-specific language identification (fasttext-wheel)
+
+## Windows & PyICU
+On Windows with Python 3.12+, you'll need to manually install the PyICU wheel. We've created a helper script to make this easy:
+
+```bash
+python scripts/get_pyicu_wheel.py
+```
+
+This will automatically download and install the correct PyICU wheel for your Python version.
+
 ## CLI
 turkic-translit --lang kk --in text.txt --out_latin kk_lat.txt --ipa --out_ipa kk_ipa.txt
 
