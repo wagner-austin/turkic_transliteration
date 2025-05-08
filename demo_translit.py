@@ -1,7 +1,12 @@
 """
 Demo script to show the transliteration functionality visually.
 """
+import logging
+from turkic_translit.logging_config import setup; setup("INFO")
 from turkic_translit.core import to_latin, to_ipa
+
+# Set up logger for this module
+logger = logging.getLogger(__name__)
 
 # Sample texts in Kazakh and Kyrgyz Cyrillic
 sample_texts = {
@@ -10,26 +15,26 @@ sample_texts = {
 }
 
 def demo_transliteration():
-    print("=" * 80)
-    print("TURKIC TRANSLITERATION DEMO")
-    print("=" * 80)
+    logger.info("=" * 80)
+    logger.info("TURKIC TRANSLITERATION DEMO")
+    logger.info("=" * 80)
     
     for lang, text in sample_texts.items():
-        print(f"\n{lang.upper()} (Kazakh/Kyrgyz) TRANSLITERATION EXAMPLE:")
-        print("-" * 50)
+        logger.info("\n%s (Kazakh/Kyrgyz) TRANSLITERATION EXAMPLE:", lang.upper())
+        logger.info("-" * 50)
         
         # Original Cyrillic text
-        print(f"ORIGINAL (Cyrillic): {text}")
+        logger.info("ORIGINAL (Cyrillic): %s", text)
         
         # Latin transliteration
         latin = to_latin(text, lang)
-        print(f"LATIN SCRIPT:        {latin}")
+        logger.info("LATIN SCRIPT:        %s", latin)
         
         # IPA transliteration
         ipa = to_ipa(text, lang)
-        print(f"IPA PRONUNCIATION:   {ipa}")
+        logger.info("IPA PRONUNCIATION:   %s", ipa)
         
-        print("-" * 50)
+        logger.info("-" * 50)
 
 if __name__ == "__main__":
     demo_transliteration()

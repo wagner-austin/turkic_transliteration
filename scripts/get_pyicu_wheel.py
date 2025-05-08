@@ -3,6 +3,11 @@ One-shot helper for Windows users on Python ≥3.12:
     python scripts/get_pyicu_wheel.py
 """
 import sys, urllib.request, subprocess, platform, pathlib
+import logging
+
+# Setup logging
+logging.basicConfig(format='%(name)s: %(message)s', level=logging.INFO)
+log = logging.getLogger("pyicu_wheel")
 
 MAJOR, MINOR = sys.version_info[:2]
 if platform.system() != "Windows":
@@ -17,9 +22,9 @@ version = VERSIONS[tag]
 wheel = f"pyicu-{version}-{tag}-{tag}-win_amd64.whl"
 url = f"https://github.com/cgohlke/pyicu-build/releases/download/v{version}/{wheel}"
 
-print("→", url)
+log.info("→ %s", url)
 if not pathlib.Path(wheel).exists():
-    print("Downloading", wheel)
+    log.info("Downloading %s", wheel)
     urllib.request.urlretrieve(url, wheel)
 subprocess.check_call([sys.executable, "-m", "pip", "install", wheel])
-print("✓ PyICU", wheel, "installed")
+log.info("✓ PyICU %s installed", wheel)

@@ -1,4 +1,6 @@
 # imported automatically if on PYTHONPATH
 import os; os.environ.setdefault("PYTHONUTF8", "1")
+import logging
 
-print("sitecustomize.py loaded, PYTHONUTF8 =", os.environ.get("PYTHONUTF8"))
+# Log at debug level instead of printing to stdout
+logging.getLogger("sitecustomize").debug("PYTHONUTF8=%s", os.environ["PYTHONUTF8"])
