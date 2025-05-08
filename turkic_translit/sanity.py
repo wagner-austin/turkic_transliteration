@@ -1,7 +1,7 @@
 """Helper functions for Levenshtein and byte checks."""
 from rapidfuzz.distance import Levenshtein
-import unicodedata as ud
 import io
+import os, re, unicodedata as ud
 
 def median_lev(file_lat:str, file_ipa:str, sample:int=5000) -> float:
     from statistics import median

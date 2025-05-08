@@ -1,4 +1,14 @@
-import fasttext, os, urllib.request, pathlib, sys
+# NumPy 2.x still breaks the C++ fastText code – guard on major only
+import numpy as np, pytest, sys
+from packaging.version import parse as vparse
+if vparse(np.__version__).major >= 2:
+    pytest.skip("fastText requires NumPy<2", allow_module_level=True)
+
+# Absent fasttext on non-Windows is fine – mark xfail
+try:
+    import fasttext, os, urllib.request, pathlib
+except ModuleNotFoundError:
+    pytest.xfail("fasttext-wheel not installed on this platform")
 model = "C:/Users/%USERNAME%/lid.176.bin".replace("%USERNAME%", os.getlogin())
 if not pathlib.Path(model).exists():
     urllib.request.urlretrieve(

@@ -1,5 +1,12 @@
-import epitran, panphon, icu, sentencepiece as spm, fasttext, unicodedata as ud, os, tempfile, io
+import epitran, panphon, icu, sentencepiece as spm, unicodedata as ud, os, tempfile, io
 import pytest
+
+# Optional dependencies - handle gracefully
+try:
+    import fasttext
+    HAS_FASTTEXT = True
+except ImportError:
+    HAS_FASTTEXT = False
 
 # 1. Test PyICU transliteration
 def test_icu_transliteration():
@@ -16,21 +23,36 @@ def test_epitran_panphon_ipa():
     
     This test ensures that the IPA conversion pipeline is working correctly.
     """
-    import sys
-    
-    # Skip on Windows - panphon has encoding issues that need platform-specific fixes
-    if sys.platform.startswith("win"):
-        pytest.skip("Skipping panphon/epitran test on Windows due to encoding issues")
-    
-    # Works fine on *nix systems
+    # Works fine on all systems with our encoding patch
     epi = epitran.Epitran("kaz-Cyrl")
-    ipa = epi.transliterate("Ғылым")
+    test_word = "Ғылым"  # "Knowledge" in Kazakh
+    ipa = epi.transliterate(test_word)
     ft = panphon.FeatureTable()
     vec = ft.word_to_vector_list(ipa)
     
+    # Print for inspection during test runs
+    print(f"\nTest word: {test_word}")
+    print(f"IPA transcription: {ipa}")
+    print(f"Phonological features count: {len(vec)}")
+    
+    # Basic type checks
     assert isinstance(ipa, str)
     assert isinstance(vec, list) 
-    assert len(vec) > 0
+    
+    # Check actual content - Ғ should be ʁ in IPA
+    assert 'ʁ' in ipa, f"Expected 'ʁ' in IPA transcription, got: {ipa}"
+    assert len(ipa) >= 4, f"Expected at least 4 characters in IPA, got: {len(ipa)}"
+    
+    # Check feature extraction results
+    assert len(vec) >= 4, f"Expected at least 4 feature vectors (one per sound), got: {len(vec)}"
+    
+    # Check that the feature vectors have the proper structure
+    # panphon returns arrays of feature values, not dictionaries
+    for i, segment in enumerate(vec):
+        # Each segment should have at least 20 features
+        assert len(segment) >= 20, f"Segment {i} has too few features: {len(segment)}"
+        # Each segment should be a list of feature values (+/-/0)
+        assert all(val in ['+', '-', '0'] for val in segment), f"Invalid feature values in segment {i}: {segment}"
 
 # 3. Test SentencePiece encode/decode round-trip
 def test_sentencepiece_roundtrip():

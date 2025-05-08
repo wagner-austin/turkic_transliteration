@@ -1,8 +1,17 @@
 """Public API for Latin and IPA transliteration."""
+try:
+    import icu        # noqa: F401
+except ImportError as e:    # PyICU wheel is still missing
+    raise RuntimeError(
+        "PyICU missing. On Windows run:\n"
+        "  python scripts/get_pyicu_wheel.py\n"
+        "or manually install a wheel from "
+        "https://github.com/cgohlke/pyicu-build/releases ."
+    ) from e
+
 from functools import lru_cache
 import unicodedata as ud
 from pathlib import Path
-import icu
 import epitran
 
 _RULE_DIR = Path(__file__).with_suffix("").parent / "rules"
