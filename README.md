@@ -31,7 +31,15 @@ python scripts/get_pyicu_wheel.py
 This will automatically download and install the correct PyICU wheel for your Python version.
 
 ## CLI
-turkic-translit --lang kk --in text.txt --out_latin kk_lat.txt --ipa --out_ipa kk_ipa.txt
+turkic-translit --lang kk --in text.txt --out_latin kk_lat.txt --ipa --out_ipa kk_ipa.txt --log-level debug
+
+## Logging
+The package uses a centralized logging system with color support:
+
+- Use `--log-level` CLI argument to set logging level (debug, info, warning, error)
+- Set `TURKIC_LOG_LEVEL` environment variable for the same effect
+- Automatic Rich integration for colored console output when available
+- Falls back to standard library logging when Rich is not installed
 
 ## Build tokenizer
 python scripts/build_spm.py --input corpora/kk_lat.txt,corpora/ky_lat.txt --model_prefix spm/turkic12k

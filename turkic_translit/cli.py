@@ -1,5 +1,6 @@
-import sys, argparse, pathlib, time, os
+import sys, argparse, pathlib, time, os, logging
 from .core import to_latin, to_ipa
+from .logging_config import setup as _log_setup
 
 def main() -> None:
     ap = argparse.ArgumentParser(description="Turkic transliteration")
@@ -10,8 +11,20 @@ def main() -> None:
     ap.add_argument("--out_latin", default="-")
     ap.add_argument("--out_ipa")
     ap.add_argument("--benchmark", action="store_true")
+    ap.add_argument("--log-level", choices=["debug", "info", "warning", "error", "critical"],
+                    help="Set logging level (default: from TURKIC_LOG_LEVEL env var or INFO)")
     args = ap.parse_args()
 
+    # Set log level from args if provided
+    if args.log_level:
+        os.environ["TURKIC_LOG_LEVEL"] = args.log_level.upper()
+        # Re-initialize logging with new level
+        logger = _log_setup()
+    else:
+        logger = logging.getLogger("turkic_translit")
+    
+    logger.debug(f"Processing {args.lang} transliteration")
+    
     # Use UTF-8-sig for Windows to include BOM for proper encoding support
     encoding = "utf-8-sig" if sys.platform == "win32" else "utf-8"
     

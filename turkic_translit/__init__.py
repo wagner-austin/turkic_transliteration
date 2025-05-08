@@ -1,5 +1,7 @@
 from importlib.metadata import version
-# Import patches first to ensure they're applied before any other imports
+# Set up logging first before any other operations
+from .logging_config import setup as _log_setup; _log_setup()
+# Import patches next to ensure they're applied before other imports
 from . import patches
 from .core import to_latin, to_ipa
 
