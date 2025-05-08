@@ -1,2 +1,0 @@
-[console_scripts]
-turkic-translit = turkic_translit.cli:main
