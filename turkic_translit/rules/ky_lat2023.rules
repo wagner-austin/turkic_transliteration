@@ -1,45 +1,40 @@
-# Kyrgyz Latin alphabet — consonants & vowels
+# Kyrgyz → Modern Practical Latin Transliteration (NFC)
+# One line per pair; use pre‑composed Unicode code‑points; digraphs are atomic tokens.
 А > A ;  а > a ;
-Ә > Ä ; ә > ä ;
 Б > B ;  б > b ;
 В > V ;  в > v ;
 Г > G ;  г > g ;
-Ғ > Ğ ; ғ > ğ ;
 Д > D ;  д > d ;
 Е > E ;  е > e ;
+Ё > Yo ; ё > yo ;
 Ж > J ;  ж > j ;
 З > Z ;  з > z ;
-И > İ ; и > i ;
-Й > İ ; й > i ;
+И > İ ;  и > i ;   # dotted I
+Й > Ý ;  й > ý ;   # /j/ glide
 К > K ;  к > k ;
-Қ > Q ; қ > q ;
 Л > L ;  л > l ;
 М > M ;  м > m ;
 Н > N ;  н > n ;
-Ң > Ñ ; ң > ñ ;
+Ң > Ñ ;  ң > ñ ;
 О > O ;  о > o ;
-Ө > Ö ; ө > ö ;
+Ө > Ö ;  ө > ö ;
 П > P ;  п > p ;
 Р > R ;  р > r ;
 С > S ;  с > s ;
 Т > T ;  т > t ;
 У > U ;  у > u ;
-Ұ > Ū ; ұ > ū ;
-Ү > Ü ; ү > ü ;
+Ү > Ü ;  ү > ü ;
 Ф > F ;  ф > f ;
 Х > H ;  х > h ;
-Һ > H ;  һ > h ;
-Ц > C ;  ц > c ;
+Ц > Ts ; ц > ts ;  # digraph
 Ч > Ç ;  ч > ç ;
 Ш > Ş ;  ш > ş ;
-Щ > ŞŞ ; щ > şş ;
-
-# Russian loan letters
-Ё > E ;  ё > e ;
-Ъ > ;    ъ > ;      # drop hard sign
+Щ > Şç ; щ > şç ;  # digraph
 Ы > Y ;  ы > y ;
-Ю > IU ; ю > iu ;
-Я > IA ; я > ia ;
-Ь > ;    ь > ;
+Э > É ;  э > é ;
+Ю > Yu ; ю > yu ;   # digraph
+Я > Ya ; я > ya ;   # digraph
+Ъ > ʼ ;  ъ > ʼ ;    # modifier apostrophe U+02BC
+Ь > ʼ ;  ь > ʼ ;
 
 :: NFC ;

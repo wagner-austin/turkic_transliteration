@@ -1,9 +1,15 @@
-ء > ' ;
-ا > A ;  ب > B ;  پ > P ;  ت > T ;  ج > J ;  چ > Ç ;
-ح > H ;  خ > H ;  د > D ;  ر > R ;  ز > Z ;  س > S ;
-ش > Ş ; ص > S ;  ط > T ;  ع > ' ;  غ > Ğ ;  ف > F ;
-ق > Q ;  ك > K ;  گ > G ;  ل > L ;  م > M ;  ن > N ;
-ه > H ;  و > U ;  ۋ > U ;  ۇ > Ū ; ۈ > Ü ;
-ي > İ ; ‍ى > I ;
+# consonants
+ب > b ;  پ > p ;  ت > t ;  ج > j ;  چ > ch ;
+ح > h ;  خ > x ;  د > d ;  ر > r ;  ز > z ;  س > s ;
+ش > sh ; ص > s ;  ط > t ;  غ > gh ;
+ف > f ;  ق > q ;  ك > k ;  گ > g ;  ل > l ;  م > m ;  ن > n ;
+ه > h ;  ھ > h ;  ژ > zh ;  ڭ > ng ;  ۋ > w ;
+
+# vowels  (hamza carrier ئ can be dropped or mapped to ')
+ا > a ;   ە > e ;   ۆ > ö ;   و > o ;
+ۇ > u ;   ۈ > ü ;   ى > i ;   ې > ë ;
+
+# glottals
+ء > ' ;   ع > ' ;   ئ > ;
 
 :: NFC ;

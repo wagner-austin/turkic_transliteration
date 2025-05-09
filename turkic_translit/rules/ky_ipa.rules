@@ -1,8 +1,7 @@
-# Kazakh → IPA transliteration rules (kk_ipa.rules)
-# One line per Cyrillic letter.  Right-hand side is plain IPA (no slashes).  NFC-normalised.
+# Kyrgyz → IPA transliteration rules (ky_ipa.rules)
+# One line per Cyrillic letter; NFC‐normalised; IPA given without slashes.
 
-А > ɑ ;  а > ɑ ;
-Ә > æ ;  ә > æ ;
+А > a ;  а > a ;
 Б > b ;  б > b ;
 В > v ;  в > v ;
 Г > ɡ ;  г > ɡ ;
@@ -10,7 +9,7 @@
 Д > d ;  д > d ;
 Е > e ;  е > e ;
 Ё > jo ; ё > jo ;
-Ж > ʒ ;  ж > ʒ ;
+Ж > d͡ʒ ;  ж > d͡ʒ ;
 З > z ;  з > z ;
 И > i ;  и > i ;
 Й > j ;  й > j ;
@@ -27,21 +26,18 @@
 С > s ;  с > s ;
 Т > t ;  т > t ;
 У > u ;  у > u ;
-Ұ > ʊ ;  ұ > ʊ ;
 Ү > y ;  ү > y ;
 Ф > f ;  ф > f ;
 Х > x ;  х > x ;
-Һ > h ;  һ > h ;
 Ц > ts ; ц > ts ;
 Ч > t͡ʃ ;  ч > t͡ʃ ;
 Ш > ʃ ;  ш > ʃ ;
 Щ > ɕː ; щ > ɕː ;
-Ъ > ʔ ;  ъ > ʔ ;
 Ы > ɯ ;  ы > ɯ ;
-І > ɪ ;  і > ɪ ;
-Ь > ;   ь > ;
-Э > e ;  э > e ;
+Э > ɛ ;  э > ɛ ;
 Ю > ju ; ю > ju ;
 Я > ja ; я > ja ;
+Ъ > ʔ ;  ъ > ʔ ;
+Ь > ;   ь > ;
 
 :: NFC ;
