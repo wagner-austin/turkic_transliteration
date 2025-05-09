@@ -12,7 +12,7 @@ except ImportError as e:    # PyICU wheel is still missing
 from functools import lru_cache
 import unicodedata as ud
 from pathlib import Path
-import epitran
+
 
 _RULE_DIR = Path(__file__).with_suffix("").parent / "rules"
 
@@ -32,13 +32,7 @@ def to_latin(text: str, lang: str, include_arabic: bool = False) -> str:
     out = trans.transliterate(text)
     return ud.normalize("NFC", out)
 
-@lru_cache
-def _epitran(lang: str):
-    return epitran.Epitran({"kk": "kaz-Cyrl", "ky": "kir-Cyrl"}[lang])
 
 def to_ipa(text: str, lang: str) -> str:
-    epi = _epitran(lang)
-    # first, ICU fixes OOV Cyrillic (Щ, hard sign, etc.)
-    pre = _icu_trans(f"{lang}_ipa.rules").transliterate(text)
-    ipa = epi.transliterate(pre)
-    return ud.normalize("NFC", ipa)
+    trans = _icu_trans(f"{lang}_ipa.rules")
+    return ud.normalize("NFC", trans.transliterate(text))

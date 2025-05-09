@@ -1,4 +1,5 @@
-import epitran, panphon, icu, sentencepiece as spm, unicodedata as ud, os, tempfile, io
+import panphon, icu, sentencepiece as spm, unicodedata as ud, os, tempfile, io
+from turkic_translit.core import to_ipa
 import pytest
 
 # Optional dependencies - handle gracefully
@@ -19,33 +20,30 @@ def test_icu_transliteration():
 # 2. Test epitran + panphon IPA for Kazakh
 def test_epitran_panphon_ipa():
     """
-    Test epitran's IPA conversion and panphon's phonological features.
-    
+    Test ICU-based IPA conversion and panphon's phonological features.
     This test ensures that the IPA conversion pipeline is working correctly.
     """
-    # Works fine on all systems with our encoding patch
-    epi = epitran.Epitran("kaz-Cyrl")
     test_word = "Ғылым"  # "Knowledge" in Kazakh
-    ipa = epi.transliterate(test_word)
+    ipa = to_ipa(test_word, "kk")
     ft = panphon.FeatureTable()
     vec = ft.word_to_vector_list(ipa)
-    
+
     # Print for inspection during test runs
     print(f"\nTest word: {test_word}")
     print(f"IPA transcription: {ipa}")
     print(f"Phonological features count: {len(vec)}")
-    
+
     # Basic type checks
     assert isinstance(ipa, str)
-    assert isinstance(vec, list) 
-    
+    assert isinstance(vec, list)
+
     # Check actual content - Ғ should be ʁ in IPA
     assert 'ʁ' in ipa, f"Expected 'ʁ' in IPA transcription, got: {ipa}"
     assert len(ipa) >= 4, f"Expected at least 4 characters in IPA, got: {len(ipa)}"
-    
+
     # Check feature extraction results
     assert len(vec) >= 4, f"Expected at least 4 feature vectors (one per sound), got: {len(vec)}"
-    
+
     # Check that the feature vectors have the proper structure
     # panphon returns arrays of feature values, not dictionaries
     for i, segment in enumerate(vec):
