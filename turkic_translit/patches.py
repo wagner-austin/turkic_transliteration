@@ -12,10 +12,26 @@ log = logging.getLogger(__name__)
 _PATCH_DONE = False
 _PATCHED_FILES = set()
 
+def _fix_broken_ssl_cert_env():
+    """
+    If the user (often Conda on Windows) left SSL_CERT_FILE pointing at a
+    non-existent bundle, httpx ⇢ gradio will crash on import.  When the file
+    is missing we delete the env-var so Python falls back to the system
+    certificates.
+    """
+    import os, pathlib, logging
+    log = logging.getLogger(__name__)
+    bundle = os.environ.get("SSL_CERT_FILE")
+    if bundle and not pathlib.Path(bundle).exists():
+        log.warning(
+            "SSL_CERT_FILE=%s does not exist – removing the variable so "
+            "httpx can create a default context", bundle)
+        del os.environ["SSL_CERT_FILE"]
+
 def apply_patches():
     """Apply all necessary patches for third-party libraries."""
     global _PATCH_DONE
-    
+    _fix_broken_ssl_cert_env()  # ← new line: ensure SSL_CERT_FILE is valid before any third-party import
     # Skip if patches have already been applied
     if _PATCH_DONE:
         log.debug("Patches already applied, skipping")
