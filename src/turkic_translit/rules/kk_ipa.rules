@@ -1,0 +1,72 @@
+# Kazakh → IPA transliteration rules (kk_ipa.rules)
+# Source: Help:IPA/Kazakh, rev. 10 Nov 2024.
+# One line per Cyrillic letter; replacements are plain IPA (no /slashes/).
+
+%define V [ɑæeəiɪoøʊʏ]     # vowel macro used in positional rules
+
+# ---------------------------------------------------------------------------
+# Positional jɪ for Е / Э  (place BEFORE the blanket E/Э → e rules)
+Е -> jɪ || # _ ;
+е -> jɪ || # _ ;
+Е -> jɪ || %V _ ;
+е -> jɪ || %V _ ;
+
+Э -> jɪ || # _ ;
+э -> jɪ || # _ ;
+Э -> jɪ || %V _ ;
+э -> jɪ || %V _ ;
+
+# ---------------------------------------------------------------------------
+# One-to-one grapheme → phone map
+А > ɑ ;  а > ɑ ;
+Ә > æ ;  ә > æ ;
+Б > b ;  б > b ;
+В > v ;  в > v ;
+Г > ɡ ;  г > ɡ ;
+Ғ > ʁ ;  ғ > ʁ ;
+Д > d ;  д > d ;
+Е > e ;  е > e ;               # all other positions
+Ё > jo ; ё > jo ;
+Ж > ʑ ;  ж > ʑ ;
+З > z ;  з > z ;
+И > əj ;  и > əj ;
+Й > j ;  й > j ;
+К > k ;  к > k ;
+Қ > q ;  қ > q ;
+Л > l ;  л > l ;
+М > m ;  м > m ;
+Н > n ;  н > n ;
+Ң > ɴ ;  ң > ɴ ;
+О > o ;  о > o ;
+Ө > ø ;  ө > ø ;
+П > p ;  п > p ;
+Р > ɾ ;  р > ɾ ;
+С > s ;  с > s ;
+Т > t ;  т > t ;
+У > w ;  у > w ;
+Ұ > ʊ ;  ұ > ʊ ;
+Ү > ʏ ;  ү > ʏ ;
+Ф > f ;  ф > f ;
+Х > χ ;  х > χ ;
+Һ > h ;  һ > h ;
+Ц > t͡s ; ц > t͡s ;            # tie-bar clarifies single affricate
+Ч > t͡ɕ ;  ч > t͡ɕ ;
+Ш > ɕ ;  ш > ɕ ;
+Щ > ɕ ;  щ > ɕ ;
+Ъ > ʔ ;  ъ > ʔ ;              # change to “> ;” for a silent separator
+Ы > ə ;  ы > ə ;
+І > ɪ ;  і > ɪ ;
+Ь > ʲ ;  ь > ʲ ;              # palatalisation in Russian loans
+Э > e ;  э > e ;               # back-off after jɪ rules above
+Ю > ju ; ю > ju ;
+Я > ja ; я > ja ;
+
+# ---------------------------------------------------------------------------
+# Optional phonetic refinements – uncomment if you need them
+# ɡ -> ɣ || _[ɑʊəoʏ] ;        # fricative allophone before back vowels
+# k -> q || _[ɑʊəoʏ] ;        # uvular realisation of /k/ before back vowels
+# v -> β̞ || %V _ %V ;         # bilabial approximant between vowels
+# w insertion already handled by У → w mapping
+# ---------------------------------------------------------------------------
+
+:: NFC ;

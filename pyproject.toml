@@ -4,11 +4,27 @@ build-backend = "setuptools.build_meta"
 
 
 [project]
-name            = "turkic_transliterate"
-version         = "0.1.0"
-description     = "Deterministic Latin and IPA transliteration for Kazakh, Kyrgyz, plus tokenizer/glue scripts."
-authors         = [ {name="Austin Wagner", email="awagner@uci.edu"} ]
+name = "turkic-transliterate"
+version = "0.1.0"
+description = "Deterministic Latin and IPA transliteration for Kazakh, Kyrgyz, plus tokenizer/glue scripts."
+authors = [ {name="Austin Wagner", email="awagner@uci.edu"} ]
 requires-python = ">=3.9"
+readme = "README.md"
+license = {text = "MIT"}
+keywords = ["kazakh", "kyrgyz", "transliteration", "ipa"]
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: OS Independent",
+    "Intended Audience :: Developers",
+    "Intended Audience :: Science/Research",
+    "Topic :: Software Development :: Libraries",
+    "Topic :: Text Processing :: Linguistic"
+]
 
 dependencies = [
     # Core dependencies (alphabetized)
@@ -42,3 +58,10 @@ ui = ["gradio"]
 
 [project.scripts]
 turkic-translit = "turkic_translit.cli:main"
+
+[tool.setuptools]
+include-package-data = true
+packages = ["turkic_translit"]
+
+[tool.setuptools.package-data]
+"turkic_translit" = ["rules/*.rules"]
