@@ -29,9 +29,12 @@ ui    → gradio web demo
 winlid (Windows only) → fasttext-wheel for language ID
 
 Windows & PyICU
-For Python 3.12+ on Windows you must install a pre-built PyICU wheel:
-python scripts/get\_pyicu\_wheel.py
-The helper script downloads and installs the correct wheel from Christoph Gohlke’s repository.
+
+**Important:** Due to PyPI rules, the correct PyICU wheel for Windows cannot be installed automatically during pip install. After installing this package with pip, Windows users must run the helper script to install the appropriate PyICU wheel:
+
+    python scripts/get_pyicu_wheel.py
+
+This script will download and install the correct PyICU wheel from Christoph Gohlke’s repository based on your Python version. See the script for details.
 
 Command-line usage
 turkic-translit --lang kk --in text.txt --out\_latin kk\_lat.txt --ipa --out\_ipa kk\_ipa.txt --arabic --log-level debug

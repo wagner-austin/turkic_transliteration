@@ -10,7 +10,7 @@ description = "Deterministic Latin and IPA transliteration for Kazakh, Kyrgyz, p
 authors = [ {name="Austin Wagner", email="awagner@uci.edu"} ]
 requires-python = ">=3.9"
 readme = "README.md"
-license = {text = "MIT"}
+license = "MIT"
 keywords = ["kazakh", "kyrgyz", "transliteration", "ipa"]
 classifiers = [
     "Programming Language :: Python :: 3",
@@ -18,7 +18,6 @@ classifiers = [
     "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
     "Programming Language :: Python :: 3.13",
-    "License :: OSI Approved :: MIT License",
     "Operating System :: OS Independent",
     "Intended Audience :: Developers",
     "Intended Audience :: Science/Research",
@@ -34,13 +33,8 @@ dependencies = [
     "numpy<2",
     "packaging>=23.0",              # Used in tests/test_fasttext.py
     "panphon>=0.20,<0.22",          # 0.21.2 is the newest published wheel
-    # Source build for non-Windows platforms
-    "PyICU>=2.15 ; sys_platform != 'win32'",
-    # Windows wheels for PyICU
-    "PyICU @ https://github.com/cgohlke/pyicu-build/releases/download/v2.15/pyicu-2.15-cp310-cp310-win_amd64.whl ; sys_platform == 'win32' and python_version == '3.10'",
-    "PyICU @ https://github.com/cgohlke/pyicu-build/releases/download/v2.15/pyicu-2.15-cp311-cp311-win_amd64.whl ; sys_platform == 'win32' and python_version == '3.11'",
-    "PyICU @ https://github.com/cgohlke/pyicu-build/releases/download/v2.15/pyicu-2.15-cp312-cp312-win_amd64.whl ; sys_platform == 'win32' and python_version == '3.12'",
-    "PyICU @ https://github.com/cgohlke/pyicu-build/releases/download/v2.15/pyicu-2.15-cp313-cp313-win_amd64.whl ; sys_platform == 'win32' and python_version == '3.13'",
+    # PyICU is required, but Windows users must install the correct wheel manually. See README and scripts/get_pyicu_wheel.py for help.
+    "PyICU>=2.15",
     "pytest>=8.0",                  # Test runner
     "rapidfuzz>=3.5",
     "rich>=13.7",                   # Color-aware logging and console output
@@ -62,6 +56,7 @@ turkic-translit = "turkic_translit.cli:main"
 [tool.setuptools]
 include-package-data = true
 packages = ["turkic_translit"]
+package-dir = {"" = "src"}
 
 [tool.setuptools.package-data]
 "turkic_translit" = ["rules/*.rules"]
