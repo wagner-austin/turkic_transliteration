@@ -1,20 +1,19 @@
 # Kazakh → IPA transliteration rules (kk_ipa.rules)
 # Source: Help:IPA/Kazakh, rev. 10 Nov 2024.
-# One line per Cyrillic letter; replacements are plain IPA (no /slashes/).
+# Right-hand side is plain IPA (no /slashes/).
 
-%define V [ɑæeəiɪoøʊʏ]     # vowel macro used in positional rules
+$V = [ɑæeəiɪoøʊʏ];          # vowel macro
 
 # ---------------------------------------------------------------------------
-# Positional jɪ for Е / Э  (place BEFORE the blanket E/Э → e rules)
-Е -> jɪ || # _ ;
-е -> jɪ || # _ ;
-Е -> jɪ || %V _ ;
-е -> jɪ || %V _ ;
-
-Э -> jɪ || # _ ;
-э -> jɪ || # _ ;
-Э -> jɪ || %V _ ;
-э -> jɪ || %V _ ;
+# Positional jɪ for Е / Э  (before blanket E/Э → e rules)
+^Е > jɪ ;                    # word-initial (uppercase)
+^е > jɪ ;                    # word-initial (lowercase)
+$V } Е > jɪ ;                # after a vowel
+$V } е > jɪ ;
+^Э > jɪ ;
+^э > jɪ ;
+$V } Э > jɪ ;
+$V } э > jɪ ;
 
 # ---------------------------------------------------------------------------
 # One-to-one grapheme → phone map
@@ -25,7 +24,7 @@
 Г > ɡ ;  г > ɡ ;
 Ғ > ʁ ;  ғ > ʁ ;
 Д > d ;  д > d ;
-Е > e ;  е > e ;               # all other positions
+Е > e ;  е > e ;
 Ё > jo ; ё > jo ;
 Ж > ʑ ;  ж > ʑ ;
 З > z ;  з > z ;
@@ -49,24 +48,23 @@
 Ф > f ;  ф > f ;
 Х > χ ;  х > χ ;
 Һ > h ;  һ > h ;
-Ц > t͡s ; ц > t͡s ;            # tie-bar clarifies single affricate
+Ц > t͡s ; ц > t͡s ;
 Ч > t͡ɕ ;  ч > t͡ɕ ;
 Ш > ɕ ;  ш > ɕ ;
 Щ > ɕ ;  щ > ɕ ;
-Ъ > ʔ ;  ъ > ʔ ;              # change to “> ;” for a silent separator
+Ъ > ʔ ;  ъ > ʔ ;
 Ы > ə ;  ы > ə ;
 І > ɪ ;  і > ɪ ;
-Ь > ʲ ;  ь > ʲ ;              # palatalisation in Russian loans
-Э > e ;  э > e ;               # back-off after jɪ rules above
+Ь > ʲ ;  ь > ʲ ;
+Э > e ;  э > e ;              # back-off after jɪ rules
 Ю > ju ; ю > ju ;
 Я > ja ; я > ja ;
 
 # ---------------------------------------------------------------------------
-# Optional phonetic refinements – uncomment if you need them
-# ɡ -> ɣ || _[ɑʊəoʏ] ;        # fricative allophone before back vowels
-# k -> q || _[ɑʊəoʏ] ;        # uvular realisation of /k/ before back vowels
-# v -> β̞ || %V _ %V ;         # bilabial approximant between vowels
-# w insertion already handled by У → w mapping
+# Optional phonetic refinements — uncomment if needed
+# ɡ > ɣ || _[ɑʊəoʏ] ;
+# k > q || _[ɑʊəoʏ] ;
+# v > β̞ || $V _ $V ;
 # ---------------------------------------------------------------------------
 
 :: NFC ;

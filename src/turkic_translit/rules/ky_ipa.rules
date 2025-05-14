@@ -1,15 +1,15 @@
 # Kyrgyz → IPA transliteration rules (ky_ipa.rules)
 # Source: Help:IPA/Kyrgyz, rev. 6 Jan 2025.
-# Plain IPA on the right-hand side, NFC normalised.
+# Plain IPA on the right, NFC-normalised.
 
-%define V  [ɑaeiouøyɯ]      # vowel macro — extend with ɛ if you ever output it
+$V = [ɑaeiouøyɯ];            # vowel macro
 
 # ---------------------------------------------------------------------------
-# Positional /je/ rules (must precede the generic E → e)
-#Е  -> je || # _ ;           # word-initial
-#е  -> je || # _ ;
-#Е  -> je || %V _ ;          # after a vowel
-#е  -> je || %V _ ;
+# (optional) positional /je/ — uncomment if you need it
+# ^Е > je ;                  # word-initial
+# ^е > je ;
+# $V } Е > je ;              # after a vowel
+# $V } е > je ;
 
 # ---------------------------------------------------------------------------
 # One-to-one grapheme → phone map
@@ -19,7 +19,7 @@
 Г > ɡ ;  г > ɡ ;
 Ғ > ʁ ;  ғ > ʁ ;
 Д > d ;  д > d ;
-Е > e ;  е > e ;            # catches remaining positions
+Е > e ;  е > e ;
 Ё > jo ; ё > jo ;
 Ж > dʒ ;  ж > dʒ ;
 З > z ;  з > z ;
@@ -45,7 +45,7 @@
 Ч > t͡ʃ ;  ч > t͡ʃ ;
 Ш > ʃ ;  ш > ʃ ;
 Щ > ʃt͡ʃ ; щ > ʃt͡ʃ ;
-Ъ > ʔ ;  ъ > ʔ ;           # change to “> ;” if you need a silent separator
+Ъ > ʔ ;  ъ > ʔ ;
 Ы > ɯ ;  ы > ɯ ;
 Ь > ʲ ;  ь > ʲ ;
 Э > e ;  э > e ;
@@ -53,8 +53,8 @@
 Я > ja ; я > ja ;
 
 # ---------------------------------------------------------------------------
-# (optional) replace <у> with /w/ between vowels — uncomment if you need it
-# У -> w || %V _ %V ;
-# у -> w || %V _ %V ;
+# (optional) /w/ between vowels — uncomment if desired
+# $V } У > w ;
+# $V } у > w ;
 
 :: NFC ;
