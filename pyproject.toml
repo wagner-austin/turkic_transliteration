@@ -33,7 +33,7 @@ dependencies = [
     "numpy<2",
     "packaging>=23.0",              # Used in tests/test_fasttext.py
     "panphon>=0.20,<0.22",          # 0.21.2 is the newest published wheel
-    # PyICU is required, but Windows users must install the correct wheel manually. See README and scripts/get_pyicu_wheel.py for help.
+    # PyICU is required, but Windows users must install the correct wheel manually. See README and turkic-pyicu-install for help.
     "PyICU>=2.15",
     "pytest>=8.0",                  # Test runner
     "rapidfuzz>=3.5",
@@ -42,7 +42,11 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
-# winlid dependency kept for backward compatibility but empty since fasttext-wheel is now in main dependencies
+examples = [
+    "flask",
+    "streamlit",
+    "jupyterlab",
+]
 winlid = []
 
 # Development tools

@@ -4,7 +4,7 @@ try:
 except ImportError as e:    # PyICU wheel is still missing
     raise RuntimeError(
         "PyICU missing. On Windows run:\n"
-        "  python scripts/get_pyicu_wheel.py\n"
+        "  turkic-pyicu-install\n"
         "or manually install a wheel from "
         "https://github.com/cgohlke/pyicu-build/releases ."
     ) from e

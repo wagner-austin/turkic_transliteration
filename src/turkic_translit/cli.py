@@ -17,7 +17,7 @@ def main() -> None:
                 "    py -3.11 -m venv turkic311\n"
                 "    turkic311\\Scripts\\activate\n"
                 "    pip install turkic-transliterate\n"
-                "    python scripts/get_pyicu_wheel.py\n\n"
+                "    turkic-pyicu-install\n\n"
                 "See the README for more details.\n"
             )
             sys.exit(1)

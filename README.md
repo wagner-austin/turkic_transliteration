@@ -32,7 +32,7 @@ Windows & PyICU
 
 **Important:** Due to PyPI rules, the correct PyICU wheel for Windows cannot be installed automatically during pip install. After installing this package with pip, Windows users must run the helper script to install the appropriate PyICU wheel:
 
-    python scripts/get_pyicu_wheel.py
+    turkic-pyicu-install
 
 This script will download and install the correct PyICU wheel from Christoph Gohlke’s repository based on your Python version. See the script for details.
 
@@ -50,14 +50,14 @@ Set TURKIC\_LOG\_LEVEL or pass --log-level to the CLI.
 Fallback to standard logging when Rich is absent.
 
 Web demo
-python web\_demo.py
+turkic web\_demo.py
 Opens a local Gradio interface for real-time transliteration.
 
 Tokenizer training example
-python scripts/build\_spm.py --input corpora/kk\_lat.txt,corpora/ky\_lat.txt --model\_prefix spm/turkic12k --vocab\_size 12000
+turkic-build-spm --input corpora/kk\_lat.txt,corpora/ky\_lat.txt --model\_prefix spm/turkic12k --vocab\_size 12000
 
 Filtering Russian tokens from Uzbek
-cat uz\_raw\.txt | python scripts/filter\_russian.py --mode drop > uz\_clean.txt
+cat uz\_raw\.txt | turkic-filter-russian --mode drop > uz\_clean.txt
 
 Developer checklist
 black .
