@@ -68,3 +68,14 @@ All code is UTF-8-only; on Windows a BOM is written when piping to files to avoi
 
 License
 Apache-2.0
+
+### Type-checking
+
+```bash
+pip install mypy
+mypy --strict .
+```
+
+The included mypy.ini restricts analysis to the src/ tree and skips
+build/, dist/, virtual-env and egg directories so duplicate-module
+errors do not occur even if you build wheels locally.
