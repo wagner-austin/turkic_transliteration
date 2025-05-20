@@ -88,7 +88,7 @@ def token_table_markdown(text: str) -> str:
         raise ImportError(
             "install turkic-transliterate[ui] to use token_table_markdown"
         )
-    
+
     try:
         pipeline = _lazy_pipeline()
         tokens = pipeline.tokenizer.tokenize(text)
