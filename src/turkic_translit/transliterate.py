@@ -1,5 +1,6 @@
 from .core import to_latin, to_ipa
 
+
 def transliterate_token(token: str, lang: str, mode: str = "latin") -> str:
     """
     Transliterate a token to Latin or IPA depending on mode and language.

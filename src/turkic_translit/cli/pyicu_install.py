@@ -2,6 +2,7 @@
 One-shot helper for Windows users on Python ≥3.12:
     python -m turkic_translit.cli.pyicu_install
 """
+
 import sys
 import urllib.request
 import subprocess
@@ -11,16 +12,24 @@ import logging
 import click
 import json
 
+
 @click.command()
-@click.option('--version', '-v', default=None, help='PyICU version to install (default: latest available for your Python version)')
-def main(version):
+@click.option(
+    "--version",
+    "-v",
+    default=None,
+    help="PyICU version to install (default: latest available for your Python version)",
+)
+def main(version: str | None) -> None:
     """Download and install a PyICU wheel for Windows/Python >=3.10."""
-    logging.basicConfig(format='turkic-pyicu-install: %(message)s', level=logging.INFO)
+    logging.basicConfig(format="turkic-pyicu-install: %(message)s", level=logging.INFO)
     log = logging.getLogger("turkic-pyicu-install")
 
     major, minor = sys.version_info[:2]
     if platform.system() != "Windows":
-        sys.exit("turkic-pyicu-install: Not needed – PyICU wheels are on PyPI for non-Windows.")
+        sys.exit(
+            "turkic-pyicu-install: Not needed – PyICU wheels are on PyPI for non-Windows."
+        )
     py_tag = f"cp{major}{minor}"
     if py_tag not in {"cp310", "cp311", "cp312", "cp313"}:
         sys.exit(f"turkic-pyicu-install: No pre-built PyICU wheel yet for {py_tag}")
@@ -31,13 +40,18 @@ def main(version):
         try:
             with urllib.request.urlopen(api_url) as resp:
                 release = json.load(resp)
-            assets = release.get('assets', [])
-            wheel_asset = next((a for a in assets if py_tag in a['name'] and 'win_amd64' in a['name']), None)
+            assets = release.get("assets", [])
+            wheel_asset = next(
+                (a for a in assets if py_tag in a["name"] and "win_amd64" in a["name"]),
+                None,
+            )
             if not wheel_asset:
-                sys.exit(f"turkic-pyicu-install: No suitable wheel found for {py_tag} in latest release.")
-            version = release['tag_name'].lstrip('v')
-            wheel_name = wheel_asset['name']
-            url = wheel_asset['browser_download_url']
+                sys.exit(
+                    f"turkic-pyicu-install: No suitable wheel found for {py_tag} in latest release."
+                )
+            version = release["tag_name"].lstrip("v")
+            wheel_name = wheel_asset["name"]
+            url = wheel_asset["browser_download_url"]
         except Exception as e:
             sys.exit(f"turkic-pyicu-install: Failed to fetch latest release info: {e}")
     else:
@@ -50,6 +64,7 @@ def main(version):
         urllib.request.urlretrieve(url, wheel_name)
     subprocess.check_call([sys.executable, "-m", "pip", "install", wheel_name])
     log.info("✓ PyICU %s installed", wheel_name)
+
 
 if __name__ == "__main__":  # pragma: no cover
     main()

@@ -1,5 +1,7 @@
 # imported automatically if on PYTHONPATH
-import os; os.environ.setdefault("PYTHONUTF8", "1")
+import os
+
+os.environ.setdefault("PYTHONUTF8", "1")
 import logging
 
 # Log at debug level instead of printing to stdout

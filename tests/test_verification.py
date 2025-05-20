@@ -1,24 +1,31 @@
-import panphon, icu, sentencepiece as spm, unicodedata as ud, os, tempfile, io
+import panphon
+import icu
+import sentencepiece as spm
+import os
+import tempfile
 from turkic_translit.core import to_ipa
 import pytest
 
 # Optional dependencies - handle gracefully
 try:
     import fasttext
+
     HAS_FASTTEXT = True
 except ImportError:
     HAS_FASTTEXT = False
 
+
 # 1. Test PyICU transliteration
-def test_icu_transliteration():
+def test_icu_transliteration() -> None:
     T = icu.Transliterator.createInstance("Any-Latin; NFC")
     result = T.transliterate("Ғылым")
     assert isinstance(result, str)
     # Accept any reasonable G variant (G, Ğ, Ġ)
     assert any(g in result for g in ("G", "Ğ", "Ġ")), f"ICU result: {result}"
 
+
 # 2. Test epitran + panphon IPA for Kazakh
-def test_epitran_panphon_ipa():
+def test_epitran_panphon_ipa() -> None:
     """
     Test ICU-based IPA conversion and panphon's phonological features.
     This test ensures that the IPA conversion pipeline is working correctly.
@@ -38,11 +45,13 @@ def test_epitran_panphon_ipa():
     assert isinstance(vec, list)
 
     # Check actual content - Ғ should be ʁ in IPA
-    assert 'ʁ' in ipa, f"Expected 'ʁ' in IPA transcription, got: {ipa}"
+    assert "ʁ" in ipa, f"Expected 'ʁ' in IPA transcription, got: {ipa}"
     assert len(ipa) >= 4, f"Expected at least 4 characters in IPA, got: {len(ipa)}"
 
     # Check feature extraction results
-    assert len(vec) >= 4, f"Expected at least 4 feature vectors (one per sound), got: {len(vec)}"
+    assert len(vec) >= 4, (
+        f"Expected at least 4 feature vectors (one per sound), got: {len(vec)}"
+    )
 
     # Check that the feature vectors have the proper structure
     # panphon returns arrays of feature values, not dictionaries
@@ -50,13 +59,16 @@ def test_epitran_panphon_ipa():
         # Each segment should have at least 20 features
         assert len(segment) >= 20, f"Segment {i} has too few features: {len(segment)}"
         # Each segment should be a list of feature values (+/-/0)
-        assert all(val in ['+', '-', '0'] for val in segment), f"Invalid feature values in segment {i}: {segment}"
+        assert all(val in ["+", "-", "0"] for val in segment), (
+            f"Invalid feature values in segment {i}: {segment}"
+        )
+
 
 # 3. Test SentencePiece encode/decode round-trip
-def test_sentencepiece_roundtrip():
+def test_sentencepiece_roundtrip() -> None:
     """
     Test SentencePiece tokenizer model training and round-trip encoding/decoding.
-    
+
     This test ensures the tokenization pipeline works for downstream tasks.
     """
     # Use a mix of Latin, Cyrillic and special chars to test encoding
@@ -64,14 +76,14 @@ def test_sentencepiece_roundtrip():
     temp_file = tempfile.NamedTemporaryFile("w", encoding="utf8", delete=False)
     model_file = "mini.model"
     vocab_file = "mini.vocab"
-    
+
     try:
         # Write sample text to temporary file
         for line in samples:
-            temp_file.write(line+"\n")
+            temp_file.write(line + "\n")
         temp_file.flush()
         temp_file.close()
-        
+
         # Train with the exact vocab size needed for this corpus (33)
         # This value was determined from the error message
         spm.SentencePieceTrainer.train(
@@ -79,9 +91,9 @@ def test_sentencepiece_roundtrip():
             model_prefix="mini",
             vocab_size=33,  # Exactly what SentencePiece can handle with this corpus
             model_type="unigram",
-            character_coverage=0.9995
+            character_coverage=0.9995,
         )
-        
+
         # Test encoding and decoding
         sample = samples[0]
         try:
@@ -91,14 +103,14 @@ def test_sentencepiece_roundtrip():
         except (TypeError, AttributeError):
             # Fallback for older versions
             proc = spm.SentencePieceProcessor(model_file=model_file)
-        
+
         ids = proc.encode(sample, out_type=int)
         decoded = proc.decode(ids)
-        
+
         # Verify results
         assert isinstance(ids, list)
         assert decoded == sample
-            
+
     finally:
         # Clean up files
         if os.path.exists(temp_file.name):
@@ -108,11 +120,12 @@ def test_sentencepiece_roundtrip():
         if os.path.exists(vocab_file):
             os.unlink(vocab_file)
 
+
 # 4. Test fastText LID logic
-def test_fasttext_lid():
+def test_fasttext_lid() -> None:
     """
     Test fastText language identification functionality.
-    
+
     This test accommodates both fasttext and fasttext-wheel packages.
     """
     # Look for the model in multiple common locations
@@ -122,16 +135,18 @@ def test_fasttext_lid():
         os.path.join(os.getcwd(), "lid.176.ftz"),
         os.path.join(os.path.dirname(__file__), "../lid.176.ftz"),
     ]
-    
+
     lid_path = None
     for path in possible_paths:
         if os.path.exists(path):
             lid_path = path
             break
-            
+
     if not lid_path:
-        pytest.skip("fastText model missing; download lid.176.ftz to use LID functionality")
-    
+        pytest.skip(
+            "fastText model missing; download lid.176.ftz to use LID functionality"
+        )
+
     try:
         # Different loading mechanisms depending on fasttext vs fasttext-wheel
         try:
@@ -139,10 +154,10 @@ def test_fasttext_lid():
         except AttributeError:
             # fasttext-wheel has different API
             lid = fasttext.FastText.load_model(lid_path)
-            
+
         # Test on a simple Russian word
         prediction = lid.predict("Пример", k=1)
-        
+
         # Handle different return formats
         if isinstance(prediction, tuple):
             lbl, conf = prediction
@@ -150,8 +165,10 @@ def test_fasttext_lid():
             # Some versions return a different format
             lbl = prediction[0]
             conf = prediction[1]
-            
+
         assert lbl[0] == "__label__ru"
         assert conf[0] > 0.5
     except Exception as e:
-        pytest.skip(f"fastText test failed: {e}\nThis might be due to environment differences.")
+        pytest.skip(
+            f"fastText test failed: {e}\nThis might be due to environment differences."
+        )

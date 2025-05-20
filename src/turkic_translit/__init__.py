@@ -1,18 +1,37 @@
 from importlib.metadata import version
+from .web_utils import (
+    direct_transliterate,
+    pipeline_transliterate,
+    token_table_markdown,
+    mask_russian,
+    median_levenshtein,
+)
 import sys
 import platform
+from .logging_config import setup as _log_setup
+from . import patches as _patches  # noqa: F401
+from .core import to_latin, to_ipa
 
-# Set up logging first before any other operations
-from .logging_config import setup as _log_setup; _log_setup()
-# Import patches next to ensure they're applied before other imports
-from . import patches
+_log_setup()
+
+__all__ = [
+    "to_latin",
+    "to_ipa",
+    "direct_transliterate",
+    "pipeline_transliterate",
+    "token_table_markdown",
+    "mask_russian",
+    "median_levenshtein",
+]
+__version__ = version("turkic_transliterate")
 
 # Warn Windows users on Python >=3.12 if PyICU is not importable
-if platform.system() == "Windows" and sys.version_info >= (3,12):
+if platform.system() == "Windows" and sys.version_info >= (3, 12):
     try:
-        import PyICU
+        import PyICU  # noqa: F401
     except ImportError:
         import sys as _sys
+
         _sys.stderr.write(
             "[turkic-transliterate] ERROR: PyICU is not installed and cannot be built automatically on Windows for Python 3.12+!\n"
             "To use this package, please create a virtual environment with Python 3.11 and install as follows:\n\n"
@@ -22,8 +41,3 @@ if platform.system() == "Windows" and sys.version_info >= (3,12):
             "    turkic-pyicu-install\n\n"
             "See the README for more details.\n"
         )
-
-from .core import to_latin, to_ipa
-
-__all__ = ["to_latin", "to_ipa"]
-__version__ = version("turkic_transliterate")
