@@ -61,7 +61,6 @@ def build_ui() -> gr.Blocks:
     with gr.Blocks(title="Turkic Transliteration Suite") as app:
         gr.Markdown(_model_check())
         shared_textbox = gr.Textbox(label="Input Text", lines=4, elem_id="input-text")
-        shared_textbox.render()  # type: ignore[no-untyped-call]
 
         def _direct_tab() -> None:
             lang = gr.Radio(["kk", "ky"], label="Language", value="kk")

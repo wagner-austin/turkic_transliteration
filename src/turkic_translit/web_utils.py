@@ -88,12 +88,24 @@ def token_table_markdown(text: str) -> str:
         raise ImportError(
             "install turkic-transliterate[ui] to use token_table_markdown"
         )
-    pipeline = _lazy_pipeline()
-    tokens = pipeline.tokenizer.tokenize(text)
-    langs = pipeline.langid.predict_tokens(tokens)
-    df = pd.DataFrame({"Token": tokens, "Lang": langs})
-    markdown_table: str = df.to_markdown(index=False)
-    return markdown_table
+    
+    try:
+        pipeline = _lazy_pipeline()
+        tokens = pipeline.tokenizer.tokenize(text)
+        langs = pipeline.langid.predict_tokens(tokens)
+        df = pd.DataFrame({"Token": tokens, "Lang": langs})
+        markdown_table: str = df.to_markdown(index=False)
+        return markdown_table
+    except OSError as e:
+        if "turkic_model.model" in str(e):
+            return (
+                "**⚠️ Tokenizer model file missing**\n\n"
+                "The `turkic_model.model` file is required for tokenization.\n"
+                "Please train a model with `turkic-build-spm` command\n"
+                "and place it in the package directory."
+            )
+        # Other OSError not related to missing model
+        return f"**Error loading tokenizer:** {e}"
 
 
 def mask_russian(text: str, thr: float, min_len: int) -> str:
