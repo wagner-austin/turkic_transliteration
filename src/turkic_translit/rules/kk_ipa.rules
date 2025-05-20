@@ -1,5 +1,5 @@
 # Kazakh → IPA transliteration rules (kk_ipa.rules)
-# Source: Help:IPA/Kazakh, rev. 10 Nov 2024.
+# Source: https://en.wikipedia.org/wiki/Help:IPA/Kazakh, rev. 10 Nov 2024.
 # Right-hand side is plain IPA (no /slashes/).
 
 $V = [ɑæeəiɪoøʊʏ];          # vowel macro
