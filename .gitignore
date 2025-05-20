@@ -15,8 +15,9 @@ spm/*.model
 .Python
 /build/
 build/
-develop-eggs/
 dist/
+*.egg-info/
+develop-eggs/
 downloads/
 eggs/
 .eggs/
@@ -26,7 +27,6 @@ parts/
 sdist/
 var/
 wheels/
-*.egg-info/
 .installed.cfg
 *.egg
 
