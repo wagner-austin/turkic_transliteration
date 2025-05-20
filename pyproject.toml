@@ -56,6 +56,10 @@ ui = ["gradio"]
 
 [project.scripts]
 turkic-translit = "turkic_translit.cli:main"
+turkic-pyicu-install = "turkic_translit.cli.pyicu_install:main"
+turkic-filter-russian = "turkic_translit.cli.filter_russian:main"
+turkic-build-spm = "turkic_translit.cli.build_spm:main"
+turkic-leven = "turkic_translit.cli.run_leven:main"
 
 [tool.setuptools]
 include-package-data = true
