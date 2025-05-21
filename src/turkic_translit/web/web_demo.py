@@ -25,12 +25,13 @@ from typing import Any, cast
 
 import gradio as gr
 
-from turkic_translit.web_utils import (
+from turkic_translit.web.web_utils import (
     direct_transliterate,
     mask_russian,
     median_levenshtein,
     pipeline_transliterate,
     token_table_markdown,
+    train_sentencepiece_model,
 )
 
 logging.basicConfig(level=logging.INFO)
@@ -93,7 +94,42 @@ def build_ui() -> gr.Blocks:
         "pipeline": [["менің атым Айдар", "Latin"], ["сенің атың кім", "IPA"]],
         "tokens": ["сәлем привет қалайсың здравствуй"],
         "filter_ru": [["қазақша текст с русскими словами", 0.5, 3]],
+        "spm_examples": ["менің атым Айдар, сенің атың кім?"],
     }
+
+    def do_train_spm(
+        input_text: str,
+        training_file: Any,
+        vocab_size: int,
+        model_type: str,
+        char_coverage: float,
+        user_symbols: str,
+    ) -> tuple[str, str]:
+        """Train a SentencePiece model with the provided parameters."""
+        try:
+            model_file, info = train_sentencepiece_model(
+                input_text=input_text,
+                training_file=training_file,
+                vocab_size=vocab_size,
+                model_type=model_type,
+                character_coverage=char_coverage,
+                user_symbols=user_symbols,
+            )
+            return info, model_file
+        except Exception as e:
+            return f"**Error training model:** {str(e)}", ""
+
+    def do_compare(lat_file: Any, ipa_file: Any, sample_n: Any) -> str:
+        if lat_file is None or ipa_file is None:
+            return "**Please upload both Latin and IPA files to compare.**"
+        try:
+            lat_obj = type("FileObj", (), {"name": lat_file.name})
+            ipa_obj = type("FileObj", (), {"name": ipa_file.name})
+            sample_val = int(sample_n) if str(sample_n).strip() else None
+            result = median_levenshtein(lat_obj, ipa_obj, sample_val)
+            return f"**Comparison Result:**\n{result}"
+        except Exception as e:
+            return f"**Error comparing files**: {str(e)}"
 
     css = """
     .container { margin: 0 auto; }
@@ -436,15 +472,119 @@ def build_ui() -> gr.Blocks:
 
             btn.click(do_compare, [file_lat, file_ipa, sample], out)
 
+        def _sentencepiece_tab() -> None:
+            with gr.Column():
+                gr.Markdown(
+                    """
+                    <div class="feature-description">
+                    <strong>SentencePiece Training:</strong> Train your own SentencePiece model for tokenization.
+                    You can use this model for custom tokenization tasks with the Turkic Transliteration toolkit.
+                    </div>
+                    """
+                )
+
+                with gr.Row(), gr.Column():
+                    input_text = gr.Textbox(
+                        label="Input Text (Optional)",
+                        placeholder="Enter text here for training...",
+                        lines=5,
+                    )
+                    gr.Markdown(
+                        "*You can provide text directly in the box above, or upload a file below, or both*",
+                        elem_classes=["file-info"],
+                    )
+                    training_file = gr.File(
+                        label="Training File (Optional)",
+                        file_types=["text"],
+                        file_count="single",
+                    )
+
+                with gr.Row():
+                    with gr.Column():
+                        vocab_size = gr.Slider(
+                            minimum=100,
+                            maximum=50000,
+                            value=12000,
+                            step=100,
+                            label="Vocabulary Size",
+                        )
+                        gr.Markdown(
+                            "*Number of tokens in the vocabulary*",
+                            elem_classes=["file-info"],
+                        )
+                    with gr.Column():
+                        model_type = gr.Dropdown(
+                            choices=["unigram", "bpe", "char", "word"],
+                            value="unigram",
+                            label="Model Type",
+                        )
+                        gr.Markdown(
+                            "*SentencePiece algorithm*", elem_classes=["file-info"]
+                        )
+
+                with gr.Row():
+                    with gr.Column():
+                        char_coverage = gr.Slider(
+                            minimum=0.9,
+                            maximum=1.0,
+                            value=1.0,
+                            step=0.01,
+                            label="Character Coverage",
+                        )
+                        gr.Markdown(
+                            "*Amount of characters covered by the model*",
+                            elem_classes=["file-info"],
+                        )
+                    with gr.Column():
+                        user_symbols = gr.Textbox(
+                            label="User Symbols (Comma-separated)",
+                            placeholder="<lang_kk>,<lang_ky>",
+                            value="<lang_kk>,<lang_ky>",
+                        )
+                        gr.Markdown(
+                            "*Special tokens to include in the model*",
+                            elem_classes=["file-info"],
+                        )
+
+                with gr.Row(), gr.Column():
+                    train_btn = gr.Button("Train Model", variant="primary")
+
+                output_info = gr.Markdown("*Click 'Train Model' to begin training*")
+                model_download = gr.File(label="Download Trained Model")
+
+                # Examples section
+                gr.Examples(
+                    examples["spm_examples"],
+                    inputs=[input_text],
+                    label="Try this example text",
+                )
+
+            # Connect the training function to the button
+            train_btn.click(
+                do_train_spm,
+                inputs=[
+                    input_text,
+                    training_file,
+                    vocab_size,
+                    model_type,
+                    char_coverage,
+                    user_symbols,
+                ],
+                outputs=[output_info, model_download],
+            )
+
         with gr.Tabs():
-            with gr.Tab("📝 Direct Transliteration", id="direct"):
-                _direct_tab()
-            with gr.Tab("🔄 Pipeline Process", id="pipeline"):
-                _pipeline_tab()
+            # Order tabs by the logical workflow: training → tokenization → processing → analysis
+            with gr.Tab("🧩 SentencePiece Training", id="sentencepiece"):
+                _sentencepiece_tab()
             with gr.Tab("🔍 Token Analysis", id="tokens"):
                 _tokens_tab()
             with gr.Tab("🎭 Filter Russian", id="filter_ru"):
                 _filter_ru_tab()
+            with gr.Tab("🔄 Pipeline Process", id="pipeline"):
+                _pipeline_tab()
+            with gr.Tab("📝 Direct Transliteration", id="direct"):
+                _direct_tab()
             with gr.Tab("📊 Compare Files", id="compare"):
                 _compare_tab()
 

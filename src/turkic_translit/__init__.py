@@ -5,7 +5,7 @@ from importlib.metadata import version
 from . import patches as _patches  # noqa: F401
 from .core import to_ipa, to_latin
 from .logging_config import setup as _log_setup
-from .web_utils import (
+from .web.web_utils import (
     direct_transliterate,
     mask_russian,
     median_levenshtein,

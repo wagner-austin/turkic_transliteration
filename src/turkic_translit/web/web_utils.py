@@ -2,18 +2,21 @@ from __future__ import annotations
 
 import functools
 import logging
+import os
+import tempfile
 import typing as t
+from pathlib import Path
 from types import ModuleType
 from typing import TYPE_CHECKING
 
 log = logging.getLogger(__name__)
 
 if TYPE_CHECKING:  # for static checkers only
-    from .pipeline import TurkicTransliterationPipeline
+    from ..pipeline import TurkicTransliterationPipeline  # Import from main package
 
 
 def _make_pipeline() -> TurkicTransliterationPipeline:
-    from .pipeline import TurkicTransliterationPipeline  # runtime import
+    from ..pipeline import TurkicTransliterationPipeline  # Import from main package
 
     log.info("Instantiating TurkicTransliterationPipeline singleton")
     return TurkicTransliterationPipeline()
@@ -31,7 +34,7 @@ def direct_transliterate(
     Returns: (result, stats_markdown)
     Raises: ValueError if out_fmt is invalid.
     """
-    from .core import to_ipa, to_latin
+    from ..core import to_ipa, to_latin  # Import from main package
 
     fmt = out_fmt.lower()
     if fmt not in {"latin", "ipa"}:
@@ -120,11 +123,11 @@ def mask_russian(text: str, thr: float, min_len: int) -> str:
 
     from click.testing import CliRunner
 
-    from .cli.filter_russian import main as _filter_ru_main
+    from ..cli.filter_russian import main as _filter_ru_main  # Import from main package
 
     try:
         # Try to ensure the model is available, downloading if necessary
-        from .model_utils import ensure_fasttext_model
+        from ..model_utils import ensure_fasttext_model  # Import from main package
 
         model_path = ensure_fasttext_model()
         log.info(f"Using FastText model at {model_path}")
@@ -189,7 +192,7 @@ def median_levenshtein(
     Example: 'Median distance: 0.1234'
     Raises: ValueError if file objects are missing .name.
     """
-    from . import sanity
+    from .. import sanity  # Import from main package, not web subpackage
 
     lat_path = getattr(file_lat, "name", None)
     ipa_path = getattr(file_ipa, "name", None)
@@ -202,10 +205,131 @@ def median_levenshtein(
     return f"Median distance: {value:.4f}"
 
 
+def train_sentencepiece_model(
+    input_text: str,
+    training_file: t.Any = None,
+    vocab_size: int = 12000,
+    model_type: str = "unigram",
+    character_coverage: float = 1.0,
+    user_symbols: str = "<lang_kk>,<lang_ky>",
+) -> tuple[str, str]:
+    """
+    Train a SentencePiece model using provided text and parameters.
+
+    Args:
+        input_text: Text content to use for training
+        training_file: Optional file object to use for training (must have .name attribute)
+        vocab_size: Size of the vocabulary to create
+        model_type: SentencePiece model type (unigram, bpe, char, word)
+        character_coverage: Character coverage ratio
+        user_symbols: Comma-separated list of user-defined symbols
+
+    Returns:
+        Tuple of (output model file path, info markdown string)
+
+    Raises:
+        ValueError: If neither input_text nor training_file is provided
+        ImportError: If sentencepiece is not installed
+    """
+    try:
+        import sentencepiece as spm
+    except ImportError as err:
+        raise ImportError(
+            "SentencePiece is required for model training. Please install with: pip install sentencepiece"
+        ) from err
+
+    if not input_text.strip() and not training_file:
+        raise ValueError("Either input text or training file must be provided")
+
+    # Create a temporary directory for training data and model files
+    with tempfile.TemporaryDirectory() as temp_dir:
+        temp_dir_path = Path(temp_dir)
+        training_data_path = temp_dir_path / "training_data.txt"
+        model_prefix = temp_dir_path / "spm_model"
+
+        # Write input text to training file if provided
+        input_files = []
+
+        if input_text.strip():
+            with open(training_data_path, "w", encoding="utf-8") as f:
+                f.write(input_text.strip() + "\n")
+            input_files.append(str(training_data_path))
+
+        # If a file was uploaded, use its path directly for SentencePiece training
+        # This avoids loading large files into memory
+        if training_file:
+            file_path = getattr(training_file, "name", None)
+            if file_path:
+                input_files.append(file_path)
+
+        # Parse user symbols
+        user_symbols_list = [s.strip() for s in user_symbols.split(",") if s.strip()]
+
+        # Train the model with all input files
+        # This approach is more memory-efficient for large files
+        spm.SentencePieceTrainer.train(
+            input=",".join(
+                input_files
+            ),  # SentencePiece accepts comma-separated file paths
+            model_prefix=str(model_prefix),
+            vocab_size=vocab_size,
+            model_type=model_type,
+            character_coverage=character_coverage,
+            normalization_rule_name="nfkc",
+            user_defined_symbols=user_symbols_list,
+            # Additional parameters that help with large corpus files
+            input_sentence_size=10000000,  # Process up to 10M sentences (plenty for most use cases)
+            shuffle_input_sentence=True,  # Shuffle for better training outcome
+            num_threads=os.cpu_count()
+            or 4,  # Use multiple threads for faster processing
+        )
+
+        # Path to the output model file
+        model_file_path = str(model_prefix) + ".model"
+        vocab_file_path = str(model_prefix) + ".vocab"
+
+        # Count vocab items for stats
+        vocab_count = 0
+        with open(vocab_file_path, encoding="utf-8") as vocab_file:
+            for _ in vocab_file:
+                vocab_count += 1
+
+        # Get model file size
+        model_size_bytes = os.path.getsize(model_file_path)
+        model_size_kb = model_size_bytes / 1024
+
+        # Copy model to a more permanent location for download
+        output_model_path = (
+            Path(tempfile.gettempdir())
+            / f"turkic_sp_model_{vocab_size}_{model_type}.model"
+        )
+        with open(model_file_path, "rb") as src, open(output_model_path, "wb") as dst:
+            dst.write(src.read())
+
+        # Create info message
+        info_md = f"""### Model Training Complete
+
+**Model Statistics:**
+- Vocabulary Size: {vocab_count} tokens
+- Model Type: {model_type}
+- Character Coverage: {character_coverage}
+- Model File Size: {model_size_kb:.2f} KB
+
+You can download the model file below. To use this model with the Turkic Transliteration toolkit, 
+place it in the appropriate location for your application.
+
+For the default tokenizer, rename it to `turkic_model.model` and place it in the 
+same directory as the `tokenizer.py` file.
+"""
+
+        return str(output_model_path), info_md
+
+
 __all__ = [
     "direct_transliterate",
     "pipeline_transliterate",
     "token_table_markdown",
     "mask_russian",
     "median_levenshtein",
+    "train_sentencepiece_model",
 ]

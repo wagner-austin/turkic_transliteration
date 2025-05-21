@@ -1,5 +1,6 @@
 import os
 import tempfile
+from pathlib import Path
 
 import icu
 import panphon
@@ -7,6 +8,7 @@ import pytest
 import sentencepiece as spm
 
 from turkic_translit.core import to_ipa
+from turkic_translit.web.web_utils import train_sentencepiece_model
 
 # Optional dependencies - handle gracefully
 try:
@@ -173,3 +175,91 @@ def test_fasttext_lid() -> None:
         pytest.skip(
             f"fastText test failed: {e}\nThis might be due to environment differences."
         )
+
+
+# 5. Test SentencePiece training in web interface
+def test_web_sentencepiece_training() -> None:
+    """
+    Test the SentencePiece training functionality used in the web interface.
+
+    This test ensures that the train_sentencepiece_model function correctly trains
+    a SentencePiece model with the provided text and parameters and returns the
+    expected output format.
+    """
+    # Test text content with mixed languages
+    test_text = """менің атым Айдар
+сәлем әлем
+Қазақстан республикасы
+қалың елім қазағым
+кыргыз тилинде сүйлөйм"""
+
+    # Create a test file for training
+    with tempfile.NamedTemporaryFile("w", encoding="utf-8", delete=False) as test_file:
+        # Different content for the file to verify both are used
+        test_file.write("тестовый текст\nбіз қазақша сөйлейміз\nкыргызча сүйлөйбүз")
+        test_path = test_file.name
+
+    # Convert to an object similar to what Gradio provides
+    class MockFileObject:
+        name: str
+
+        def __init__(self, path: str) -> None:
+            self.name = path
+
+    test_file_obj = MockFileObject(test_path)
+
+    try:
+        # Train using both text content and file upload
+        model_path, info = train_sentencepiece_model(
+            input_text=test_text,
+            training_file=test_file_obj,
+            vocab_size=50,  # Must be smaller than the max vocab size the corpus can support
+            model_type="unigram",
+            character_coverage=1.0,
+            user_symbols="<test>,<kk>,<ky>",
+        )
+
+        # Verify the result format
+        assert isinstance(model_path, str)
+        assert isinstance(info, str)
+        assert Path(model_path).exists()
+        assert Path(model_path).is_file()
+
+        # Check if the info contains expected details
+        assert "Model Training Complete" in info
+        assert "Vocabulary Size:" in info
+        assert "unigram" in info
+
+        # Verify the model works by loading it and using it
+        proc = spm.SentencePieceProcessor()
+        proc.load(model_path)
+
+        # Test encoding/decoding
+        test_phrase = "менің атым Айдар"
+        ids = proc.encode(test_phrase, out_type=int)
+        decoded = proc.decode(ids)
+
+        assert isinstance(ids, list)
+        assert decoded == test_phrase
+
+        # Test using only text content, no file
+        model_path2, info2 = train_sentencepiece_model(
+            input_text=test_text,
+            vocab_size=40,  # Even smaller vocab size for second test
+            model_type="bpe",
+            character_coverage=0.9995,
+        )
+
+        assert Path(model_path2).exists()
+        assert "bpe" in info2
+
+    finally:
+        # Clean up
+        if os.path.exists(test_path):
+            os.unlink(test_path)
+
+        # Clean up model files
+        if "model_path" in locals() and os.path.exists(model_path):
+            os.unlink(model_path)
+        if "model_path2" in locals() and os.path.exists(model_path2):
+            os.unlink(model_path2)
