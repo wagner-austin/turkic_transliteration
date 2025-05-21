@@ -11,8 +11,8 @@ clean:
 
 # Run linting tools
 lint:
-	-ruff check src tests examples
-	-black --check src tests examples
+	-ruff check --fix src tests examples
+	-black src tests examples
 	-mypy --strict .
 
 # Auto-format code
