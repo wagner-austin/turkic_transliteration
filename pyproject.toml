@@ -74,7 +74,10 @@ turkic-leven = "turkic_translit.cli.run_leven:main"
 turkic-web = "turkic_translit.web.web_demo:main"
 
 
-[tool.setuptools.packages.find]
+[tool.setuptools.packages]
+find = { where = ["src"] }
+
+[tool.setuptools]
 include-package-data = true
 package-dir = {"" = "src"}
 
