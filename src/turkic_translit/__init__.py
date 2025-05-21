@@ -1,16 +1,17 @@
+import platform
+import sys
 from importlib.metadata import version
+
+from . import patches as _patches  # noqa: F401
+from .core import to_ipa, to_latin
+from .logging_config import setup as _log_setup
 from .web_utils import (
     direct_transliterate,
-    pipeline_transliterate,
-    token_table_markdown,
     mask_russian,
     median_levenshtein,
+    pipeline_transliterate,
+    token_table_markdown,
 )
-import sys
-import platform
-from .logging_config import setup as _log_setup
-from . import patches as _patches  # noqa: F401
-from .core import to_latin, to_ipa
 
 _log_setup()
 

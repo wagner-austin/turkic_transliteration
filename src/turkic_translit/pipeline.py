@@ -1,5 +1,5 @@
-from .tokenizer import TurkicTokenizer
 from .langid import FastTextLangID
+from .tokenizer import TurkicTokenizer
 from .transliterate import transliterate_token
 
 

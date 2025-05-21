@@ -3,9 +3,10 @@ Patches for third-party libraries to fix encoding issues on Windows.
 This module is imported automatically at startup.
 """
 
+import logging
 import os
 import sys
-import logging
+
 from .logging_config import setup
 
 setup()
@@ -22,9 +23,9 @@ def _fix_broken_ssl_cert_env() -> None:
     is missing we delete the env-var so Python falls back to the system
     certificates.
     """
+    import logging
     import os
     import pathlib
-    import logging
 
     log = logging.getLogger(__name__)
     bundle = os.environ.get("SSL_CERT_FILE")
@@ -64,13 +65,13 @@ def apply_patches() -> None:
                     and mode == "r"
                     and isinstance(file, str)
                     and file.endswith(".csv")
+                    and "encoding" not in kwargs
                 ):
-                    if "encoding" not in kwargs:
-                        kwargs["encoding"] = "utf-8"
-                        # Only log the first time per unique file
-                        if file not in _PATCHED_FILES:
-                            log.debug(f"Applied UTF-8 encoding patch for {file}")
-                            _PATCHED_FILES.add(file)
+                    kwargs["encoding"] = "utf-8"
+                    # Only log the first time per unique file
+                    if file not in _PATCHED_FILES:
+                        log.debug(f"Applied UTF-8 encoding patch for {file}")
+                        _PATCHED_FILES.add(file)
                 return original_open(file, mode, *args, **kwargs)
 
             # Set the environment variable for good measure

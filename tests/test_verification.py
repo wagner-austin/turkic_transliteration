@@ -1,10 +1,12 @@
-import panphon
-import icu
-import sentencepiece as spm
 import os
 import tempfile
-from turkic_translit.core import to_ipa
+
+import icu
+import panphon
 import pytest
+import sentencepiece as spm
+
+from turkic_translit.core import to_ipa
 
 # Optional dependencies - handle gracefully
 try:
@@ -17,8 +19,8 @@ except ImportError:
 
 # 1. Test PyICU transliteration
 def test_icu_transliteration() -> None:
-    T = icu.Transliterator.createInstance("Any-Latin; NFC")
-    result = T.transliterate("Ғылым")
+    t = icu.Transliterator.createInstance("Any-Latin; NFC")
+    result = t.transliterate("Ғылым")
     assert isinstance(result, str)
     # Accept any reasonable G variant (G, Ğ, Ġ)
     assert any(g in result for g in ("G", "Ğ", "Ġ")), f"ICU result: {result}"
@@ -49,9 +51,9 @@ def test_epitran_panphon_ipa() -> None:
     assert len(ipa) >= 4, f"Expected at least 4 characters in IPA, got: {len(ipa)}"
 
     # Check feature extraction results
-    assert len(vec) >= 4, (
-        f"Expected at least 4 feature vectors (one per sound), got: {len(vec)}"
-    )
+    assert (
+        len(vec) >= 4
+    ), f"Expected at least 4 feature vectors (one per sound), got: {len(vec)}"
 
     # Check that the feature vectors have the proper structure
     # panphon returns arrays of feature values, not dictionaries
@@ -59,9 +61,9 @@ def test_epitran_panphon_ipa() -> None:
         # Each segment should have at least 20 features
         assert len(segment) >= 20, f"Segment {i} has too few features: {len(segment)}"
         # Each segment should be a list of feature values (+/-/0)
-        assert all(val in ["+", "-", "0"] for val in segment), (
-            f"Invalid feature values in segment {i}: {segment}"
-        )
+        assert all(
+            val in ["+", "-", "0"] for val in segment
+        ), f"Invalid feature values in segment {i}: {segment}"
 
 
 # 3. Test SentencePiece encode/decode round-trip
@@ -73,21 +75,20 @@ def test_sentencepiece_roundtrip() -> None:
     """
     # Use a mix of Latin, Cyrillic and special chars to test encoding
     samples = ["Ğalamdyq jeli", "Kitap bar", "Ülken söz", "Мысал текст"]
-    temp_file = tempfile.NamedTemporaryFile("w", encoding="utf8", delete=False)
     model_file = "mini.model"
     vocab_file = "mini.vocab"
 
-    try:
+    with tempfile.NamedTemporaryFile("w", encoding="utf8", delete=False) as temp_file:
         # Write sample text to temporary file
-        for line in samples:
-            temp_file.write(line + "\n")
-        temp_file.flush()
-        temp_file.close()
+        for sample in samples:
+            temp_file.write(f"{sample}\n")
+        temp_path = temp_file.name
 
+    try:
         # Train with the exact vocab size needed for this corpus (33)
         # This value was determined from the error message
         spm.SentencePieceTrainer.train(
-            input=temp_file.name,
+            input=temp_path,
             model_prefix="mini",
             vocab_size=33,  # Exactly what SentencePiece can handle with this corpus
             model_type="unigram",

@@ -1,42 +1,271 @@
-import sys
 import argparse
-import time
-import os
 import logging
-from .core import to_latin, to_ipa
+import os
+import sys
+import time
+from contextlib import nullcontext
+from typing import Optional, TextIO
+
+from .core import to_ipa, to_latin
 from .logging_config import setup as _log_setup
 
 # Initialize logger
 log = logging.getLogger(__name__)
 
 
+def process_lines(
+    input_stream: TextIO,
+    latin_output: TextIO,
+    ipa_output: Optional[TextIO],
+    lang: str,
+    arabic: bool,
+    progress_bar=None,
+) -> int:
+    """Process each line from the input and write to outputs.
+
+    Args:
+        input_stream: Input file or stdin object
+        latin_output: File object for Latin output
+        ipa_output: File object for IPA output (or None if not needed)
+        lang: Language code ('kk' or 'ky')
+        arabic: Whether to transliterate Arabic script too
+        progress_bar: Optional tqdm progress bar
+
+    Returns:
+        Number of lines processed
+    """
+    n = 0
+    for line in input_stream:
+        # Transliterate to Latin
+        lat = to_latin(line.rstrip("\n"), lang, arabic)
+        latin_output.write(lat + "\n")
+
+        # Transliterate to IPA if requested
+        if ipa_output:
+            ipa = to_ipa(line.rstrip("\n"), lang)
+            ipa_output.write(ipa + "\n")
+
+        n += 1
+        if progress_bar:
+            progress_bar.update(1)
+
+    return n
+
+
+def transliterate_file(
+    input_path: str,
+    latin_output_path: str,
+    ipa_output_path: Optional[str],
+    lang: str,
+    arabic: bool,
+    encoding: str,
+) -> int:
+    """Transliterate a file with proper context management for all files.
+
+    Args:
+        input_path: Path to input file or "-" for stdin
+        latin_output_path: Path to Latin output file or "-" for stdout
+        ipa_output_path: Path to IPA output file or None if not needed
+        lang: Language code ('kk' or 'ky')
+        arabic: Whether to transliterate Arabic script too
+        encoding: Encoding to use for file operations
+
+    Returns:
+        Number of lines processed
+    """
+    # Timer for benchmarking
+    start = time.time()
+
+    # Progress bar setup - only used for file inputs on TTY
+    progress_bar = None
+    is_tty_output = sys.stderr.isatty()
+    is_file_input = input_path != "-"
+
+    if is_tty_output and is_file_input:
+        try:
+            from tqdm import tqdm
+
+            # Count lines for progress bar (only for file input)
+            with open(input_path, encoding=encoding) as f:
+                total_lines = sum(1 for _ in f)
+
+            progress_bar = tqdm(total=total_lines, unit="lines")
+            log.debug("Using tqdm progress bar for %d lines", total_lines)
+        except ImportError:
+            log.debug("tqdm not available, falling back to basic processing")
+
+    # Set up file handling with context managers
+    n = 0
+    try:
+        # Use context managers properly to satisfy linter
+        # For input file
+        if input_path == "-":
+            # Use stdin directly
+            with nullcontext(sys.stdin) as input_file:
+                # For Latin output
+                if latin_output_path == "-":
+                    # Use stdout directly
+                    with nullcontext(sys.stdout) as latin_output:
+                        # For IPA output
+                        if ipa_output_path:
+                            with open(
+                                ipa_output_path, "w", encoding=encoding
+                            ) as ipa_output:
+                                return process_lines(
+                                    input_file,
+                                    latin_output,
+                                    ipa_output,
+                                    lang,
+                                    arabic,
+                                    progress_bar,
+                                )
+                        else:
+                            return process_lines(
+                                input_file,
+                                latin_output,
+                                None,
+                                lang,
+                                arabic,
+                                progress_bar,
+                            )
+                else:
+                    # Latin output to file
+                    with open(
+                        latin_output_path, "w", encoding=encoding
+                    ) as latin_output:
+                        # For IPA output
+                        if ipa_output_path:
+                            with open(
+                                ipa_output_path, "w", encoding=encoding
+                            ) as ipa_output:
+                                return process_lines(
+                                    input_file,
+                                    latin_output,
+                                    ipa_output,
+                                    lang,
+                                    arabic,
+                                    progress_bar,
+                                )
+                        else:
+                            return process_lines(
+                                input_file,
+                                latin_output,
+                                None,
+                                lang,
+                                arabic,
+                                progress_bar,
+                            )
+        else:
+            # Input from file
+            with open(input_path, encoding=encoding) as input_file:
+                # For Latin output
+                if latin_output_path == "-":
+                    # Use stdout directly
+                    with nullcontext(sys.stdout) as latin_output:
+                        # For IPA output
+                        if ipa_output_path:
+                            with open(
+                                ipa_output_path, "w", encoding=encoding
+                            ) as ipa_output:
+                                return process_lines(
+                                    input_file,
+                                    latin_output,
+                                    ipa_output,
+                                    lang,
+                                    arabic,
+                                    progress_bar,
+                                )
+                        else:
+                            return process_lines(
+                                input_file,
+                                latin_output,
+                                None,
+                                lang,
+                                arabic,
+                                progress_bar,
+                            )
+                else:
+                    # Latin output to file
+                    with open(
+                        latin_output_path, "w", encoding=encoding
+                    ) as latin_output:
+                        # For IPA output
+                        if ipa_output_path:
+                            with open(
+                                ipa_output_path, "w", encoding=encoding
+                            ) as ipa_output:
+                                return process_lines(
+                                    input_file,
+                                    latin_output,
+                                    ipa_output,
+                                    lang,
+                                    arabic,
+                                    progress_bar,
+                                )
+                        else:
+                            return process_lines(
+                                input_file,
+                                latin_output,
+                                None,
+                                lang,
+                                arabic,
+                                progress_bar,
+                            )
+
+    finally:
+        # Always close the progress bar if it exists
+        if progress_bar:
+            progress_bar.close()
+
+    # Log completion
+    log.info(
+        f"Finished writing {n} lines to {latin_output_path if latin_output_path != '-' else 'stdout'}"
+        + (f" and {ipa_output_path}" if ipa_output_path else "")
+    )
+
+    # Log performance statistics
+    elapsed = time.time() - start
+    log.debug(
+        "Processed %d lines in %.2fs (%.0f lines/s)",
+        n,
+        elapsed,
+        n / elapsed if elapsed > 0 else 0,
+    )
+
+    return n
+
+
 def main() -> None:
+    """Main CLI entry point for Turkic transliteration."""
     import platform
 
+    # Check for Windows Python 3.12+ which has issues with PyICU
     if platform.system() == "Windows" and sys.version_info >= (3, 12):
-        try:
-            pass  # PyICU import removed (was unused)
-        except ImportError:
-            sys.stderr.write(
-                "[turkic-transliterate] ERROR: PyICU is not installed and cannot be built automatically on Windows for Python 3.12+!\n"
-                "To use this package, please create a virtual environment with Python 3.11 and install as follows:\n\n"
-                "    py -3.11 -m venv turkic311\n"
-                "    turkic311\\Scripts\\activate\n"
-                "    pip install turkic-transliterate\n"
-                "    turkic-pyicu-install\n\n"
-                "See the README for more details.\n"
-            )
-            sys.exit(1)
+        sys.stderr.write(
+            "[turkic-transliterate] ERROR: PyICU might have issues on Windows for Python 3.12+!\n"
+            "If you encounter problems, please create a virtual environment with Python 3.11:\n\n"
+            "    py -3.11 -m venv turkic311\n"
+            "    turkic311\\Scripts\\activate\n"
+            "    pip install turkic-transliterate\n"
+            "    turkic-pyicu-install\n\n"
+            "See the README for more details.\n"
+        )
+
+    # Parse arguments
     ap = argparse.ArgumentParser(description="Turkic transliteration")
     ap.add_argument("--lang", required=True, choices=["kk", "ky"])
     ap.add_argument("--ipa", action="store_true", help="produce IPA")
     ap.add_argument(
         "--arabic", action="store_true", help="also transliterate Arabic script"
     )
-    ap.add_argument("--in", dest="inp", default="-")
-    ap.add_argument("--out_latin", default="-")
-    ap.add_argument("--out_ipa")
-    ap.add_argument("--benchmark", action="store_true")
+    ap.add_argument("--in", dest="inp", default="-", help="Input file (default: stdin)")
+    ap.add_argument(
+        "--out_latin", default="-", help="Latin output file (default: stdout)"
+    )
+    ap.add_argument("--out_ipa", help="IPA output file (required if --ipa is used)")
+    ap.add_argument(
+        "--benchmark", action="store_true", help="Display performance metrics"
+    )
     ap.add_argument(
         "--log-level",
         choices=["debug", "info", "warning", "error", "critical"],
@@ -45,35 +274,38 @@ def main() -> None:
     )
     args = ap.parse_args()
 
-    # Always set log level from args at the start (first runtime line)
+    # Configure logging
     os.environ["TURKIC_LOG_LEVEL"] = args.log_level.upper()
     _log_setup()
 
+    # Report configuration
     outputs = ["latin"]
     if args.ipa:
         outputs.append("ipa")
-    # Use Rich markup for output modes (magenta)
     outputs_markup = ", ".join(f"[magenta]{o}[/]" for o in outputs)
     log.info(
-        f"Starting transliteration: lang={args.lang}, input={args.inp}, outputs={outputs_markup}, "
-        f"out_latin={args.out_latin}, out_ipa={args.out_ipa}, arabic={args.arabic}, benchmark={args.benchmark}"
+        f"Starting transliteration: lang={args.lang}, input={args.inp}, "
+        f"outputs={outputs_markup}, out_latin={args.out_latin}, "
+        f"out_ipa={args.out_ipa}, arabic={args.arabic}"
     )
+
+    # Validate arguments
+    if args.ipa and not args.out_ipa:
+        ap.error("--ipa requires --out_ipa")
 
     # Use UTF-8-sig for Windows to include BOM for proper encoding support
     encoding = "utf-8-sig" if sys.platform == "win32" else "utf-8"
 
+    # Process input/output
     try:
-        fin = sys.stdin if args.inp == "-" else open(args.inp, encoding=encoding)
-        fo_l = (
-            sys.stdout
-            if args.out_latin == "-"
-            else open(args.out_latin, "w", encoding=encoding)
+        n = transliterate_file(
+            args.inp,
+            args.out_latin,
+            args.out_ipa if args.ipa else None,
+            args.lang,
+            args.arabic,
+            encoding,
         )
-        fo_i = None
-        if args.ipa:
-            if not args.out_ipa:
-                ap.error("--ipa requires --out_ipa")
-            fo_i = open(args.out_ipa, "w", encoding=encoding)
     except UnicodeDecodeError as e:
         sys.stderr.write(f"Encoding error: {e}\n")
         sys.stderr.write(
@@ -81,74 +313,17 @@ def main() -> None:
         )
         sys.exit(1)
 
-    start = time.time()
-    n = 0
-
-    # Try to use tqdm for a progress bar if available and if we're in a TTY
-    use_progress_bar = False
-    pbar = None
-
-    # Check if we should use a progress bar (stderr is a TTY and input is not stdin)
-    is_tty_output = sys.stderr.isatty()
-    is_file_input = args.inp != "-"
-
-    if is_tty_output and is_file_input:
-        try:
-            from tqdm import tqdm
-
-            # Count the number of lines in the input file for the progress bar
-            total_lines = sum(1 for _ in fin)
-            fin.seek(0)  # Reset file pointer
-            pbar = tqdm(total=total_lines, unit="lines")
-            use_progress_bar = True
-            log.debug("Using tqdm progress bar for %d lines", total_lines)
-        except ImportError:
-            log.debug("tqdm not available, falling back to basic processing")
-
-    # Process lines
-    for line in fin:
-        lat = to_latin(line.rstrip("\n"), args.lang, args.arabic)
-        fo_l.write(lat + "\n")
-        if fo_i:
-            fo_i.write(to_ipa(line.rstrip("\n"), args.lang) + "\n")
-        n += 1
-        if use_progress_bar and pbar:
-            pbar.update(1)
-
-    log.info(
-        f"Finished writing {n} lines to {args.out_latin if args.out_latin != '-' else 'stdout'}"
-        + (f" and {args.out_ipa}" if args.ipa else "")
-    )
-
-    # Close progress bar if used
-    if use_progress_bar and pbar:
-        pbar.close()
-
-    elapsed = time.time() - start
-    # Always log processing statistics, but at different levels based on benchmark flag
+    # Performance benchmark reporting (higher visibility if --benchmark is used)
     if args.benchmark:
         log.info(
-            "Processed %d lines in %.2fs (%.0f lines/s)",
+            "Benchmark: Processed %d lines with settings: lang=%s, ipa=%s, arabic=%s",
             n,
-            elapsed,
-            n / elapsed if elapsed > 0 else 0,
+            args.lang,
+            args.ipa,
+            args.arabic,
         )
-    else:
-        log.debug(
-            "Processed %d lines in %.2fs (%.0f lines/s)",
-            n,
-            elapsed,
-            n / elapsed if elapsed > 0 else 0,
-        )
-    log.info("Transliteration complete.")
 
-    # Clean up file handles
-    if fin is not sys.stdin:
-        fin.close()
-    if fo_l is not sys.stdout:
-        fo_l.close()
-    if fo_i:
-        fo_i.close()
+    log.info("Transliteration complete.")
 
 
 # This is the entry point when the module is run directly

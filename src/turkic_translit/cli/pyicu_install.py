@@ -3,14 +3,15 @@ One-shot helper for Windows users on Python ≥3.12:
     python -m turkic_translit.cli.pyicu_install
 """
 
+import json
+import logging
+import pathlib
+import platform
+import subprocess
 import sys
 import urllib.request
-import subprocess
-import platform
-import pathlib
-import logging
+
 import click
-import json
 
 
 @click.command()
@@ -58,11 +59,24 @@ def main(version: str | None) -> None:
         wheel_name = f"pyicu-{version}-{py_tag}-{py_tag}-win_amd64.whl"
         url = f"https://github.com/cgohlke/pyicu-build/releases/download/v{version}/{wheel_name}"
 
-    log.info("→ %s", url)
-    if not pathlib.Path(wheel_name).exists():
+    # Check if the wheel exists in the vendor/pyicu directory first
+    package_dir = pathlib.Path(__file__).parent.parent.parent.parent
+    vendor_wheel = package_dir / "vendor" / "pyicu" / wheel_name
+    local_wheel = pathlib.Path(wheel_name)
+
+    if vendor_wheel.exists():
+        log.info("Found wheel in vendor directory: %s", vendor_wheel)
+        wheel_path = vendor_wheel
+    elif local_wheel.exists():
+        log.info("Found wheel in current directory: %s", local_wheel)
+        wheel_path = local_wheel
+    else:
+        log.info("→ Downloading from %s", url)
         log.info("Downloading %s", wheel_name)
         urllib.request.urlretrieve(url, wheel_name)
-    subprocess.check_call([sys.executable, "-m", "pip", "install", wheel_name])
+        wheel_path = local_wheel
+
+    subprocess.check_call([sys.executable, "-m", "pip", "install", str(wheel_path)])
     log.info("✓ PyICU %s installed", wheel_name)
 
 

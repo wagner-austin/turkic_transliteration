@@ -10,10 +10,9 @@ except ImportError as e:  # PyICU wheel is still missing
         "https://github.com/cgohlke/pyicu-build/releases ."
     ) from e
 
-from functools import lru_cache
 import unicodedata as ud
+from functools import lru_cache
 from pathlib import Path
-
 
 _RULE_DIR = Path(__file__).with_suffix("").parent / "rules"
 

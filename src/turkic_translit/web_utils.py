@@ -1,9 +1,10 @@
 from __future__ import annotations
+
 import functools
 import logging
-from types import ModuleType
 import typing as t
-from typing import TYPE_CHECKING, Optional
+from types import ModuleType
+from typing import TYPE_CHECKING
 
 log = logging.getLogger(__name__)
 
@@ -11,7 +12,7 @@ if TYPE_CHECKING:  # for static checkers only
     from .pipeline import TurkicTransliterationPipeline
 
 
-def _make_pipeline() -> "TurkicTransliterationPipeline":
+def _make_pipeline() -> TurkicTransliterationPipeline:
     from .pipeline import TurkicTransliterationPipeline  # runtime import
 
     log.info("Instantiating TurkicTransliterationPipeline singleton")
@@ -30,7 +31,7 @@ def direct_transliterate(
     Returns: (result, stats_markdown)
     Raises: ValueError if out_fmt is invalid.
     """
-    from .core import to_latin, to_ipa
+    from .core import to_ipa, to_latin
 
     fmt = out_fmt.lower()
     if fmt not in {"latin", "ipa"}:
@@ -74,7 +75,7 @@ else:
     try:
         import pandas as pd
     except ModuleNotFoundError:  # pragma: no cover
-        pd: Optional[ModuleType] = None
+        pd: ModuleType | None = None
 
 
 def token_table_markdown(text: str) -> str:
@@ -116,6 +117,7 @@ def mask_russian(text: str, thr: float, min_len: int) -> str:
     Raises: RuntimeError if CLI invocation fails.
     """
     from click.testing import CliRunner
+
     from .cli.filter_russian import main as _filter_ru_main
 
     runner = CliRunner()

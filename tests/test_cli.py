@@ -1,7 +1,8 @@
-import subprocess
-import pytest
-import sys
 import os
+import subprocess
+import sys
+
+import pytest
 
 SCRIPTS = os.path.join(sys.prefix, "Scripts")
 

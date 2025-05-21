@@ -1,16 +1,18 @@
-import io
 import pathlib
 import unicodedata
+
 from turkic_translit.core import to_latin
 
 ROOT = pathlib.Path(__file__).parent
 
 
 def test_roundtrip_and_nfc() -> None:
-    src = io.open(ROOT / "sample_cy.txt", encoding="utf8").read()
+    with open(ROOT / "sample_cy.txt", encoding="utf8") as f:
+        src = f.read()
     out = "\n".join(to_latin(line, "kk") for line in src.splitlines())
     assert unicodedata.is_normalized("NFC", out)
-    exp = io.open(ROOT / "expected_lat.txt", encoding="utf8").read()
+    with open(ROOT / "expected_lat.txt", encoding="utf8") as f:
+        exp = f.read()
     assert out.splitlines()[0] == exp.splitlines()[0]  # quick sanity
 
 

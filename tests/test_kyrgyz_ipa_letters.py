@@ -6,6 +6,7 @@ Context-dependent letters (none in Kyrgyz) are not included.
 """
 
 import pytest
+
 from turkic_translit.core import to_ipa
 
 GOLD = {
@@ -47,6 +48,6 @@ GOLD = {
 }
 
 
-@pytest.mark.parametrize("cyr, ipa", GOLD.items())
+@pytest.mark.parametrize(("cyr", "ipa"), GOLD.items())
 def test_kyrgyz_letter_to_ipa(cyr: str, ipa: str) -> None:
     assert to_ipa(cyr, "ky") == ipa, f"{cyr} → {to_ipa(cyr, 'ky')}, expected {ipa}"

@@ -1,4 +1,4 @@
-from .core import to_latin, to_ipa
+from .core import to_ipa, to_latin
 
 
 def transliterate_token(token: str, lang: str, mode: str = "latin") -> str:
@@ -9,12 +9,10 @@ def transliterate_token(token: str, lang: str, mode: str = "latin") -> str:
     if lang in ("kk", "ky"):
         if mode == "latin":
             return to_latin(token, lang)
-        elif mode == "ipa":
+        if mode == "ipa":
             return to_ipa(token, lang)
-        else:
-            raise ValueError(f"Unknown transliteration mode: {mode}")
-    elif lang == "ru":
+        raise ValueError(f"Unknown transliteration mode: {mode}")
+    if lang == "ru":
         # Optionally, add Russian transliteration logic here
         return token
-    else:
-        return token
+    return token

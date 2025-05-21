@@ -13,10 +13,10 @@ Sources:
 """
 
 import unicodedata as ud
+
 import pytest
 
 from turkic_translit.core import to_ipa
-
 
 # -------------------------------------------------------------------------
 # Orthographic word  →  IPA  (drawn from the paper, then canonicalised)
@@ -53,7 +53,7 @@ def _canonical(ipa: str) -> str:
     )  # uvular fricative → velar
 
 
-@pytest.mark.parametrize("cyr, ipa", GOLD.items())
+@pytest.mark.parametrize(("cyr", "ipa"), GOLD.items())
 def test_kyrgyz_word_to_ipa(cyr: str, ipa: str) -> None:
     """Exact comparison after canonicalisation."""
     predicted = _canonical(ud.normalize("NFC", to_ipa(cyr, "ky")))

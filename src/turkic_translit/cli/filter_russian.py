@@ -1,7 +1,8 @@
 #!/usr/bin/env python3
 from typing import TextIO
-import fasttext
+
 import click
+import fasttext
 
 
 @click.command()
@@ -53,14 +54,14 @@ def main(
 ) -> None:
     """Filter or mask Russian tokens in text, optionally using a core-vocab stoplist."""
     lid = fasttext.load_model("lid.176.ftz")
-    UZ_CORE = set()
+    uz_core = set()
     if stoplist:
         with open(stoplist, encoding="utf-8") as f:
-            UZ_CORE = {line.strip().lower() for line in f if line.strip()}
+            uz_core = {line.strip().lower() for line in f if line.strip()}
 
     def is_ru(tok: str, thr: float) -> bool:
         lbl, conf = lid.predict(tok.lower(), k=1)
-        return lbl[0] == "__label__ru" and conf[0] >= thr and tok.lower() not in UZ_CORE
+        return lbl[0] == "__label__ru" and conf[0] >= thr and tok.lower() not in uz_core
 
     for line in input:
         out = []

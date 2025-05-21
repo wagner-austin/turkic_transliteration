@@ -7,6 +7,7 @@ We skip ‹е/Э› because their value depends on position
 """
 
 import pytest
+
 from turkic_translit.core import to_ipa
 
 GOLD = {
@@ -49,6 +50,6 @@ GOLD = {
 }
 
 
-@pytest.mark.parametrize("cyr, ipa", GOLD.items())
+@pytest.mark.parametrize(("cyr", "ipa"), GOLD.items())
 def test_letter_to_ipa(cyr: str, ipa: str) -> None:
     assert to_ipa(cyr, "kk") == ipa

@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 import click
+
 from turkic_translit.sanity import median_lev
 
 

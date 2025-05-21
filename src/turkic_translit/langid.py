@@ -1,6 +1,7 @@
-import fasttext
 import os
 from typing import cast
+
+import fasttext
 
 
 class FastTextLangID:

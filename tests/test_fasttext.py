@@ -8,10 +8,11 @@ if vparse(np.__version__).major >= 2:
 
 # Absent fasttext on non-Windows is fine – mark xfail
 try:
-    import fasttext
     import os
-    import urllib.request
     import pathlib
+    import urllib.request
+
+    import fasttext
 except ModuleNotFoundError:
     pytest.xfail("fasttext-wheel not installed on this platform")
 model = "C:/Users/%USERNAME%/lid.176.bin".replace("%USERNAME%", os.getlogin())

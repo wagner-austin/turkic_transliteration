@@ -1,6 +1,7 @@
-import sentencepiece as spm
 import os
 from typing import cast
+
+import sentencepiece as spm
 
 
 class TurkicTokenizer:
