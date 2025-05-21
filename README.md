@@ -20,8 +20,65 @@ Package names
 • Distributable name on PyPI:  turkic\_transliterate
 • Command-line entry point:  turkic-translit
 
-Installing with pip
-pip install -e .\[dev,ui]        # add ,winlid on Windows if you need fasttext-wheel
+## Developer Setup
+
+For the simplest developer setup experience, run the setup script:
+
+```bash
+python scripts/setup_dev.py
+```
+
+This script will:
+1. Install the package with all development dependencies
+2. Set up PyICU on Windows automatically
+3. Verify that development tools are working properly
+
+### Manual Installation
+
+Alternatively, install with pip:
+
+```bash
+pip install -e .[dev,ui]        # add ,winlid on Windows if you need fasttext-wheel
+```
+
+### Development Tools
+
+#### Linux/macOS/Windows with GNU Make
+
+If you have GNU Make installed, you can use the Makefile for common tasks:
+
+```bash
+make lint       # Run linting (ruff, black, mypy)
+make format     # Auto-format code
+make test       # Run tests
+make web        # Launch the web UI
+make help       # Show all available commands
+```
+
+#### Windows
+
+**Option 1: Install GNU Make using Chocolatey (Recommended)**
+
+Install GNU Make using Chocolatey (requires admin privileges):
+
+```powershell
+# In an Admin PowerShell window
+choco install make
+```
+
+After installation, you can use the same `make` commands as on Linux/macOS.
+
+**Option 2: Use the PowerShell Script Alternative**
+
+If you prefer not to install Chocolatey or GNU Make, use the PowerShell script:
+
+```powershell
+./scripts/run.ps1 lint       # Run linting
+./scripts/run.ps1 format     # Auto-format code
+./scripts/run.ps1 test       # Run tests
+./scripts/run.ps1 web        # Launch the web UI
+./scripts/run.ps1 help       # Show all available commands
+```
 
 Optional extras
 dev   → black, ruff, pytest
@@ -49,9 +106,33 @@ The central logging setup uses Rich for colour when available.
 Set TURKIC\_LOG\_LEVEL or pass --log-level to the CLI.
 Fallback to standard logging when Rich is absent.
 
-Web demo
-turkic web\_demo.py
-Opens a local Gradio interface for real-time transliteration.
+# Project Organization
+
+The project is organized into the following directories:
+
+- `src/turkic_translit/` - Core source code for the package
+- `examples/` - Example scripts showing how to use the package
+  - `examples/web/` - Web interface for demonstrating transliteration features
+- `data/` - Sample data files and language resources
+- `docs/` - Documentation and reference materials
+- `scripts/` - Utility scripts for development and release
+  - `scripts/release/` - Scripts for building and publishing packages
+- `vendor/pyicu/` - Pre-built PyICU wheels for Windows
+- `tests/` - Test suite for the package
+
+## Using the Examples
+
+Use the main entry point script to run examples:
+
+```bash
+python turkic_tools.py [command]
+```
+
+Available commands:
+- `web` - Launch the Gradio web interface for real-time transliteration
+- `demo` - Run the simple CLI demo
+- `full-demo` - Run the comprehensive demo with multiple languages
+- `help` - Display available commands
 
 Tokenizer training example
 turkic-build-spm --input corpora/kk\_lat.txt,corpora/ky\_lat.txt --model\_prefix spm/turkic12k --vocab\_size 12000
