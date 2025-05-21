@@ -5,9 +5,9 @@ all: lint test
 
 # Clean build artifacts
 clean:
-	rm -rf dist build *.egg-info .coverage htmlcov .pytest_cache .ruff_cache .mypy_cache __pycache__
-	find . -name "__pycache__" -type d -exec rm -rf {} +
-	find . -name "*.pyc" -delete
+	@echo "Cleaning build artifacts..."
+	python -c "import shutil, glob, os; [shutil.rmtree(p, ignore_errors=True) for p in glob.glob('dist') + glob.glob('build') + glob.glob('*.egg-info') + glob.glob('.coverage') + glob.glob('htmlcov') + glob.glob('.pytest_cache') + glob.glob('.ruff_cache') + glob.glob('.mypy_cache') + glob.glob('**/__pycache__', recursive=True) if os.path.exists(p)]; [os.remove(p) for p in glob.glob('**/*.pyc', recursive=True) if os.path.exists(p)]"
+	@echo "Clean completed successfully!"
 
 # Run linting tools
 lint:
