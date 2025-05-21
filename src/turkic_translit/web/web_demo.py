@@ -6,14 +6,22 @@ A web interface to explore and test Turkic transliteration features.
 
 This module provides a Gradio-based web UI for the Turkic Transliteration Suite,
 offering various transliteration and language analysis features.
+
+IMPORTANT NOTES:
+1. This file contains the core implementation of the web UI and can be run directly
+   with `python web_demo.py` for development and debugging purposes.
+
+2. For production use, this file is imported by app.py which is called by the `make web`
+   command. Some console logs (especially warnings about missing dependencies or model
+   files) may be more visible when running this file directly rather than through app.py.
+
+3. Missing dependency warnings (e.g., FastText language model for Russian filtering)
+   will be displayed both in the console and in the web UI itself when that feature
+   is accessed.
 """
 import logging
 import pathlib
-import sys
 from typing import Any, cast
-
-# Add the parent project directory to the path to allow imports when running as an example
-sys.path.insert(0, str(pathlib.Path(__file__).parent.parent.parent))
 
 import gradio as gr
 
@@ -208,7 +216,30 @@ def build_ui() -> gr.Blocks:
                     )
                     btn = gr.Button("Transliterate", variant="primary")
 
+            # Trigger on button click
             btn.click(
+                do_direct,
+                [shared_textbox, lang, output_format, include_arabic],
+                [output, stats],
+            )
+            # Also trigger on text input change for real-time transliteration
+            shared_textbox.change(
+                do_direct,
+                [shared_textbox, lang, output_format, include_arabic],
+                [output, stats],
+            )
+            # Update when language or format changes
+            lang.change(
+                do_direct,
+                [shared_textbox, lang, output_format, include_arabic],
+                [output, stats],
+            )
+            output_format.change(
+                do_direct,
+                [shared_textbox, lang, output_format, include_arabic],
+                [output, stats],
+            )
+            include_arabic.change(
                 do_direct,
                 [shared_textbox, lang, output_format, include_arabic],
                 [output, stats],
@@ -248,7 +279,16 @@ def build_ui() -> gr.Blocks:
                     )
                     btn = gr.Button("Pipeline Transliterate", variant="primary")
 
-            btn.click(do_pipeline, [shared_textbox, mode], [output, stats])
+                # Button click for pipeline transliteration
+                btn.click(do_pipeline, [shared_textbox, mode], [output, stats])
+
+                # Real-time transliteration as you type
+                shared_textbox.change(
+                    do_pipeline, [shared_textbox, mode], [output, stats]
+                )
+
+                # Update when mode changes
+                mode.change(do_pipeline, [shared_textbox, mode], [output, stats])
 
         def _tokens_tab() -> None:
             with gr.Column():
@@ -273,7 +313,11 @@ def build_ui() -> gr.Blocks:
                         label="Try these examples",
                     )
 
+            # Button click for token analysis
             analyze_btn.click(do_tokens, [shared_textbox], token_md)
+
+            # Real-time token analysis as you type
+            shared_textbox.change(do_tokens, [shared_textbox], token_md)
 
         def _filter_ru_tab() -> None:
             with gr.Column():
@@ -320,7 +364,15 @@ def build_ui() -> gr.Blocks:
                     )
                     btn = gr.Button("Mask Russian", variant="primary")
 
+            # Button click for masking Russian
             btn.click(do_mask, [shared_textbox, threshold, min_len], output)
+
+            # Real-time masking as you type
+            shared_textbox.change(do_mask, [shared_textbox, threshold, min_len], output)
+
+            # Update when parameters change
+            threshold.change(do_mask, [shared_textbox, threshold, min_len], output)
+            min_len.change(do_mask, [shared_textbox, threshold, min_len], output)
 
         def _compare_tab() -> None:
             with gr.Column():
@@ -384,12 +436,15 @@ def build_ui() -> gr.Blocks:
     return app  # type: ignore[no-any-return]
 
 
-if __name__ == "__main__":
+def main() -> None:
+    """Launch the Turkic Transliteration web interface with default settings.
+
+    This function serves as an entry point for the web UI and can be called
+    directly or through the CLI entry point 'turkic-web'.
+    """
     ui = build_ui()
-    ui.launch(
-        share=False,
-        server_name="0.0.0.0",
-        server_port=7860,
-        show_api=False,
-        inbrowser=True,
-    )
+    ui.queue().launch()
+
+
+if __name__ == "__main__":
+    main()

@@ -15,15 +15,46 @@ PROJECT_ROOT = pathlib.Path(__file__).parent
 
 
 def run_web_ui() -> int:
-    """Launch the web-based user interface."""
-    web_app_path = PROJECT_ROOT / "examples" / "web" / "app.py"
+    """Launch the web-based user interface.
+    
+    This function imports and launches the web_demo.py implementation directly.
+    The browser will automatically open with the interface.
+    
+    Note: For direct access to console logs (especially warnings about missing
+    dependencies like the FastText wheel for Russian filtering), consider
+    running web_demo.py directly instead of using this entry point.
+    """
+    # Configure logging to ensure warnings are visible
+    import logging
+    import importlib.util
+    import importlib.machinery
+    
+    logging.basicConfig(level=logging.WARNING, force=True)
+    
+    web_app_path = PROJECT_ROOT / "src" / "turkic_translit" / "web" / "web_demo.py"
     print(f"Launching web UI from {web_app_path}...")
-
+    print("Note: Some dependency warnings may not be fully visible in the console.")
+    
     try:
-        return subprocess.call([sys.executable, str(web_app_path)])
+        # Import the web_demo module dynamically
+        loader = importlib.machinery.SourceFileLoader("web_demo", str(web_app_path))
+        spec = importlib.util.spec_from_loader("web_demo", loader)
+        if spec is None:
+            raise ImportError(f"Could not load module from {web_app_path}")
+        web_demo = importlib.util.module_from_spec(spec)
+        loader.exec_module(web_demo)
+        
+        # Initialize and launch the UI, opening browser automatically
+        print("Starting web server and opening browser automatically...")
+        ui = web_demo.build_ui()
+        ui.queue().launch(inbrowser=True)
+        return 0
     except KeyboardInterrupt:
         print("\nWeb UI shutdown requested. Cleaning up...")
         return 0
+    except Exception as e:
+        print(f"Error launching web UI: {e}")
+        return 1
 
 
 def run_simple_demo() -> int:

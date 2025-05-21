@@ -5,7 +5,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "turkic-transliterate"
-version = "0.1.1"
+version = "0.1.2"
 description = "Deterministic Latin and IPA transliteration for Kazakh, Kyrgyz, plus tokenizer/glue scripts."
 authors = [ {name="Austin Wagner", email="awagner@uci.edu"} ]
 requires-python = ">=3.9"
@@ -60,7 +60,10 @@ dev = [
     "make>=0.1.6",         # Make command for Windows
 ]
 # User interface dependencies
-ui = ["gradio>=4.0"]
+ui = [
+    "gradio>=4.0",
+    "pandas"              # token-table feature
+]
 
 [project.scripts]
 turkic-translit = "turkic_translit.cli:main"
@@ -68,10 +71,11 @@ turkic-pyicu-install = "turkic_translit.cli.pyicu_install:main"
 turkic-filter-russian = "turkic_translit.cli.filter_russian:main"
 turkic-build-spm = "turkic_translit.cli.build_spm:main"
 turkic-leven = "turkic_translit.cli.run_leven:main"
+turkic-web = "turkic_translit.web.web_demo:main"
 
-[tool.setuptools]
+
+[tool.setuptools.packages.find]
 include-package-data = true
-packages = ["turkic_translit"]
 package-dir = {"" = "src"}
 
 [tool.setuptools.package-data]
