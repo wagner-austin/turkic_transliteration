@@ -1,12 +1,18 @@
 # Byte-compiled / optimized / DLL files
 __pycache__/
+*.py[cod]
+*$py.class
+
+# Cache directories
+.mypy_cache/
+.pytest_cache/
+.ruff_cache/
+
+# Package files
 *.whl
 *.egg-info/
 dist/
-.pytest_cache/
 spm/*.model
-*.py[cod]
-*$py.class
 
 # C extensions
 *.so
