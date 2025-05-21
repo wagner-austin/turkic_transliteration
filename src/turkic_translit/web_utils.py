@@ -122,39 +122,61 @@ def mask_russian(text: str, thr: float, min_len: int) -> str:
 
     from .cli.filter_russian import main as _filter_ru_main
 
-    # Check if language identification model exists
-    home_lid = Path.home() / "lid.176.ftz"
-    # Check in current directory and package directory
-    pkg_dir = Path(__file__).parent
-    pkg_lid = pkg_dir / "lid.176.ftz"
+    try:
+        # Try to ensure the model is available, downloading if necessary
+        from .model_utils import ensure_fasttext_model
 
-    if not home_lid.exists() and not pkg_lid.exists():
-        log.warning(
-            f"FastText language identification model missing. Need lid.176.ftz in {home_lid} or {pkg_lid}"
-        )
-        return (
-            "**⚠️ Language identification model missing**\n\n"
-            "The Russian filter feature requires the FastText language identification model.\n"
-            "Please download `lid.176.ftz` from https://fasttext.cc/docs/en/language-identification.html\n"
-            f"and place it in your home directory ({home_lid}) or package directory ({pkg_lid})"
-        )
+        model_path = ensure_fasttext_model()
+        log.info(f"Using FastText model at {model_path}")
+    except Exception as e:
+        log.warning(f"Failed to automatically download FastText model: {e}")
+        # Check if language identification model exists in standard locations
+        home_lid = Path.home() / "lid.176.ftz"
+        pkg_dir = Path(__file__).parent
+        pkg_lid = pkg_dir / "lid.176.ftz"
 
-    runner = CliRunner()
-    result = runner.invoke(
-        _filter_ru_main,
-        ["--mode", "mask", "--thr", str(thr), "--min-len", str(min_len)],
-        input=text,
-    )
-    if result.exit_code != 0:
-        if "No such file or directory: 'lid.176.ftz'" in result.output:
-            return (
-                "**⚠️ Language identification model not found**\n\n"
-                "The Russian filter feature requires the FastText language identification model.\n"
-                "Please download `lid.176.ftz` from https://fasttext.cc/docs/en/language-identification.html\n"
-                f"and place it in your home directory ({home_lid}) or package directory ({pkg_lid})"
+        if not home_lid.exists() and not pkg_lid.exists():
+            log.warning(
+                f"FastText language identification model missing. Need lid.176.ftz in {home_lid} or {pkg_lid}"
             )
-        raise RuntimeError(result.output)
-    return str(result.output).rstrip("\n")
+            return (
+                "**⚠️ Attempting to download language identification model...**\n\n"
+                "The Russian filter feature requires the FastText language identification model.\n"
+                "Automatic download failed. You can manually download `lid.176.ftz` from https://fasttext.cc/docs/en/language-identification.html\n"
+                f"and place it in your home directory ({home_lid}) or package directory ({pkg_lid})\n\n"
+                f"Error: {str(e)}"
+            )
+
+    # Set up a temporary log level to avoid logs in output
+    root_logger = logging.getLogger()
+    original_level = root_logger.level
+    root_logger.setLevel(logging.ERROR)  # Temporarily suppress INFO logs
+
+    try:
+        runner = CliRunner()
+        result = runner.invoke(
+            _filter_ru_main,
+            ["--mode", "mask", "--thr", str(thr), "--min-len", str(min_len)],
+            input=text,
+        )
+
+        if result.exit_code != 0:
+            if "No such file or directory: 'lid.176.ftz'" in result.output:
+                return (
+                    "**⚠️ Language identification model not found**\n\n"
+                    "The Russian filter feature requires the FastText language identification model.\n"
+                    "Please download `lid.176.ftz` from https://fasttext.cc/docs/en/language-identification.html\n"
+                    f"and place it in your home directory ({home_lid}) or package directory ({pkg_lid})"
+                )
+            # For other errors, show a clean error message
+            return f"**Error masking Russian text**: {result.output.strip()}"
+
+        # Strip log messages from output - only keep the last line
+        output_lines = result.output.strip().split("\n")
+        return output_lines[-1] if output_lines else ""
+    finally:
+        # Restore original log level
+        root_logger.setLevel(original_level)
 
 
 def median_levenshtein(

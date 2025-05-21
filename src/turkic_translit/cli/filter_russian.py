@@ -1,8 +1,13 @@
 #!/usr/bin/env python3
+import logging
 from typing import TextIO
 
 import click
 import fasttext
+
+from ..model_utils import ensure_fasttext_model
+
+logger = logging.getLogger(__name__)
 
 
 @click.command()
@@ -53,7 +58,15 @@ def main(
     stoplist: str | None,
 ) -> None:
     """Filter or mask Russian tokens in text, optionally using a core-vocab stoplist."""
-    lid = fasttext.load_model("lid.176.ftz")
+    # Use our model_utils to find or download the model
+    try:
+        model_path = ensure_fasttext_model()
+        logger.info(f"Using FastText model at {model_path}")
+        lid = fasttext.load_model(str(model_path))
+    except Exception as e:
+        logger.error(f"Failed to load FastText model: {e}")
+        raise click.ClickException(f"Failed to load FastText model: {e}") from e
+
     uz_core = set()
     if stoplist:
         with open(stoplist, encoding="utf-8") as f:

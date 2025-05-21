@@ -38,16 +38,26 @@ logging.basicConfig(level=logging.INFO)
 
 def _model_check() -> str:
     """
-    Check for required model files. If any are missing, return a markdown warning string; else return an empty string.
+    Check for required model files. If any are missing, try to download them automatically.
+    Returns a markdown warning string for any models that couldn't be downloaded; else returns an empty string.
     """
     missing = []
-    # Check lid.176.ftz in home and project root
-    home_lid = pathlib.Path.home() / "lid.176.ftz"
-    root_lid = pathlib.Path(__file__).parent / "lid.176.ftz"
-    if not home_lid.exists() and not root_lid.exists():
-        msg = f"- `lid.176.ftz` not found in {home_lid} or {root_lid}"
-        logging.warning(msg)
-        missing.append(msg)
+    # Try to download and check the fastText model
+    try:
+        from ..model_utils import ensure_fasttext_model
+
+        model_path = ensure_fasttext_model()
+        logging.info(f"FastText language identification model found at {model_path}")
+    except Exception as e:
+        # Check lid.176.ftz in standard locations
+        home_lid = pathlib.Path.home() / "lid.176.ftz"
+        root_lid = pathlib.Path(__file__).parent / "lid.176.ftz"
+        pkg_lid = pathlib.Path(__file__).parent.parent / "lid.176.ftz"
+
+        if not any(p.exists() for p in [home_lid, root_lid, pkg_lid]):
+            msg = f"- `lid.176.ftz` not found and auto-download failed: {str(e)}"
+            logging.warning(msg)
+            missing.append(msg)
     # Check turkic_model.model in tokenizer.py's directory
     try:
         import turkic_translit.tokenizer as tokenizer
@@ -335,10 +345,12 @@ def build_ui() -> gr.Blocks:
                         threshold = gr.Slider(
                             0,
                             1,
-                            value=0.5,
+                            value=0.7,  # Changed from 0.5 to 0.7 as requested
                             label="RU Mask Threshold",
                             step=0.01,
                             info="Higher values are more strict in identifying Russian",
+                            elem_id="ru-threshold-slider",
+                            show_label=True,
                         )
                         min_len = gr.Slider(
                             1,
@@ -346,17 +358,28 @@ def build_ui() -> gr.Blocks:
                             value=3,
                             label="Min Token Length",
                             step=1,
-                            info="Minimum character length to consider masking",
+                            info="Skip words shorter than this",  # Updated helper text
+                            elem_id="min-len-slider",
+                            show_label=True,
                         )
 
                     with gr.Column(scale=7):
                         output = gr.Textbox(
-                            label="Masked Output", lines=4, interactive=False
+                            label="Masked Output",
+                            lines=4,
+                            interactive=False,
+                            show_copy_button=True,
                         )
 
                 with gr.Row(elem_classes=["examples-row"]):
                     gr.Examples(
-                        examples=cast(list[list[Any]], examples["filter_ru"]),
+                        examples=[
+                            ["қазақша текст с русскими словами", 0.7, 3],
+                            ["Все это написано на русском языке", 0.7, 3],
+                            ["Бұл мәтін толығымен қазақ тілінде жазылған", 0.7, 3],
+                            ["қазақша и русский в одном тексте", 0.7, 2],
+                            ["Көптеген орыс сөздер арасында казахский текст", 0.8, 4],
+                        ],
                         inputs=[shared_textbox, threshold, min_len],
                         outputs=[output],
                         fn=do_mask,
