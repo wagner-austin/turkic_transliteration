@@ -47,13 +47,13 @@ logger = logging.getLogger(__name__)
 
 # Constants
 FASTTEXT_MODEL_URL = (
-    "https://dl.fbaipublicfiles.com/fasttext/supervised-models/lid.176.ftz"
+    "https://dl.fbaipublicfiles.com/fasttext/supervised-models/lid.176.bin"
 )
 
 
 def download_fasttext_model(target_path: Optional[pathlib.Path] = None) -> pathlib.Path:
     """
-    Download the FastText language identification model (lid.176.ftz).
+    Download the FastText language identification model (lid.176.bin).
 
     Args:
         target_path: Optional target path to save the model. If None, saves to package directory.
@@ -66,7 +66,7 @@ def download_fasttext_model(target_path: Optional[pathlib.Path] = None) -> pathl
     """
     if target_path is None:
         # Default to the package directory
-        target_path = pathlib.Path(__file__).parent / "lid.176.ftz"
+        target_path = pathlib.Path(__file__).parent / "lid.176.bin"
 
     logger.info(f"Downloading FastText model to {target_path}")
 
@@ -107,10 +107,10 @@ def ensure_fasttext_model() -> pathlib.Path:
         OSError: If download fails and model cannot be found
     """
     # Check standard locations first
-    home_lid = pathlib.Path.home() / "lid.176.ftz"
+    home_lid = pathlib.Path.home() / "lid.176.bin"
     pkg_dir = pathlib.Path(__file__).parent
-    pkg_lid = pkg_dir / "lid.176.ftz"
-    web_lid = pkg_dir / "web" / "lid.176.ftz"
+    pkg_lid = pkg_dir / "lid.176.bin"
+    web_lid = pkg_dir / "web" / "lid.176.bin"
 
     for path in [home_lid, pkg_lid, web_lid]:
         if path.exists():

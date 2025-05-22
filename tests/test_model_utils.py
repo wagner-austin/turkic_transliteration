@@ -20,7 +20,7 @@ class TestModelUtils:
     def setup_method(self) -> None:
         """Set up temporary directory for tests."""
         self.temp_dir = tempfile.mkdtemp()
-        self.temp_model_path = pathlib.Path(self.temp_dir) / "lid.176.ftz"
+        self.temp_model_path = pathlib.Path(self.temp_dir) / "lid.176.bin"
 
     def teardown_method(self) -> None:
         """Clean up temporary directory after tests."""
@@ -49,7 +49,7 @@ class TestModelUtils:
         mock_urlretrieve.assert_called_once()
         assert (
             mock_urlretrieve.call_args[0][0]
-            == "https://dl.fbaipublicfiles.com/fasttext/supervised-models/lid.176.ftz"
+            == "https://dl.fbaipublicfiles.com/fasttext/supervised-models/lid.176.bin"
         )
         assert mock_urlretrieve.call_args[0][1] == self.temp_model_path
 
@@ -158,19 +158,19 @@ class TestModelIntegration:
             import tempfile
 
             temp_dir = tempfile.mkdtemp()
-            home_path = pathlib.Path.home() / "lid.176.ftz"
+            home_path = pathlib.Path.home() / "lid.176.bin"
             pkg_path = (
                 pathlib.Path(__file__).parent.parent
                 / "src"
                 / "turkic_translit"
-                / "lid.176.ftz"
+                / "lid.176.bin"
             )
             web_path = (
                 pathlib.Path(__file__).parent.parent
                 / "src"
                 / "turkic_translit"
                 / "web"
-                / "lid.176.ftz"
+                / "lid.176.bin"
             )
 
             # Temporarily move existing models if they exist

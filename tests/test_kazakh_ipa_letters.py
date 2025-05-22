@@ -7,6 +7,7 @@ already covered in sentence-level tests.
 """
 
 import pytest
+
 from turkic_translit.core import to_ipa
 
 GOLD = {
@@ -14,25 +15,25 @@ GOLD = {
     "в": "v",
     "г": "ɡ",
     "ғ": "ʁ",
-    "д": "d̪",      # dental plosive
+    "д": "d̪",  # dental plosive
     "ё": "jo",
     "ж": "ʑ",
-    "з": "z̪",      # dental fricative
+    "з": "z̪",  # dental fricative
     "и": "i͡j",
     "й": "j",
     "к": "k",
     "қ": "q",
-    "л": "l̪",      # dental lateral
+    "л": "l̪",  # dental lateral
     "м": "m",
-    "н": "n̪",      # dental nasal
-    "ң": "ŋ",       # velar nasal
+    "н": "n̪",  # dental nasal
+    "ң": "ŋ",  # velar nasal
     "о": "o",
     "ө": "ɵ",
     "п": "p",
-    "р": "r̪",      # dental trill/tap
-    "с": "s̪",      # dental fricative
-    "т": "t̪",      # dental plosive
-    "у": "u͡w",      
+    "р": "r̪",  # dental trill/tap
+    "с": "s̪",  # dental fricative
+    "т": "t̪",  # dental plosive
+    "у": "u͡w",
     "ұ": "ʊ",
     "ү": "ʏ",
     "ф": "f",
@@ -41,7 +42,7 @@ GOLD = {
     "ц": "t͡s",
     "ч": "t͡ɕ",
     "ш": "ɕ",
-    "щ": "ɕː",     # long alveolo-palatal fricative
+    "щ": "ɕː",  # long alveolo-palatal fricative
     "ы": "ə",
     "і": "ɪ",
     "ю": "ju",

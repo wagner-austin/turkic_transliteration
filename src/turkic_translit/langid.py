@@ -19,14 +19,14 @@ class FastTextLangID:
     def __init__(self, model_path: str | None = None) -> None:
         if model_path is None:
             try:
-                # First try to load the compressed model which is much smaller
+                # Load the full model which is more accurate
                 model_path = str(ensure_fasttext_model())
                 logger.info(f"Using FastText model from: {model_path}")
             except Exception as e:
                 logger.warning(f"Failed to download FastText model: {e}")
-                # Fallback to bin file if it exists
+                # Try to find a model in the package directory
                 model_path = os.path.join(os.path.dirname(__file__), "lid.176.bin")
-                logger.info(f"Falling back to bin model at: {model_path}")
+                logger.info(f"Attempting to use model at: {model_path}")
 
         self.model = fasttext.load_model(model_path)
 
