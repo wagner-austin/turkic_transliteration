@@ -1,13 +1,12 @@
 """
 Single-letter Cyrillic → IPA checks
-Reference: https://en.wikipedia.org/wiki/Help:IPA/Kazakh (10 Nov 2024).
+Reference set synchronised with McCollum & Chen 2020 (JIPA 51 (2): 276-298)
 
-We skip ‹е/Э› because their value depends on position
-(^Е → jɪ, CЕ → e). Those are covered by the sentence test.
+‹е/Э› are omitted because their value is position-dependent and
+already covered in sentence-level tests.
 """
 
 import pytest
-
 from turkic_translit.core import to_ipa
 
 GOLD = {
@@ -15,25 +14,25 @@ GOLD = {
     "в": "v",
     "г": "ɡ",
     "ғ": "ʁ",
-    "д": "d",
+    "д": "d̪",      # dental plosive
     "ё": "jo",
     "ж": "ʑ",
-    "з": "z",
-    "и": "əj",
+    "з": "z̪",      # dental fricative
+    "и": "i͡j",
     "й": "j",
     "к": "k",
     "қ": "q",
-    "л": "l",
+    "л": "l̪",      # dental lateral
     "м": "m",
-    "н": "n",
-    "ң": "ɴ",
+    "н": "n̪",      # dental nasal
+    "ң": "ŋ",       # velar nasal
     "о": "o",
-    "ө": "ø",
+    "ө": "ɵ",
     "п": "p",
-    "р": "ɾ",
-    "с": "s",
-    "т": "t",
-    "у": "w",
+    "р": "r̪",      # dental trill/tap
+    "с": "s̪",      # dental fricative
+    "т": "t̪",      # dental plosive
+    "у": "u͡w",      
     "ұ": "ʊ",
     "ү": "ʏ",
     "ф": "f",
@@ -42,7 +41,7 @@ GOLD = {
     "ц": "t͡s",
     "ч": "t͡ɕ",
     "ш": "ɕ",
-    "щ": "ɕ",
+    "щ": "ɕː",     # long alveolo-palatal fricative
     "ы": "ə",
     "і": "ɪ",
     "ю": "ju",

@@ -5,7 +5,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "turkic-transliterate"
-version = "0.1.3"
+version = "0.1.4"
 description = "Deterministic Latin and IPA transliteration for Kazakh, Kyrgyz, plus tokenizer/glue scripts."
 authors = [ {name="Austin Wagner", email="awagner@uci.edu"} ]
 requires-python = ">=3.9"

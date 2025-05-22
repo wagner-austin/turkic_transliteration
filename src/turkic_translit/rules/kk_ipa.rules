@@ -1,19 +1,21 @@
 # Kazakh → IPA transliteration rules (kk_ipa.rules)
-# Source: https://en.wikipedia.org/wiki/Help:IPA/Kazakh, rev. 10 Nov 2024.
-# Right-hand side is plain IPA (no /slashes/).
+# Source: McCollum & Chen 2020, *Illustration of the IPA: Kazakh* (JIPA 51 (2): 276-298).
+# Right-hand side is plain Unicode IPA (no /slashes/).
 
-$V = [ɑæeəiɪoøʊʏ];          # vowel macro
+$V = [ɑ æ e ə ɪ ɵ ʏ o ʊ];          # vowel macro
 
 # ---------------------------------------------------------------------------
-# Positional jɪ for Е / Э  (before blanket E/Э → e rules)
-^Е > jɪ ;                    # word-initial (uppercase)
-^е > jɪ ;                    # word-initial (lowercase)
-$V } Е > jɪ ;                # after a vowel
-$V } е > jɪ ;
-^Э > jɪ ;
-^э > jɪ ;
-$V } Э > jɪ ;
-$V } э > jɪ ;
+# Positional realisation for Е / Э
+# <Е е> always represents the diphthong /i͡e/.  <Э э> is loan-only, realised [e].
+^Е > i͡e ;  ^е > i͡e ;
+$V } Е > i͡e ;  $V } е > i͡e ;
+^Э > e ;   ^э > e ;
+$V } Э > e ;  $V } э > e ;
+
+# ---------------------------------------------------------------------------
+# Context-sensitive glide for <У>
+# After a vowel it is the glide [w]; elsewhere phonemic /uw/.
+$V } У > w ;  $V } у > w ;
 
 # ---------------------------------------------------------------------------
 # One-to-one grapheme → phone map
@@ -22,27 +24,27 @@ $V } э > jɪ ;
 Б > b ;  б > b ;
 В > v ;  в > v ;
 Г > ɡ ;  г > ɡ ;
-Ғ > ʁ ;  ғ > ʁ ;
-Д > d ;  д > d ;
-Е > e ;  е > e ;
+Ғ > ʁ ;  ғ > ʁ ;            # voiced uvular fricative
+Д > d̪ ;  д > d̪ ;           # dental plosive
+Е > i͡e ;  е > i͡e ;         # default – most tokens handled above
 Ё > jo ; ё > jo ;
 Ж > ʑ ;  ж > ʑ ;
-З > z ;  з > z ;
-И > əj ;  и > əj ;
+З > z̪ ;  з > z̪ ;           # dental fricative
+И > i͡j ;  и > i͡j ;           # falling diphthong
 Й > j ;  й > j ;
 К > k ;  к > k ;
 Қ > q ;  қ > q ;
-Л > l ;  л > l ;
+Л > l̪ ;  л > l̪ ;           # dental lateral (velarised in back contexts)
 М > m ;  м > m ;
-Н > n ;  н > n ;
-Ң > ɴ ;  ң > ɴ ;
+Н > n̪ ;  н > n̪ ;           # dental nasal
+Ң > ŋ ;  ң > ŋ ;            # velar nasal
 О > o ;  о > o ;
-Ө > ø ;  ө > ø ;
+Ө > ɵ ;  ө > ɵ ;
 П > p ;  п > p ;
-Р > ɾ ;  р > ɾ ;
-С > s ;  с > s ;
-Т > t ;  т > t ;
-У > w ;  у > w ;
+Р > r̪ ;  р > r̪ ;           # dental trill/tap
+С > s̪ ;  с > s̪ ;           # dental fricative
+Т > t̪ ;  т > t̪ ;           # dental plosive
+У > u͡w ;  у > u͡w ;        # caught by glide rule above when needed
 Ұ > ʊ ;  ұ > ʊ ;
 Ү > ʏ ;  ү > ʏ ;
 Ф > f ;  ф > f ;
@@ -51,19 +53,19 @@ $V } э > jɪ ;
 Ц > t͡s ; ц > t͡s ;
 Ч > t͡ɕ ;  ч > t͡ɕ ;
 Ш > ɕ ;  ш > ɕ ;
-Щ > ɕ ;  щ > ɕ ;
+Щ > ɕː ;  щ > ɕː ;          # long alveolo-palatal fricative
 Ъ > ʔ ;  ъ > ʔ ;
 Ы > ə ;  ы > ə ;
 І > ɪ ;  і > ɪ ;
 Ь > ʲ ;  ь > ʲ ;
-Э > e ;  э > e ;              # back-off after jɪ rules
+Э > e ;  э > e ;
 Ю > ju ; ю > ju ;
 Я > ja ; я > ja ;
 
 # ---------------------------------------------------------------------------
-# Optional phonetic refinements — uncomment if needed
-# ɡ > ɣ || _[ɑʊəoʏ] ;
-# k > q || _[ɑʊəoʏ] ;
+# Optional phonetic refinements — uncomment if you want surface allophones
+# ɡ > ɣ  || _[ɑ ʊ ə o ʏ] ;
+# k > q  || _[ɑ ʊ ə o ʏ] ;
 # v > β̞ || $V _ $V ;
 # ---------------------------------------------------------------------------
 
