@@ -120,6 +120,20 @@ The project is organized into the following directories:
 - `vendor/pyicu/` - Pre-built PyICU wheels for Windows
 - `tests/` - Test suite for the package
 
+## FastText Language Identification Model
+
+This package uses the [FastText language identification model](https://dl.fbaipublicfiles.com/fasttext/supervised-models/lid.176.bin) (`lid.176.bin`) for Russian token filtering and language detection. **The model file is not included in the repository or pip package due to its large size.**
+
+**Automatic Download:**
+- When you use features that require language identification (such as Russian token filtering or the Gradio web demo), the package will automatically download `lid.176.bin` from the official Facebook AI public link if it is not already present.
+- The file will be saved in the package directory on first use.
+
+**No manual action is needed.** This ensures compatibility with pip installs, Hugging Face Spaces, and other cloud environments.
+
+If you need to download the model manually, you can do so from:
+https://dl.fbaipublicfiles.com/fasttext/supervised-models/lid.176.bin
+
+
 ## Using the Examples
 
 Use the main entry point script to run examples:
