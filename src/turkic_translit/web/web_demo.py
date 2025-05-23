@@ -21,6 +21,7 @@ IMPORTANT NOTES:
 """
 import logging
 import pathlib
+import re  # NEW – used by _to_md_table
 from typing import Any, cast
 
 import gradio as gr
@@ -103,6 +104,37 @@ def _model_check() -> tuple[str, str]:
         )
 
     return warning_msg, fasttext_info
+
+
+# ── shared regex helpers for RU-filter debug table ──────────────────────────
+_ANSI_RE = re.compile(r"\x1b\[[0-9;]*m")  # strips any ANSI colour codes
+_DBG_ROW = re.compile(
+    r"Token:\s*(?P<tok>.*?),\s*Label:\s*__label__(?P<lbl>\w+),"
+    r"\s*Confidence:\s*(?P<conf>[0-9.]+)"
+)
+
+
+def _to_md_table(debug_lines: list[str]) -> str:
+    """Convert raw debug lines from `mask_russian` into a Markdown table.
+
+    The function removes ANSI escapes, extracts the first-rank language and
+    confidence, and returns GitHub-flavoured Markdown.  If no parsable rows
+    are found it emits a graceful fallback string, so callers never need to
+    special-case empty output.
+    """
+    rows = [
+        f"| {m['tok']} | {m['lbl']} | {float(m['conf']):.3f} |"
+        for ln in debug_lines
+        if (clean_ln := _ANSI_RE.sub("", ln))  # ANSI scrub (in one place)
+        if (m := _DBG_ROW.search(clean_ln))  # pattern match
+    ]
+    if not rows:
+        return "*— no tokens found —*"
+    header = "| Token | Lang | Conf |\n|-------|------|------|\n"
+    return header + "\n".join(rows)
+
+
+# ────────────────────────────────────────────────────────────────────────────
 
 
 def build_ui() -> gr.Blocks:
@@ -233,13 +265,48 @@ def build_ui() -> gr.Blocks:
             except Exception as e:
                 return f"**Error analyzing tokens**: {str(e)}"
 
-        def do_mask(text: str, threshold: float, min_len: int) -> str:
+        def do_mask(text: str, threshold: float, min_len: int) -> tuple[str, str]:
+            """
+            Mask Russian tokens and return a tuple of
+            (masked_text, markdown_table_of_confidences).
+
+            The helper always calls `mask_russian` with `debug=True`, so the table
+            can be rebuilt on every invocation without an extra code-path.
+            """
+            # Empty/whitespace input → blank outputs, no error dialogs in the UI
             if not text.strip():
-                return "*Please enter some text to mask*"
+                return "", ""
+
             try:
-                return mask_russian(text, threshold, min_len)
+                # Request debug markup unconditionally
+                raw = mask_russian(text, threshold, min_len, debug=True)
+
+                # If the debug blob is missing, supply only the masked string
+                if "<!--debug " not in raw:
+                    return raw.strip(), ""
+
+                masked, dbg_blob = raw.split("<!--debug ", 1)
+                dbg_blob = dbg_blob.rsplit(" -->", 1)[0]  # strip trailing marker
+
+                # Parse the JSON blob
+                import json
+
+                try:
+                    debug_data = json.loads(dbg_blob)
+                    # Convert JSON format to the expected text format for _to_md_table
+                    debug_lines = [
+                        f"Token: {item['tok']}, Label: __label__{item['winner']}, Confidence: {item['conf']}"
+                        for item in debug_data
+                    ]
+                except json.JSONDecodeError:
+                    # Fallback if JSON parsing fails
+                    debug_lines = dbg_blob.splitlines()
+
+                table_md = _to_md_table(debug_lines)
+
+                return masked.strip(), table_md
             except Exception as e:
-                return f"**Error masking Russian text**: {str(e)}"
+                return f"**Error masking Russian text**: {str(e)}", ""
 
         def do_compare(lat_file: Any, ipa_file: Any, sample_n: Any) -> str:
             if lat_file is None or ipa_file is None:
@@ -461,6 +528,13 @@ def build_ui() -> gr.Blocks:
                             show_copy_button=True,
                         )
 
+                        # ✱✱ NEW component – confidence table ✱✱
+                        debug_tbl = gr.Markdown(
+                            label="Token confidences (top-1)",
+                            value="",
+                            elem_id="ru-debug-table",
+                        )
+
                 with gr.Row(elem_classes=["examples-row"]):
                     gr.Examples(
                         examples=[
@@ -471,21 +545,29 @@ def build_ui() -> gr.Blocks:
                             ["Көптеген орыс сөздер арасында казахский текст", 0.6, 4],
                         ],
                         inputs=[shared_textbox, threshold, min_len],
-                        outputs=[output],
+                        outputs=[output, debug_tbl],
                         fn=do_mask,
                         label="Try these examples",
                     )
                     btn = gr.Button("Mask Russian", variant="primary")
 
             # Button click for masking Russian
-            btn.click(do_mask, [shared_textbox, threshold, min_len], output)
+            btn.click(
+                do_mask, [shared_textbox, threshold, min_len], [output, debug_tbl]
+            )
 
             # Real-time masking as you type
-            shared_textbox.change(do_mask, [shared_textbox, threshold, min_len], output)
+            shared_textbox.change(
+                do_mask, [shared_textbox, threshold, min_len], [output, debug_tbl]
+            )
 
             # Update when parameters change
-            threshold.change(do_mask, [shared_textbox, threshold, min_len], output)
-            min_len.change(do_mask, [shared_textbox, threshold, min_len], output)
+            threshold.change(
+                do_mask, [shared_textbox, threshold, min_len], [output, debug_tbl]
+            )
+            min_len.change(
+                do_mask, [shared_textbox, threshold, min_len], [output, debug_tbl]
+            )
 
         def _compare_tab() -> None:
             with gr.Column():

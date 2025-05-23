@@ -136,6 +136,10 @@ def mask_russian(
     Returns:
         Masked text with <RU> replacing Russian tokens
     """
+    import re
+
+    _ansi_re = re.compile(r"\x1b\[[0-9;]*m")
+
     try:
         # Get model from singleton
         lid = _langid_singleton().model
@@ -163,7 +167,7 @@ def mask_russian(
         out = " ".join(masked)
         if debug:
             out += "\n\n<!--debug " + json.dumps(dbg, ensure_ascii=False) + " -->"
-        return out
+        return _ansi_re.sub("", out)
 
     except Exception as e:
         log.warning(f"Failed to process text with FastText model: {e}")
