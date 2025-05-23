@@ -11,14 +11,16 @@ clean:
 
 # Run linting tools
 lint:
-	-ruff check --fix src tests examples
-	-black src tests examples
+	-ruff check --fix .
+	-ruff format
+	-black .
 	-mypy --strict .
 
 # Auto-format code
 format:
-	black src tests examples
-	ruff check --fix src tests examples
+	#ruff format
+	ruff check --fix .
+	black .
 
 # Run tests
 test:

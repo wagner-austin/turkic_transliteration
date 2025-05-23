@@ -9,32 +9,32 @@ and utility tools for the Turkic Transliteration Suite.
 import pathlib
 import subprocess
 import sys
-from typing import Any, Dict
+from typing import Any
 
 PROJECT_ROOT = pathlib.Path(__file__).parent
 
 
 def run_web_ui() -> int:
     """Launch the web-based user interface.
-    
+
     This function imports and launches the web_demo.py implementation directly.
     The browser will automatically open with the interface.
-    
+
     Note: For direct access to console logs (especially warnings about missing
     dependencies like the FastText wheel for Russian filtering), consider
     running web_demo.py directly instead of using this entry point.
     """
     # Configure logging to ensure warnings are visible
-    import logging
-    import importlib.util
     import importlib.machinery
-    
+    import importlib.util
+    import logging
+
     logging.basicConfig(level=logging.WARNING, force=True)
-    
+
     web_app_path = PROJECT_ROOT / "src" / "turkic_translit" / "web" / "web_demo.py"
     print(f"Launching web UI from {web_app_path}...")
     print("Note: Some dependency warnings may not be fully visible in the console.")
-    
+
     try:
         # Import the web_demo module dynamically
         loader = importlib.machinery.SourceFileLoader("web_demo", str(web_app_path))
@@ -43,7 +43,7 @@ def run_web_ui() -> int:
             raise ImportError(f"Could not load module from {web_app_path}")
         web_demo = importlib.util.module_from_spec(spec)
         loader.exec_module(web_demo)
-        
+
         # Initialize and launch the UI, opening browser automatically
         print("Starting web server and opening browser automatically...")
         ui = web_demo.build_ui()
@@ -86,7 +86,7 @@ def show_help() -> int:
 
 
 # Define available commands and their metadata
-COMMANDS: Dict[str, Dict[str, Any]] = {
+COMMANDS: dict[str, dict[str, Any]] = {
     "web": {
         "function": run_web_ui,
         "description": "Launch the web-based user interface",

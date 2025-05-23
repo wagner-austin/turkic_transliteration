@@ -21,7 +21,6 @@ def median_lev(file_lat: str, file_ipa: str, sample: int = 5000) -> float:
 
 
 def bytes_per_char(filename: str) -> float:
-
     b = os.path.getsize(filename)
     with open(filename, encoding="utf8") as f:
         chars = sum(len(line) for line in f)
