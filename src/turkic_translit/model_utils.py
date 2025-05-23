@@ -106,15 +106,26 @@ def ensure_fasttext_model() -> pathlib.Path:
     Raises:
         OSError: If download fails and model cannot be found
     """
-    # Check standard locations first
-    home_lid = pathlib.Path.home() / "lid.176.bin"
+    # Check standard locations first - prioritize the package directory version
     pkg_dir = pathlib.Path(__file__).parent
-    pkg_lid = pkg_dir / "lid.176.bin"
+    pkg_lid = pkg_dir / "lid.176.bin"  # Prioritize the bin file in package directory
     web_lid = pkg_dir / "web" / "lid.176.bin"
+    home_lid = pathlib.Path.home() / "lid.176.bin"
 
-    for path in [home_lid, pkg_lid, web_lid]:
+    # Try to find an existing bin model file first
+    for path in [pkg_lid, web_lid, home_lid]:
         if path.exists():
-            logger.info(f"Found existing FastText model at {path}")
+            logger.info(f"Found existing FastText bin model at {path}")
+            return path
+
+    # If no bin file found, check for compressed ftz files
+    pkg_lid_ftz = pkg_dir / "lid.176.ftz"
+    web_lid_ftz = pkg_dir / "web" / "lid.176.ftz"
+    home_lid_ftz = pathlib.Path.home() / "lid.176.ftz"
+
+    for path in [pkg_lid_ftz, web_lid_ftz, home_lid_ftz]:
+        if path.exists():
+            logger.info(f"Found existing FastText ftz model at {path}")
             return path
 
     # If not found, download to package directory

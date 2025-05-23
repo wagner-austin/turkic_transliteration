@@ -76,10 +76,18 @@ class TestModelUtils:
         self.temp_model_path.parent.mkdir(parents=True, exist_ok=True)
         self.temp_model_path.touch()
 
-        # Mock functions to make Path.home() return our temp directory
-        # and ensure our path is found
+        # Create a mock exists function that only returns True for our temp model path
+        def mock_exists_fn(path_obj: pathlib.Path) -> bool:
+            # Return True only for our temp model path, False for all other paths
+            return str(path_obj) == str(self.temp_model_path)
+
+        # Apply our patches
         with (
+            # Mock Path.home to return our temp directory
             patch("pathlib.Path.home", return_value=pathlib.Path(self.temp_dir)),
+            # Mock exists to only return True for our model
+            patch("pathlib.Path.exists", mock_exists_fn),
+            # Ensure download isn't called
             patch(
                 "turkic_translit.model_utils.download_fasttext_model"
             ) as mock_download,

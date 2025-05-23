@@ -37,28 +37,48 @@ from turkic_translit.web.web_utils import (
 logging.basicConfig(level=logging.INFO)
 
 
-def _model_check() -> str:
+def _model_check() -> tuple[str, str]:
     """
     Check for required model files. If any are missing, try to download them automatically.
-    Returns a markdown warning string for any models that couldn't be downloaded; else returns an empty string.
+    Returns a tuple with:
+        - A markdown warning string for any models that couldn't be downloaded; else an empty string
+        - A markdown string with information about the FastText model being used
     """
     missing = []
+    fasttext_info = ""
+
     # Try to download and check the fastText model
     try:
         from ..model_utils import ensure_fasttext_model
 
         model_path = ensure_fasttext_model()
+        model_name = model_path.name
+        model_size_mb = round(model_path.stat().st_size / (1024 * 1024), 2)
+        model_type = "Full" if model_name.endswith(".bin") else "Compressed"
+
+        fasttext_info = f"**FastText Language Model:** {model_name} ({model_type}, {model_size_mb} MB)"
         logging.info(f"FastText language identification model found at {model_path}")
     except Exception as e:
-        # Check lid.176.ftz in standard locations
-        home_lid = pathlib.Path.home() / "lid.176.ftz"
-        root_lid = pathlib.Path(__file__).parent / "lid.176.ftz"
-        pkg_lid = pathlib.Path(__file__).parent.parent / "lid.176.ftz"
+        # Check for model files in standard locations
+        home_lid_bin = pathlib.Path.home() / "lid.176.bin"
+        home_lid_ftz = pathlib.Path.home() / "lid.176.ftz"
+        pkg_lid_bin = pathlib.Path(__file__).parent.parent / "lid.176.bin"
+        pkg_lid_ftz = pathlib.Path(__file__).parent.parent / "lid.176.ftz"
 
-        if not any(p.exists() for p in [home_lid, root_lid, pkg_lid]):
-            msg = f"- `lid.176.ftz` not found and auto-download failed: {str(e)}"
+        all_paths = [home_lid_bin, home_lid_ftz, pkg_lid_bin, pkg_lid_ftz]
+        existing_paths = [p for p in all_paths if p.exists()]
+
+        if existing_paths:
+            path = existing_paths[0]
+            model_name = path.name
+            model_size_mb = round(path.stat().st_size / (1024 * 1024), 2)
+            model_type = "Full" if model_name.endswith(".bin") else "Compressed"
+            fasttext_info = f"**FastText Language Model:** {model_name} ({model_type}, {model_size_mb} MB)"
+        else:
+            msg = f"- FastText language model not found and auto-download failed: {str(e)}"
             logging.warning(msg)
             missing.append(msg)
+            fasttext_info = "**FastText Language Model:** Not found"
     # Check turkic_model.model in tokenizer.py's directory
     try:
         import turkic_translit.tokenizer as tokenizer
@@ -73,17 +93,23 @@ def _model_check() -> str:
         msg = f"- Could not check for `turkic_model.model`: {e}"
         logging.warning(msg)
         missing.append(msg)
+    # Prepare warning message if any models are missing
+    warning_msg = ""
     if missing:
-        return (
+        warning_msg = (
             "**⚠️ Model file(s) missing:**\n"
             + "\n".join(missing)
             + "\nPlease ensure all required models are present for full functionality."
         )
-    return ""
+
+    return warning_msg, fasttext_info
 
 
 def build_ui() -> gr.Blocks:
     """Build and return the Turkic Transliteration Suite UI as a Gradio Blocks app."""
+    # Run model checks and get information
+    warning_message, fasttext_model_info = _model_check()
+
     # Define example inputs for each tab
     examples: dict[str, list[Any]] = {
         "direct": [
@@ -143,18 +169,28 @@ def build_ui() -> gr.Blocks:
     with gr.Blocks(
         title="Turkic Transliteration Suite", css=css, theme=gr.themes.Soft()
     ) as app:
+        # Add header with model information
         gr.Markdown(
             """
-            # 🌐 Turkic Transliteration Suite
-            
+            # 🌍 Turkic Transliteration Suite
+            ## Web Interface for exploring Turkic language transliteration tools
+            """
+        )
+
+        # FastText model info now only shown in Filter Russian tab
+
+        # Show warning if any models are missing
+        if warning_message:
+            gr.Markdown(warning_message)
+
+        gr.Markdown(
+            """
             Explore transliteration capabilities for Turkic languages between Cyrillic, Latin, and IPA representations.
             Navigate through the tabs below to access different features.
             """
         )
 
-        model_warning = _model_check()
-        if model_warning:
-            gr.Markdown(model_warning, elem_classes=["warning-box"])
+        # Warning message already displayed above if it exists
 
         shared_textbox = gr.Textbox(
             label="Input Text",
@@ -376,12 +412,30 @@ def build_ui() -> gr.Blocks:
                     """
                 )
 
+                # Show simplified FastText model info only on this tab, integrated into the description
+                gr.Markdown(
+                    """
+                    <div style="margin-bottom: 10px; font-size: 0.9em; color: #228B22;">
+                    ✅ using the {model_type} model: {model_name} for language ID
+                    </div>
+                    """.format(
+                        model_type=(
+                            "Full" if "Full" in fasttext_model_info else "Compressed"
+                        ),
+                        model_name=(
+                            "lid.176.bin"
+                            if "bin" in fasttext_model_info
+                            else "lid.176.ftz"
+                        ),
+                    )
+                )
+
                 with gr.Row():
                     with gr.Column(scale=3):
                         threshold = gr.Slider(
                             0,
                             1,
-                            value=0.7,  # Changed from 0.5 to 0.7 as requested
+                            value=0.5,  # Match the CLI default in filter_russian.py
                             label="RU Mask Threshold",
                             step=0.01,
                             info="Higher values are more strict in identifying Russian",
@@ -410,11 +464,11 @@ def build_ui() -> gr.Blocks:
                 with gr.Row(elem_classes=["examples-row"]):
                     gr.Examples(
                         examples=[
-                            ["қазақша текст с русскими словами", 0.7, 3],
-                            ["Все это написано на русском языке", 0.7, 3],
-                            ["Бұл мәтін толығымен қазақ тілінде жазылған", 0.7, 3],
-                            ["қазақша и русский в одном тексте", 0.7, 2],
-                            ["Көптеген орыс сөздер арасында казахский текст", 0.8, 4],
+                            ["қазақша текст с русскими словами", 0.5, 3],
+                            ["Все это написано на русском языке", 0.5, 3],
+                            ["Бұл мәтін толығымен қазақ тілінде жазылған", 0.5, 3],
+                            ["қазақша и русский в одном тексте", 0.5, 2],
+                            ["Көптеген орыс сөздер арасында казахский текст", 0.6, 4],
                         ],
                         inputs=[shared_textbox, threshold, min_len],
                         outputs=[output],

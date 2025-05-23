@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import functools
+import json
 import logging
 import os
 import tempfile
@@ -9,7 +10,11 @@ from pathlib import Path
 from types import ModuleType
 from typing import TYPE_CHECKING
 
+from ..lang_filter import is_russian_token
+from ..langid import FastTextLangID
+
 log = logging.getLogger(__name__)
+
 
 if TYPE_CHECKING:  # for static checkers only
     from ..pipeline import TurkicTransliterationPipeline  # Import from main package
@@ -23,6 +28,9 @@ def _make_pipeline() -> TurkicTransliterationPipeline:
 
 
 _lazy_pipeline = functools.lru_cache(maxsize=1)(_make_pipeline)
+
+# Create a singleton for the language ID model
+_langid_singleton = functools.lru_cache(maxsize=1)(FastTextLangID)
 
 
 def direct_transliterate(
@@ -112,74 +120,59 @@ def token_table_markdown(text: str) -> str:
         return f"**Error loading tokenizer:** {e}"
 
 
-def mask_russian(text: str, thr: float, min_len: int) -> str:
+def mask_russian(
+    text: str, thr: float, min_len: int, *, margin: float = 0.10, debug: bool = False
+) -> str:
     """
-    Mask Russian tokens in text using CLI runner.
-    Usage: mask_russian('сәлем привет', 0.8, 2)
-    Returns: masked text (str)
-    Raises: RuntimeError if CLI invocation fails.
+    Replace Russian tokens with <RU> using the shared heuristic.
+
+    Args:
+        text: Text to process
+        thr: Confidence threshold for Russian detection
+        min_len: Minimum token length to consider
+        margin: Maximum margin for accepting RU when not the top label
+        debug: Whether to include debug information in output
+
+    Returns:
+        Masked text with <RU> replacing Russian tokens
     """
-    from pathlib import Path
-
-    from click.testing import CliRunner
-
-    from ..cli.filter_russian import main as _filter_ru_main  # Import from main package
-
     try:
-        # Try to ensure the model is available, downloading if necessary
-        from ..model_utils import ensure_fasttext_model  # Import from main package
+        # Get model from singleton
+        lid = _langid_singleton().model
+        stoplist = None  # future hook – can come from UI later
+        masked, dbg = [], []
 
-        model_path = ensure_fasttext_model()
-        log.info(f"Using FastText model at {model_path}")
-    except Exception as e:
-        log.warning(f"Failed to automatically download FastText model: {e}")
-        # Check if language identification model exists in standard locations
-        home_lid = Path.home() / "lid.176.ftz"
-        pkg_dir = Path(__file__).parent
-        pkg_lid = pkg_dir / "lid.176.ftz"
-
-        if not home_lid.exists() and not pkg_lid.exists():
-            log.warning(
-                f"FastText language identification model missing. Need lid.176.ftz in {home_lid} or {pkg_lid}"
+        for tok in text.strip().split():
+            ru = is_russian_token(
+                tok, thr=thr, min_len=min_len, lid=lid, stoplist=stoplist, margin=margin
             )
-            return (
-                "**⚠️ Attempting to download language identification model...**\n\n"
-                "The Russian filter feature requires the FastText language identification model.\n"
-                "Automatic download failed. You can manually download `lid.176.ftz` from https://fasttext.cc/docs/en/language-identification.html\n"
-                f"and place it in your home directory ({home_lid}) or package directory ({pkg_lid})\n\n"
-                f"Error: {str(e)}"
-            )
+            masked.append("<RU>" if ru else tok)
 
-    # Set up a temporary log level to avoid logs in output
-    root_logger = logging.getLogger()
-    original_level = root_logger.level
-    root_logger.setLevel(logging.ERROR)  # Temporarily suppress INFO logs
-
-    try:
-        runner = CliRunner()
-        result = runner.invoke(
-            _filter_ru_main,
-            ["--mode", "mask", "--thr", str(thr), "--min-len", str(min_len)],
-            input=text,
-        )
-
-        if result.exit_code != 0:
-            if "No such file or directory: 'lid.176.ftz'" in result.output:
-                return (
-                    "**⚠️ Language identification model not found**\n\n"
-                    "The Russian filter feature requires the FastText language identification model.\n"
-                    "Please download `lid.176.ftz` from https://fasttext.cc/docs/en/language-identification.html\n"
-                    f"and place it in your home directory ({home_lid}) or package directory ({pkg_lid})"
+            if debug:
+                # json-serialisable per-token info
+                lbls, confs = lid.predict(tok.lower(), k=1)
+                dbg.append(
+                    {
+                        "tok": tok,
+                        "ru": ru,
+                        "winner": lbls[0][9:],
+                        "conf": float(confs[0]),
+                    }
                 )
-            # For other errors, show a clean error message
-            return f"**Error masking Russian text**: {result.output.strip()}"
 
-        # Strip log messages from output - only keep the last line
-        output_lines = result.output.strip().split("\n")
-        return output_lines[-1] if output_lines else ""
-    finally:
-        # Restore original log level
-        root_logger.setLevel(original_level)
+        out = " ".join(masked)
+        if debug:
+            out += "\n\n<!--debug " + json.dumps(dbg, ensure_ascii=False) + " -->"
+        return out
+
+    except Exception as e:
+        log.warning(f"Failed to process text with FastText model: {e}")
+        return (
+            "**⚠️ Error in Russian language detection**\n\n"
+            "The Russian filter feature requires the FastText language identification model.\n"
+            "Please ensure the model is properly installed and accessible.\n\n"
+            f"Error: {str(e)}"
+        )
 
 
 def median_levenshtein(
