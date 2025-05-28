@@ -2,7 +2,7 @@
 # Source: McCollum & Chen 2020, *Illustration of the IPA: Kazakh* (JIPA 51 (2): 276-298).
 # Right-hand side is plain Unicode IPA (no /slashes/).
 
-$V = [ɑ æ e ə ɪ ɵ ʏ o ʊ];          # vowel macro
+$V = [ɑ æ e ə ɪ ɵ ʏ o ʊ ə̟];          # vowel macro
 
 # ---------------------------------------------------------------------------
 # Positional realisation for Е / Э
@@ -28,7 +28,7 @@ $V } У > w ;  $V } у > w ;
 Д > d̪ ;  д > d̪ ;           # dental plosive
 Е > i͡e ;  е > i͡e ;         # default – most tokens handled above
 Ё > jo ; ё > jo ;
-Ж > ʑ ;  ж > ʑ ;
+Ж > ʒ ;  ж > ʒ ;
 З > z̪ ;  з > z̪ ;           # dental fricative
 И > i͡j ;  и > i͡j ;           # falling diphthong
 Й > j ;  й > j ;
@@ -51,11 +51,11 @@ $V } У > w ;  $V } у > w ;
 Х > χ ;  х > χ ;
 Һ > h ;  һ > h ;
 Ц > t͡s ; ц > t͡s ;
-Ч > t͡ɕ ;  ч > t͡ɕ ;
-Ш > ɕ ;  ш > ɕ ;
+Ч > t͡ʃ ;  ч > t͡ʃ ;
+Ш > ʃ ;  ш > ʃ ;
 Щ > ɕː ;  щ > ɕː ;          # long alveolo-palatal fricative
 Ъ > ʔ ;  ъ > ʔ ;
-Ы > ə ;  ы > ə ;
+Ы > ə̟ ;  ы > ə̟ ;
 І > ɪ ;  і > ɪ ;
 Ь > ʲ ;  ь > ʲ ;
 Э > e ;  э > e ;
