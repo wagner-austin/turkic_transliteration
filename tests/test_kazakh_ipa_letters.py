@@ -18,21 +18,21 @@ GOLD = {
     "д": "d̪",  # dental plosive
     "ё": "jo",
     "ж": "ʒ",
-    "з": "z̪",          # dental fricative
+    "з": "z̪",  # dental fricative
     "и": "i͡j",
     "й": "j",
     "к": "k",
     "қ": "q",
-    "л": "l̪",          # dental lateral
+    "л": "l̪",  # dental lateral
     "м": "m",
-    "н": "n̪",          # dental nasal
-    "ң": "ŋ",           # velar nasal
+    "н": "n̪",  # dental nasal
+    "ң": "ŋ",  # velar nasal
     "о": "o",
     "ө": "ɵ",
     "п": "p",
-    "р": "r̪",          # dental trill/tap
-    "с": "s̪",          # dental fricative
-    "т": "t̪",          # dental plosive
+    "р": "r̪",  # dental trill/tap
+    "с": "s̪",  # dental fricative
+    "т": "t̪",  # dental plosive
     "у": "u͡w",
     "ұ": "ʊ",
     "ү": "ʏ",
@@ -42,8 +42,8 @@ GOLD = {
     "ц": "t͡s",
     "ч": "t͡ʃ",
     "ш": "ʃ",
-    "щ": "ɕː",          # long alveolo-palatal fricative
-    "ы": "ə̟",          # ← add diacritic if desired
+    "щ": "ɕː",  # long alveolo-palatal fricative
+    "ы": "ə̟",  # ← add diacritic if desired
     "і": "ɪ",
     "ю": "ju",
     "я": "ja",
