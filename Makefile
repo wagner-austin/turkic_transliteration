@@ -11,10 +11,10 @@ clean:
 
 # Run linting tools
 lint:
-	-ruff check --fix .
-	-ruff format
-	-black .
-	-mypy --strict .
+	ruff check --fix .
+	ruff format
+	black .
+	mypy --strict . --exclude build
 
 # Auto-format code
 format:

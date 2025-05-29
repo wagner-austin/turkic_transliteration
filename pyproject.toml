@@ -38,7 +38,10 @@ dependencies = [
     "pytest>=8.0",                  # Test runner
     "rapidfuzz>=3.5",
     "rich>=13.7",                   # Color-aware logging and console output
-    "sentencepiece>=0.2.0"
+    "sentencepiece>=0.2.0",
+    "click>=8.1",
+    "types-requests>=2.31",
+    "datasets>=2.20",
 ]
 
 [project.optional-dependencies]
@@ -48,6 +51,11 @@ examples = [
     "jupyterlab",
 ]
 winlid = []
+corpus = [
+    "datasets>=2.20",
+    "pyarrow>=14.0",
+    "requests>=2.0",
+]
 
 # Development tools
 dev = [
@@ -58,6 +66,7 @@ dev = [
     "build>=1.0",          # Package builder
     "twine>=4.0",          # Package uploader
     "make>=0.1.6",         # Make command for Windows
+    "types-requests>=2.31", # Type stubs for requests
 ]
 # User interface dependencies
 ui = [
@@ -69,6 +78,7 @@ ui = [
 turkic-translit = "turkic_translit.cli:main"
 turkic-pyicu-install = "turkic_translit.cli.pyicu_install:main"
 turkic-filter-russian = "turkic_translit.cli.filter_russian:main"
+turkic-download-corpus = "turkic_translit.cli.download_corpus:cli"
 turkic-build-spm = "turkic_translit.cli.build_spm:main"
 turkic-leven = "turkic_translit.cli.run_leven:main"
 turkic-web = "turkic_translit.web.web_demo:main"
@@ -83,6 +93,7 @@ package-dir = {"" = "src"}
 
 [tool.setuptools.package-data]
 "turkic_translit" = ["rules/*.rules"]
+"turkic_translit.cli" = ["corpora.yaml"]
 
 [tool.ruff]
 line-length = 88

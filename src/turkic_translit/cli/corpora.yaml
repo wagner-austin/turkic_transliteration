@@ -1,0 +1,11 @@
+oscar-2201:
+  driver: oscar
+  hf_name: oscar-corpus/OSCAR-2201
+  license: CC0-1.0
+wiki:
+  driver: wikipedia
+  license: CC-BY-SA-3.0
+leipzig:
+  driver: leipzig
+  base_url: https://downloads.wortschatz-leipzig.de/corpora
+  license: research-only
