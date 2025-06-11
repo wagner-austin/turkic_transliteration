@@ -1,6 +1,9 @@
 # ruff: noqa: E402
 from __future__ import annotations
 
+from collections.abc import Generator
+from typing import Any, cast
+
 """
 A web interface to explore and test Turkic transliteration features.
 
@@ -22,7 +25,7 @@ IMPORTANT NOTES:
 import logging
 import pathlib
 import re  # NEW – used by _to_md_table
-from typing import Any, cast
+import time
 
 import gradio as gr
 
@@ -46,72 +49,97 @@ if not logger.handlers:
 logging.basicConfig(level=logging.INFO)
 
 
+# ── Gradio-aware log handler ───────────────────────────────────────────────
+class GradioLogHandler(logging.Handler):
+    """Buffers log records so UI callbacks can flush them into the browser."""
+
+    def __init__(self) -> None:
+        super().__init__()
+        self.buffer: list[str] = []
+
+    def emit(self, record: logging.LogRecord) -> None:
+        self.buffer.append(self.format(record))
+
+    def dump(self) -> str:
+        # Format each log line as a separate paragraph with line breaks for better readability
+        formatted_lines = [f"<p style=\"margin: 0.5em 0; padding: 0.3em 0;\">{line}</p>" for line in self.buffer]
+        out, self.buffer = "\n".join(formatted_lines), []
+        return out
+
+
+# ── model presence check helper ────────────────────────────────────────────
+
+
 def _model_check() -> tuple[str, str]:
+    """Verify auxiliary model files exist; attempt download when missing.
+
+    Returns (warning_markdown, fasttext_info_markdown).  *warning_markdown* is an
+    empty string when everything is fine; otherwise it lists missing items so the
+    UI can surface a friendly notice on load.
     """
-    Check for required model files. If any are missing, try to download them automatically.
-    Returns a tuple with:
-        - A markdown warning string for any models that couldn't be downloaded; else an empty string
-        - A markdown string with information about the FastText model being used
-    """
-    missing = []
+    missing: list[str] = []
     fasttext_info = ""
 
-    # Try to download and check the fastText model
+    # Try to download and check the FastText model via utility (preferred path).
     try:
         from ..model_utils import ensure_fasttext_model
 
         model_path = ensure_fasttext_model()
         model_name = model_path.name
-        model_size_mb = round(model_path.stat().st_size / (1024 * 1024), 2)
+        size_mb = round(model_path.stat().st_size / (1024 * 1024), 2)
         model_type = "Full" if model_name.endswith(".bin") else "Compressed"
+        fasttext_info = (
+            f"**FastText Language Model:** {model_name} ({model_type}, {size_mb} MB)"
+        )
+        logging.info("FastText language identification model found at %s", model_path)
+    except Exception as exc:  # noqa: BLE001
+        # Fallback: check common locations if automatic download failed.
+        home = pathlib.Path.home()
+        pkg_dir = pathlib.Path(__file__).parent.parent
+        probe_paths = [
+            home / "lid.176.bin",
+            home / "lid.176.ftz",
+            pkg_dir / "lid.176.bin",
+            pkg_dir / "lid.176.ftz",
+        ]
 
-        fasttext_info = f"**FastText Language Model:** {model_name} ({model_type}, {model_size_mb} MB)"
-        logging.info(f"FastText language identification model found at {model_path}")
-    except Exception as e:
-        # Check for model files in standard locations
-        home_lid_bin = pathlib.Path.home() / "lid.176.bin"
-        home_lid_ftz = pathlib.Path.home() / "lid.176.ftz"
-        pkg_lid_bin = pathlib.Path(__file__).parent.parent / "lid.176.bin"
-        pkg_lid_ftz = pathlib.Path(__file__).parent.parent / "lid.176.ftz"
-
-        all_paths = [home_lid_bin, home_lid_ftz, pkg_lid_bin, pkg_lid_ftz]
-        existing_paths = [p for p in all_paths if p.exists()]
-
-        if existing_paths:
-            path = existing_paths[0]
-            model_name = path.name
-            model_size_mb = round(path.stat().st_size / (1024 * 1024), 2)
+        existing = [p for p in probe_paths if p.exists()]
+        if existing:
+            p = existing[0]
+            model_name = p.name
+            size_mb = round(p.stat().st_size / (1024 * 1024), 2)
             model_type = "Full" if model_name.endswith(".bin") else "Compressed"
-            fasttext_info = f"**FastText Language Model:** {model_name} ({model_type}, {model_size_mb} MB)"
+            fasttext_info = f"**FastText Language Model:** {model_name} ({model_type}, {size_mb} MB)"
         else:
-            msg = f"- FastText language model not found and auto-download failed: {str(e)}"
+            msg = f"- FastText language model not found and auto-download failed: {exc}"
             logging.warning(msg)
             missing.append(msg)
             fasttext_info = "**FastText Language Model:** Not found"
-    # Check turkic_model.model in tokenizer.py's directory
+
+    # Check SentencePiece model bundled with tokenizer for direct transliteration.
     try:
         import turkic_translit.tokenizer as tokenizer
 
         tok_dir = pathlib.Path(tokenizer.__file__).parent
-        model_path = tok_dir / "turkic_model.model"
-        if not model_path.exists():
-            msg = f"- `turkic_model.model` not found in {model_path}"
+        spm_model = tok_dir / "turkic_model.model"
+        if not spm_model.exists():
+            msg = f"- `turkic_model.model` not found in {spm_model}"
             logging.warning(msg)
             missing.append(msg)
-    except Exception as e:
-        msg = f"- Could not check for `turkic_model.model`: {e}"
+    except Exception as exc:  # noqa: BLE001
+        msg = f"- Could not verify `turkic_model.model`: {exc}"
         logging.warning(msg)
         missing.append(msg)
-    # Prepare warning message if any models are missing
-    warning_msg = ""
+
+    warning_md = ""
     if missing:
-        warning_msg = (
+        warning_md = (
             "**⚠️ Model file(s) missing:**\n"
             + "\n".join(missing)
             + "\nPlease ensure all required models are present for full functionality."
         )
 
-    return warning_msg, fasttext_info
+    return warning_md, fasttext_info
 
 
 # ── shared regex helpers for RU-filter debug table ──────────────────────────
@@ -328,23 +356,26 @@ def build_ui() -> gr.Blocks:
             except Exception as e:
                 return f"**Error comparing files**: {str(e)}"
 
-        def _do_mutual(
+        def _do_mutual(  # keep public name unchanged
             model_a: str,
             model_b: str,
             eval_lang: str,
             sample: int,
             metric: str,
-        ) -> str:
-            """Compute mutual intelligibility metric between *model_a* and *model_b*.
+            *,  # keyword-only from here ↓
+            progress: gr.Progress | None = None,
+        ) -> Generator[tuple[Any, str], None, None]:
+            """Compute mutual-intelligibility metrics *and* stream updates.
 
-            The function supports two metrics:
-            - *Cosine*: centred cosine similarity of hidden states (higher = closer)
-            - *Perplexity*: cross-perplexity — lower means target sentences are more
-              predictable by the source-trained model. We report both model→lang and
-              model_b→lang perplexities for reference.
+            Yields
+            ------
+            (first-output, log-markdown) tuples, where *first-output* is either a
+            `gr.update()` sentinel or the final Markdown string with the metric.
             """
-            # Lazily import heavy LM utilities inside the function to avoid
-            # slowing down initial UI load when tab is not used.
+            # Lazily import heavy LM utilities inside the function to avoid slowing the
+            # initial UI load when the tab is not used.
+            import gradio as gr  # local import so CLI usage doesn't depend on gradio
+
             from turkic_translit.lm import (
                 DatasetStream,
                 LMModel,
@@ -353,49 +384,102 @@ def build_ui() -> gr.Blocks:
             )
 
             try:
-                logger.info(
-                    "[mutual] models=(%s, %s) lang=%s sample=%d metric=%s",
-                    model_a,
-                    model_b,
-                    eval_lang,
-                    sample,
-                    metric,
-                )
+                t0 = time.perf_counter()
 
-                # Stream evaluation data with progress feedback
-                raw_stream = DatasetStream(
-                    "oscar-2201", eval_lang, max_sentences=sample
-                )
+                # Initialise progress helper lazily to avoid mutable default (ruff B008)
+                if progress is None:
+                    progress = gr.Progress(track_tqdm=True)
 
-                buffered: list[str] = []
-                for i, sent in enumerate(raw_stream, 1):
-                    buffered.append(sent)
-                    if i % 100 == 0 or i == sample:
-                        logger.info("[mutual] streamed %d/%d sentences", i, sample)
-                    if i >= sample:
-                        break
-                sentences = buffered  # Iterable[str]
+                # Immediately tell UI we started
+                yield gr.update(value=""), "⏳ **loading models …**\n"
 
+                progress(0.00, desc="loading A")
                 lm_a = LMModel.from_pretrained(model_a)
+
+                progress(0.10, desc="loading B")
                 lm_b = LMModel.from_pretrained(model_b)
+
+                progress(0.15, desc=f"streaming {sample} sentences")
+                ds = DatasetStream("oscar-2201", eval_lang, max_sentences=sample)
+                sentences = list(ds)  # tqdm captured automatically
+
+                # Flush any backend INFO lines collected so far
+                logs = _ui_log_handler.dump()
+                # Add a visual separator between log sections
+                separator = "<hr style=\"margin: 0.7em 0; border-top: 1px dashed #ccc;\">" if logs else ""
+                yield gr.update(), (logs + separator if logs else "") + "<p style=\"margin: 0.5em 0; padding: 0.3em 0; font-weight: bold;\">⏳ encoding / evaluating...</p>"
 
                 if metric == "Cosine":
                     sim = centred_cosine_matrix(lm_a, lm_b, sentences)
-                    logger.info("[mutual] cosine similarity computed: %.3f", sim)
-                    return f"**Centred Cosine Similarity:** {sim:.3f}"
+                    interpretation = ""
+                    if sim >= 0.9:
+                        interpretation = "The models are extremely similar in how they understand this language."
+                    elif sim >= 0.7:
+                        interpretation = (
+                            "The models are very similar in their understanding."
+                        )
+                    elif sim >= 0.5:
+                        interpretation = "The models have moderate similarity."
+                    elif sim >= 0.3:
+                        interpretation = (
+                            "The models have some differences in their understanding."
+                        )
+                    else:
+                        interpretation = "The models have significant differences in how they understand this language."
 
-                # Else perplexity metric
-                ppl_a = cross_perplexity(lm_a, sentences)
-                ppl_b = cross_perplexity(lm_b, sentences)
-                logger.info("[mutual] cross-ppl finished: %.1f vs %.1f", ppl_a, ppl_b)
-                return (
-                    f"**Cross-Perplexity**\n\n"
-                    f"• *{model_a}* → {eval_lang}: {ppl_a:.1f}\n\n"
-                    f"• *{model_b}* → {eval_lang}: {ppl_b:.1f}"
-                )
+                    res = f"""### Model Similarity Results
+
+**Cosine Similarity Score:** {sim:.3f}
+
+**What this means:** {interpretation}
+
+**About this measurement:** Cosine similarity measures how similar the two models are in their representation of language. Higher values (closer to 1.0) indicate greater similarity between models."""
+                else:
+
+                    def _fit(tok: Any, snts: list[str]) -> list[str]:
+                        """Return only sentences that fit *tok* context window."""
+                        mx: int = getattr(tok, "model_max_length", 1024) or 1024
+                        return [
+                            s
+                            for s in snts
+                            if len(tok(s, truncation=False)["input_ids"]) <= mx
+                        ]
+
+                    progress(0.80, desc="computing PPL A→lang")
+                    ppl_a = cross_perplexity(lm_a, _fit(lm_a.tokenizer, sentences))
+                    progress(0.90, desc="computing PPL B→lang")
+                    ppl_b = cross_perplexity(lm_b, _fit(lm_b.tokenizer, sentences))
+                    comparison = ""
+                    if ppl_a < ppl_b:
+                        diff_percent = ((ppl_b - ppl_a) / ppl_b) * 100
+                        comparison = f"Model A has {diff_percent:.1f}% lower perplexity, suggesting it understands {eval_lang} better than Model B."
+                    elif ppl_b < ppl_a:
+                        diff_percent = ((ppl_a - ppl_b) / ppl_a) * 100
+                        comparison = f"Model B has {diff_percent:.1f}% lower perplexity, suggesting it understands {eval_lang} better than Model A."
+                    else:
+                        comparison = "Both models have identical perplexity scores, suggesting they understand the language equally well."
+
+                    res = f"""### Language Understanding Results
+
+**Model A (*{model_a}*) perplexity:** {ppl_a:.1f}
+
+**Model B (*{model_b}*) perplexity:** {ppl_b:.1f}
+
+**What this means:** {comparison}
+
+**About this measurement:** Perplexity measures how well a model understands a language. Lower values indicate better understanding - the model is less "confused" by the text."""
+
+                progress(1.00, desc="done")
+                dt = time.perf_counter() - t0
+                final = f"<p style=\"margin: 0.5em 0; padding: 0.5em; background-color: #f0f8ff; border-radius: 4px;\">✅ <strong>Done in {dt:,.1f}s</strong></p>"
+                extra = _ui_log_handler.dump()
+                # Add a visual separator between logs and completion message
+                separator = "<hr style=\"margin: 0.7em 0; border-top: 1px dashed #ccc;\">" if extra else ""
+                yield res, (extra + separator + final if extra else final)
+
             except Exception as exc:  # pragma: no cover
                 logging.exception("Mutual intelligibility computation failed: %s", exc)
-                return f"⚠️ Error: {exc}"
+                yield (f"⚠️ Error: {exc}", "*see backend logs for traceback*")
 
         def _direct_tab() -> None:
             with gr.Column():
@@ -791,7 +875,20 @@ def build_ui() -> gr.Blocks:
                 gr.Markdown(
                     """
                     <div class="feature-description">
-                    <strong>Mutual Intelligibility:</strong> Compute similarity metrics between two language models.
+                    <h3>🤝 Mutual Intelligibility Analysis</h3>
+                    <p>Compare how similar two language models are in their understanding of a specific Turkic language.</p>
+                    </div>
+                    <div class="feature-explanation">
+                    <p>This tool measures how similarly two different language models understand and process the same language. 
+                    You can compare any two models to see if they would be mutually intelligible in real-world applications.</p>
+                    
+                    <h4>How It Works:</h4>
+                    <ul>
+                        <li><strong>Select two models</strong> to compare (pre-trained from Hugging Face or local models)</li>
+                        <li><strong>Choose a Turkic language</strong> for evaluation</li>
+                        <li><strong>Select a similarity metric</strong> (see details below)</li>
+                        <li><strong>Adjust the sample size</strong> for the comparison (larger samples provide more accurate results but take longer)</li>
+                    </ul>
                     </div>
                     """
                 )
@@ -827,7 +924,7 @@ def build_ui() -> gr.Blocks:
                         sample = gr.Slider(
                             minimum=100,
                             maximum=1000,
-                            value=500,
+                            value=100,
                             step=100,
                             label="Sample Size",
                         )
@@ -835,17 +932,60 @@ def build_ui() -> gr.Blocks:
                             ["Cosine", "Perplexity"],
                             label="Similarity Metric",
                             value="Cosine",
+                            info="Cosine measures overall similarity between models. Perplexity shows how well each model understands the language.",
                         )
 
                     with gr.Column(scale=7):
+                        gr.Markdown("""<h4>📈 Results</h4>""")
                         output = gr.Markdown()
+                        gr.Markdown("""<h5>Processing Log</h5>""")
+                        live_log = gr.Markdown(
+                            value="<p style=\"margin: 1em 0; font-style: italic; color: #666;\">Click 'Compare Models' to start analysis...</p>",
+                            elem_id="mutual-log",
+                            show_label=False,
+                            height=300,  # Increased height for better readability
+                        )
 
                 with gr.Row(elem_classes=["examples-row"]):
-                    gr.Button("Compute Similarity", variant="primary").click(
+                    gr.Button("Compare Models", variant="primary").click(
                         _do_mutual,
                         [model_a, model_b, eval_lang, sample, metric],
-                        output,
+                        [output, live_log],
                     )
+
+                # Add explanatory text below the main interface
+                gr.Markdown(
+                    """
+                    <div class="metrics-explanation">
+                    <h4>About the Similarity Metrics:</h4>
+                    
+                    <details>
+                        <summary><strong>Cosine Similarity</strong> - How similarly do the models represent language?</summary>
+                        <p>Cosine similarity measures how closely aligned the internal representations of language are between two models. 
+                        It tells you if the models "think" about language in the same way.</p>
+                        <ul>
+                            <li><strong>Values range from 0 to 1</strong>, where higher values mean greater similarity</li>
+                            <li><strong>Above 0.9:</strong> Models are practically identical in how they understand the language</li>
+                            <li><strong>0.7-0.9:</strong> Very high similarity; models likely have similar training data or architecture</li>
+                            <li><strong>0.5-0.7:</strong> Moderate similarity; models share some common understanding</li>
+                            <li><strong>Below 0.5:</strong> Low similarity; models have significant differences</li>
+                        </ul>
+                    </details>
+                    
+                    <details>
+                        <summary><strong>Perplexity</strong> - How well does each model understand the language?</summary>
+                        <p>Perplexity measures how "confused" a model is by new text in a specific language. Lower perplexity means
+                        the model is less surprised by the text and therefore understands the language better.</p>
+                        <ul>
+                            <li>The tool measures perplexity for each model separately against the same language samples</li>
+                            <li>The model with <strong>lower perplexity</strong> has a better understanding of the language</li>
+                            <li>Significant differences in perplexity (>10%) indicate one model has a substantially better grasp of the language</li>
+                            <li>This is useful for determining which model would be more effective for applications in that language</li>
+                        </ul>
+                    </details>
+                    </div>
+                    """
+                )
 
         with gr.Tabs():
             # Order tabs by the logical workflow: training → tokenization → processing → analysis
@@ -873,6 +1013,27 @@ def build_ui() -> gr.Blocks:
             """
         )
     return app  # type: ignore[no-any-return]
+
+
+class _PrettyLogFilter(logging.Filter):
+    """Skip verbose HTTP and backend housekeeping messages for UI logs."""
+
+    _SKIP_PHRASES = (
+        "HTTP Request:",
+        "turkic_model.model not found",
+    )
+
+    def filter(self, record: logging.LogRecord) -> bool:  # noqa: D401 – simple verb
+        msg = record.getMessage()
+        return not any(p in msg for p in self._SKIP_PHRASES)
+
+
+_ui_log_handler = GradioLogHandler()
+_ui_log_handler.setFormatter(logging.Formatter("%(message)s"))
+_ui_log_handler.addFilter(_PrettyLogFilter())
+
+# Attach only to our own package logger to avoid external noise
+logging.getLogger("turkic_translit").addHandler(_ui_log_handler)
 
 
 def main() -> None:

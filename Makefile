@@ -14,7 +14,7 @@ lint:
 	ruff check --fix .
 	ruff format
 	black .
-	mypy --strict . --exclude build
+	mypy --strict .
 
 # Auto-format code
 format:
@@ -34,13 +34,16 @@ build: clean
 web:
 	python turkic_tools.py web
 
-# Run the simple demo
-demo:
-	python turkic_tools.py demo
+# Run the web UI example
+run:
+	python turkic_tools.py web
 
-# Run the comprehensive demo
-full-demo:
-	python turkic_tools.py full-demo
+savecode:
+	savecode . --skip tests	--ext py toml
+
+savecode-test:
+	savecode . --ext py toml
+
 
 # Show help
 help:

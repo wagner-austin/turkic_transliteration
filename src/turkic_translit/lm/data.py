@@ -6,6 +6,9 @@ import itertools
 import unicodedata as ud
 from collections.abc import Iterable, Iterator
 
+# Third-party lightweight progress bar. Turbo wheels only ~40 KB, declared in deps.
+from tqdm import tqdm
+
 __all__ = ["DatasetStream"]
 
 
@@ -48,9 +51,21 @@ class DatasetStream(Iterable[str]):
         cfg = dl._REG[self.source]
         driver = dl._DRIVERS[cfg["driver"]]
 
-        for i, line in enumerate(driver(self.lang, cfg, None)):
-            if self.max_sent is not None and i >= self.max_sent:
-                break
+        # Obtain the base sentence iterator from the corpus driver
+        base_itr: Iterator[str] = driver(self.lang, cfg, None)
+
+        # Apply max sentence cap via itertools.islice for memory efficiency
+        if self.max_sent is not None:
+            itr: Iterator[str] = itertools.islice(base_itr, self.max_sent)
+        else:
+            itr = base_itr
+
+        for line in tqdm(
+            itr,
+            total=self.max_sent,
+            desc=f"[data] {self.lang}",
+            unit="sent",
+        ):
             yield ud.normalize("NFC", line)
 
     # Small helper used by *evaluate* metrics which expect list[str]

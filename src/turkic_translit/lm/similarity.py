@@ -11,6 +11,7 @@ import numpy as np
 import torch
 from sklearn.metrics.pairwise import cosine_similarity
 from sklearn.preprocessing import normalize
+from tqdm import tqdm
 
 from .train import LMModel
 
@@ -31,20 +32,16 @@ def _embed(
     mdl = model.model
 
     vecs: list[np.ndarray] = []
-    # Convert to list so we know total count for nicer progress.
+    # Materialise iterable for known length – required for tqdm progress bar.
     sent_list = list(sentences)
-    total = len(sent_list)
 
-    for i, sent in enumerate(sent_list, 1):
+    for sent in tqdm(sent_list, desc="[mutual] encoding", unit="sent"):
         ids = tok(sent, return_tensors="pt", truncation=True)
         device = next(mdl.parameters()).device
         ids = ids.to(device)
         with torch.no_grad():
             h = mdl(**ids, output_hidden_states=True).hidden_states[layer]
         vecs.append(h.mean(dim=1).cpu().numpy())
-
-        if i % 50 == 0 or i == total:
-            logger.info("[mutual] encoded %d/%d sentences", i, total)
 
     return normalize(np.vstack(vecs))
 

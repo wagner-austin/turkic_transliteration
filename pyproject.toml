@@ -45,6 +45,7 @@ dependencies = [
     "evaluate>=0.4",             # PPL metric
     "accelerate>=0.28",          # HF Trainer device dispatch
     "transformers>=4.41,<5",        # mGPT / BLOOM causal LM
+    "tqdm>=4.66",                # progress bars for LM utilities
     "scikit-learn>=1.4",        # cosine similarity utilities
     "typing_extensions>=4.12",    # for Never on Python ≤3.11
 ]
