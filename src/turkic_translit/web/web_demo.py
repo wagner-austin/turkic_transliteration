@@ -35,6 +35,14 @@ from turkic_translit.web.web_utils import (
     train_sentencepiece_model,
 )
 
+# Configure a basic logger once so long-running tasks give feedback in console.
+# We keep level=INFO so interactive users see progress but not excessive debug.
+logger = logging.getLogger("turkic_translit.web_demo")
+if not logger.handlers:
+    logging.basicConfig(
+        format="%(asctime)s [%(levelname)s] %(message)s", level=logging.INFO
+    )
+
 logging.basicConfig(level=logging.INFO)
 
 
@@ -319,6 +327,75 @@ def build_ui() -> gr.Blocks:
                 return f"**Comparison Result:**\n{result}"
             except Exception as e:
                 return f"**Error comparing files**: {str(e)}"
+
+        def _do_mutual(
+            model_a: str,
+            model_b: str,
+            eval_lang: str,
+            sample: int,
+            metric: str,
+        ) -> str:
+            """Compute mutual intelligibility metric between *model_a* and *model_b*.
+
+            The function supports two metrics:
+            - *Cosine*: centred cosine similarity of hidden states (higher = closer)
+            - *Perplexity*: cross-perplexity — lower means target sentences are more
+              predictable by the source-trained model. We report both model→lang and
+              model_b→lang perplexities for reference.
+            """
+            # Lazily import heavy LM utilities inside the function to avoid
+            # slowing down initial UI load when tab is not used.
+            from turkic_translit.lm import (
+                DatasetStream,
+                LMModel,
+                centred_cosine_matrix,
+                cross_perplexity,
+            )
+
+            try:
+                logger.info(
+                    "[mutual] models=(%s, %s) lang=%s sample=%d metric=%s",
+                    model_a,
+                    model_b,
+                    eval_lang,
+                    sample,
+                    metric,
+                )
+
+                # Stream evaluation data with progress feedback
+                raw_stream = DatasetStream(
+                    "oscar-2201", eval_lang, max_sentences=sample
+                )
+
+                buffered: list[str] = []
+                for i, sent in enumerate(raw_stream, 1):
+                    buffered.append(sent)
+                    if i % 100 == 0 or i == sample:
+                        logger.info("[mutual] streamed %d/%d sentences", i, sample)
+                    if i >= sample:
+                        break
+                sentences = buffered  # Iterable[str]
+
+                lm_a = LMModel.from_pretrained(model_a)
+                lm_b = LMModel.from_pretrained(model_b)
+
+                if metric == "Cosine":
+                    sim = centred_cosine_matrix(lm_a, lm_b, sentences)
+                    logger.info("[mutual] cosine similarity computed: %.3f", sim)
+                    return f"**Centred Cosine Similarity:** {sim:.3f}"
+
+                # Else perplexity metric
+                ppl_a = cross_perplexity(lm_a, sentences)
+                ppl_b = cross_perplexity(lm_b, sentences)
+                logger.info("[mutual] cross-ppl finished: %.1f vs %.1f", ppl_a, ppl_b)
+                return (
+                    f"**Cross-Perplexity**\n\n"
+                    f"• *{model_a}* → {eval_lang}: {ppl_a:.1f}\n\n"
+                    f"• *{model_b}* → {eval_lang}: {ppl_b:.1f}"
+                )
+            except Exception as exc:  # pragma: no cover
+                logging.exception("Mutual intelligibility computation failed: %s", exc)
+                return f"⚠️ Error: {exc}"
 
         def _direct_tab() -> None:
             with gr.Column():
@@ -709,12 +786,75 @@ def build_ui() -> gr.Blocks:
                 outputs=[output_info, model_download],
             )
 
+        def _mutual_tab() -> None:
+            with gr.Column():
+                gr.Markdown(
+                    """
+                    <div class="feature-description">
+                    <strong>Mutual Intelligibility:</strong> Compute similarity metrics between two language models.
+                    </div>
+                    """
+                )
+
+                # Predefined Oscar-2301 ISO codes likely to be interesting in Turkic context
+                iso_choices = [
+                    "az",
+                    "ba",
+                    "kk",
+                    "ky",
+                    "tr",
+                    "tk",
+                    "uz",
+                ]
+
+                with gr.Row():
+                    with gr.Column(scale=3):
+                        model_a = gr.Textbox(
+                            label="Model A (path or repo)",
+                            placeholder="sshleifer/tiny-gpt2 or /path/to/local/model",
+                            value="sshleifer/tiny-gpt2",
+                        )
+                        model_b = gr.Textbox(
+                            label="Model B (path or repo)",
+                            placeholder="sshleifer/tiny-gpt2 or /path/to/local/model",
+                            value="sshleifer/tiny-gpt2",
+                        )
+                        eval_lang = gr.Dropdown(
+                            choices=iso_choices,
+                            value="kk",
+                            label="Evaluation Language",
+                        )
+                        sample = gr.Slider(
+                            minimum=100,
+                            maximum=1000,
+                            value=500,
+                            step=100,
+                            label="Sample Size",
+                        )
+                        metric = gr.Radio(
+                            ["Cosine", "Perplexity"],
+                            label="Similarity Metric",
+                            value="Cosine",
+                        )
+
+                    with gr.Column(scale=7):
+                        output = gr.Markdown()
+
+                with gr.Row(elem_classes=["examples-row"]):
+                    gr.Button("Compute Similarity", variant="primary").click(
+                        _do_mutual,
+                        [model_a, model_b, eval_lang, sample, metric],
+                        output,
+                    )
+
         with gr.Tabs():
             # Order tabs by the logical workflow: training → tokenization → processing → analysis
             with gr.Tab("🧩 SentencePiece Training", id="sentencepiece"):
                 _sentencepiece_tab()
             with gr.Tab("🔍 Token Analysis", id="tokens"):
                 _tokens_tab()
+            with gr.Tab("🤝 Mutual Intelligibility", id="mutual"):
+                _mutual_tab()
             with gr.Tab("🎭 Filter Russian", id="filter_ru"):
                 _filter_ru_tab()
             with gr.Tab("🔄 Pipeline Process", id="pipeline"):

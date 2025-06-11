@@ -12,8 +12,34 @@ from typing import Any, Callable, Optional
 import click
 import requests
 import yaml  # type: ignore # Requires types-PyYAML
-from datasets import load_dataset
-from fasttext import load_model
+from typing_extensions import Never
+
+# 3rd-party heavy deps are optional in constrained CI environments.
+# We fallback to lightweight stubs so the module can still import and our
+# tests can monkey-patch drivers without pulling gigabytes of data.
+try:
+    from datasets import get_dataset_config_names, load_dataset
+except ModuleNotFoundError:  # pragma: no cover – stubbed in minimal envs
+
+    def _missing(*_a: object, **_kw: object) -> Never:  # noqa: D401 — internal helper
+        raise ModuleNotFoundError(
+            "Package 'datasets' is required for this command; install with"
+            " 'pip install datasets' or use turkic-transliterate[cli] extra."
+        )
+
+    load_dataset = _missing
+    get_dataset_config_names = _missing
+
+try:
+    from fasttext import load_model
+except ModuleNotFoundError:  # pragma: no cover – use stub in tests
+
+    def load_model(_p: str) -> Any:  # noqa: D401
+        raise ModuleNotFoundError(
+            "fasttext not installed; install turkic-transliterate[cli] to use"
+            " language-ID filtering."
+        )
+
 
 from ._net_utils import url_ok
 
@@ -52,7 +78,17 @@ def stream_oscar(
         raise click.ClickException(
             f"Remote corpus not reachable: https://huggingface.co/api/datasets/{cfg['hf_name']}"
         )
-    ds = load_dataset(cfg["hf_name"], lang, split="train", streaming=True)
+    # Allow gated OSCAR datasets that rely on custom loading scripts.
+    # `trust_remote_code=True` is required from datasets>=2.19 to execute the
+    # repository's loading script.  We inherit the user-scoped HF token so no
+    # extra `token=`/`use_auth_token=` arg is necessary.
+    ds = load_dataset(
+        cfg["hf_name"],
+        lang,
+        split="train",
+        streaming=True,
+        trust_remote_code=True,
+    )
     model = _get_lid() if filter_langid else None
     for row in ds:
         txt = (row["text"] or "").strip()
@@ -107,7 +143,7 @@ def stream_wikipedia(
                 elem.clear()
 
 
-def _leipzig_tar_name(lang: str) -> str:  # noqa: D401
+def _leipzig_tar_name(lang: str) -> str:
     """
     Return a plausible tarball name for *lang*.
 

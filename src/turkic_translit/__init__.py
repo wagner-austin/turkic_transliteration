@@ -2,6 +2,12 @@ import platform
 import sys
 from importlib.metadata import version
 
+# Public sub-packages (optional heavy deps)
+try:
+    from . import lm as lm  # noqa: F401
+except Exception:  # pragma: no cover – missing optional deps
+    lm = None  # type: ignore
+
 from . import patches as _patches  # noqa: F401
 from .core import to_ipa, to_latin
 from .logging_config import setup as _log_setup
@@ -24,6 +30,7 @@ __all__ = [
     "mask_russian",
     "median_levenshtein",
     "lang_filter",
+    *(["lm"] if lm is not None else []),
 ]
 __version__ = version("turkic_transliterate")
 

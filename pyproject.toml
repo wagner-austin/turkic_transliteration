@@ -42,6 +42,11 @@ dependencies = [
     "click>=8.1",
     "types-requests>=2.31",
     "datasets>=2.20",
+    "evaluate>=0.4",             # PPL metric
+    "accelerate>=0.28",          # HF Trainer device dispatch
+    "transformers>=4.41,<5",        # mGPT / BLOOM causal LM
+    "scikit-learn>=1.4",        # cosine similarity utilities
+    "typing_extensions>=4.12",    # for Never on Python ≤3.11
 ]
 
 [project.optional-dependencies]
@@ -71,7 +76,8 @@ dev = [
 # User interface dependencies
 ui = [
     "gradio>=4.0",
-    "pandas"              # token-table feature
+    "pandas",
+    "matplotlib>=3.9",           # cosine-similarity heat-map
 ]
 
 [project.scripts]
@@ -82,6 +88,8 @@ turkic-download-corpus = "turkic_translit.cli.download_corpus:cli"
 turkic-build-spm = "turkic_translit.cli.build_spm:main"
 turkic-leven = "turkic_translit.cli.run_leven:main"
 turkic-web = "turkic_translit.web.web_demo:main"
+turkic-train-lm = "turkic_translit.cli.train_lm:cli"
+turkic-eval-lm  = "turkic_translit.cli.eval_lm:cli"
 
 
 [tool.setuptools.packages]
