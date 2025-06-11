@@ -62,7 +62,10 @@ class GradioLogHandler(logging.Handler):
 
     def dump(self) -> str:
         # Format each log line as a separate paragraph with line breaks for better readability
-        formatted_lines = [f"<p style=\"margin: 0.5em 0; padding: 0.3em 0;\">{line}</p>" for line in self.buffer]
+        formatted_lines = [
+            f'<p style="margin: 0.5em 0; padding: 0.3em 0;">{line}</p>'
+            for line in self.buffer
+        ]
         out, self.buffer = "\n".join(formatted_lines), []
         return out
 
@@ -406,8 +409,16 @@ def build_ui() -> gr.Blocks:
                 # Flush any backend INFO lines collected so far
                 logs = _ui_log_handler.dump()
                 # Add a visual separator between log sections
-                separator = "<hr style=\"margin: 0.7em 0; border-top: 1px dashed #ccc;\">" if logs else ""
-                yield gr.update(), (logs + separator if logs else "") + "<p style=\"margin: 0.5em 0; padding: 0.3em 0; font-weight: bold;\">⏳ encoding / evaluating...</p>"
+                separator = (
+                    '<hr style="margin: 0.7em 0; border-top: 1px dashed #ccc;">'
+                    if logs
+                    else ""
+                )
+                yield (
+                    gr.update(),
+                    (logs + separator if logs else "")
+                    + '<p style="margin: 0.5em 0; padding: 0.3em 0; font-weight: bold;">⏳ encoding / evaluating...</p>',
+                )
 
                 if metric == "Cosine":
                     sim = centred_cosine_matrix(lm_a, lm_b, sentences)
@@ -471,10 +482,14 @@ def build_ui() -> gr.Blocks:
 
                 progress(1.00, desc="done")
                 dt = time.perf_counter() - t0
-                final = f"<p style=\"margin: 0.5em 0; padding: 0.5em; background-color: #f0f8ff; border-radius: 4px;\">✅ <strong>Done in {dt:,.1f}s</strong></p>"
+                final = f'<p style="margin: 0.5em 0; padding: 0.5em; background-color: #f0f8ff; border-radius: 4px;">✅ <strong>Done in {dt:,.1f}s</strong></p>'
                 extra = _ui_log_handler.dump()
                 # Add a visual separator between logs and completion message
-                separator = "<hr style=\"margin: 0.7em 0; border-top: 1px dashed #ccc;\">" if extra else ""
+                separator = (
+                    '<hr style="margin: 0.7em 0; border-top: 1px dashed #ccc;">'
+                    if extra
+                    else ""
+                )
                 yield res, (extra + separator + final if extra else final)
 
             except Exception as exc:  # pragma: no cover
@@ -988,21 +1003,22 @@ def build_ui() -> gr.Blocks:
                 )
 
         with gr.Tabs():
-            # Order tabs by the logical workflow: training → tokenization → processing → analysis
-            with gr.Tab("🧩 SentencePiece Training", id="sentencepiece"):
+            # Order tabs by the logical workflow: training → sanity-check → processing → cleanup → ad-hoc → evaluation
+            with gr.Tab("🧩 Train Tokenizer", id="sentencepiece"):
                 _sentencepiece_tab()
-            with gr.Tab("🔍 Token Analysis", id="tokens"):
+            with gr.Tab("🔍 ID Token Language", id="tokens"):
                 _tokens_tab()
-            with gr.Tab("🤝 Mutual Intelligibility", id="mutual"):
-                _mutual_tab()
+            # The Pipeline tab is temporarily disabled per user request
+            # with gr.Tab("🔄 Lang ID, Tokenize, Transliterate", id="pipeline"):
+            #     _pipeline_tab()
             with gr.Tab("🎭 Filter Russian", id="filter_ru"):
                 _filter_ru_tab()
-            with gr.Tab("🔄 Pipeline Process", id="pipeline"):
-                _pipeline_tab()
-            with gr.Tab("📝 Direct Transliteration", id="direct"):
+            with gr.Tab("📝 Transliterate to IPA/Latin", id="direct"):
                 _direct_tab()
-            with gr.Tab("📊 Compare Files", id="compare"):
+            with gr.Tab("📊 Levenshtein Distance", id="compare"):
                 _compare_tab()
+            with gr.Tab("🤝 Mutual Intelligibility", id="mutual"):
+                _mutual_tab()
 
         gr.Markdown(
             """
