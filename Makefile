@@ -39,7 +39,7 @@ run:
 	python turkic_tools.py web
 
 savecode:
-	savecode . --skip tests	--ext py toml
+	savecode . --skip tests	web --ext py toml
 
 savecode-test:
 	savecode . --ext py toml
