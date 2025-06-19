@@ -61,6 +61,7 @@ corpus = [
     "datasets>=2.20",
     "pyarrow>=14.0",
     "requests>=2.0",
+    "zstandard>=0.23",
 ]
 
 # Development tools
@@ -91,6 +92,7 @@ turkic-leven = "turkic_translit.cli.run_leven:main"
 turkic-web = "turkic_translit.web.web_demo:main"
 turkic-train-lm = "turkic_translit.cli.train_lm:cli"
 turkic-eval-lm  = "turkic_translit.cli.eval_lm:cli"
+turkic-train-spm = "turkic_translit.cli.train_spm:main"
 
 
 [tool.setuptools.packages]

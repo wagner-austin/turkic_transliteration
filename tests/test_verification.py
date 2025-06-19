@@ -53,9 +53,9 @@ def test_epitran_panphon_ipa() -> None:
     assert len(ipa) >= 4, f"Expected at least 4 characters in IPA, got: {len(ipa)}"
 
     # Check feature extraction results
-    assert (
-        len(vec) >= 4
-    ), f"Expected at least 4 feature vectors (one per sound), got: {len(vec)}"
+    assert len(vec) >= 4, (
+        f"Expected at least 4 feature vectors (one per sound), got: {len(vec)}"
+    )
 
     # Check that the feature vectors have the proper structure
     # panphon returns arrays of feature values, not dictionaries
@@ -63,9 +63,9 @@ def test_epitran_panphon_ipa() -> None:
         # Each segment should have at least 20 features
         assert len(segment) >= 20, f"Segment {i} has too few features: {len(segment)}"
         # Each segment should be a list of feature values (+/-/0)
-        assert all(
-            val in ["+", "-", "0"] for val in segment
-        ), f"Invalid feature values in segment {i}: {segment}"
+        assert all(val in ["+", "-", "0"] for val in segment), (
+            f"Invalid feature values in segment {i}: {segment}"
+        )
 
 
 # 3. Test SentencePiece encode/decode round-trip

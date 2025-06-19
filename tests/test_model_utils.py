@@ -204,9 +204,9 @@ class TestModelIntegration:
                 "спасибо",  # спасибо
             ]
             for russian_text in russian_examples:
-                assert (
-                    langid.predict(russian_text) == "ru"
-                ), f"Failed to identify '{russian_text}' as Russian"
+                assert langid.predict(russian_text) == "ru", (
+                    f"Failed to identify '{russian_text}' as Russian"
+                )
 
             # For Turkic languages, the compressed model may identify some phrases differently
             # This is expected due to the similarity between Turkic languages
@@ -215,9 +215,9 @@ class TestModelIntegration:
 
             # Rather than requiring a specific code, verify it's identified as a Turkic language
             turkic_codes = {"kk", "tt", "ky", "uz", "ba", "sah", "crh", "azb", "az"}
-            assert (
-                lang_code in turkic_codes
-            ), f"'{turkic_text}' identified as '{lang_code}' which is not in Turkic language codes: {turkic_codes}"
+            assert lang_code in turkic_codes, (
+                f"'{turkic_text}' identified as '{lang_code}' which is not in Turkic language codes: {turkic_codes}"
+            )
 
             # Verify prediction of tokens
             tokens = ["Hello", "Привет", "Сәлем"]
@@ -229,9 +229,9 @@ class TestModelIntegration:
 
             # For the Turkic token, verify it's identified as a Turkic language
             turkic_codes = {"kk", "tt", "ky", "uz", "ba", "sah", "crh", "azb", "az"}
-            assert (
-                langs[2] in turkic_codes
-            ), f"'Сәлем' identified as '{langs[2]}' which is not in Turkic language codes: {turkic_codes}"
+            assert langs[2] in turkic_codes, (
+                f"'Сәлем' identified as '{langs[2]}' which is not in Turkic language codes: {turkic_codes}"
+            )
 
         finally:
             # Restore any models we moved

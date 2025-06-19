@@ -182,13 +182,15 @@ def stream_leipzig(
             model: Any = _get_lid() if filter_langid else None
             with tarfile.open(tgz) as tar:
                 for member in tar.getmembers():
-                    if member.name.endswith(".tsv"):
+                    if member.name.endswith((".tsv", "-sentences.txt")):
                         fileobj = tar.extractfile(member)
                         if fileobj is None:
                             continue
                         text = fileobj.read().decode("utf-8")
                         for line in text.splitlines():
-                            sent = line.split("\t", 2)[1].strip()
+                            cols = line.split("\t", 1)
+                            sent = cols[1] if len(cols) > 1 else line.partition(" ")[2]
+                            sent = sent.strip()
                             if filter_langid:
                                 pred = model.predict(sent.replace("\n", " "))[0][
                                     0

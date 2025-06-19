@@ -24,9 +24,7 @@ ArrayF = np.ndarray[Any, np.dtype[np.floating]]
 logger = logging.getLogger("turkic_translit.web_demo")
 
 
-def _embed(
-    model: LMModel, sentences: Iterable[str], layer: int = -2
-) -> ArrayF:  # noqa: D401
+def _embed(model: LMModel, sentences: Iterable[str], layer: int = -2) -> ArrayF:  # noqa: D401
     """Return *L2*-normalised mean-pooled hidden states for *sentences*."""
     tok = model.tokenizer
     mdl = model.model

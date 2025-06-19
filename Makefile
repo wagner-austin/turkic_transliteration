@@ -13,18 +13,18 @@ clean:
 lint:
 	ruff check --fix .
 	ruff format
-	black .
 	mypy --strict .
 
 # Auto-format code
 format:
-	#ruff format
+	ruff format
 	ruff check --fix .
-	black .
-
+	
 # Run tests
 test:
 	python -m pytest
+
+check: lint test
 
 # Build distributable package
 build: clean

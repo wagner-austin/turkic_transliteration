@@ -216,9 +216,9 @@ def test_slider_equivalence(fasttext_mock: MockFastText) -> None:
 
     # Results should start True and switch to False exactly once
     changes = sum(1 for i in range(1, len(results)) if results[i] != results[i - 1])
-    assert (
-        changes == 1
-    ), f"Expected exactly one change in results but got {changes}: {results}"
+    assert changes == 1, (
+        f"Expected exactly one change in results but got {changes}: {results}"
+    )
 
     # The change should happen after threshold 0.4
     assert results[4]  # At threshold 0.4
