@@ -41,6 +41,9 @@ run:
 savecode:
 	savecode . --skip tests	web --ext py toml
 
+savecode-web:
+	savecode . --skip tests --ext py toml
+
 savecode-test:
 	savecode . --ext py toml
 
