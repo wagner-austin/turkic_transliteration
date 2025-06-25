@@ -30,6 +30,13 @@ class FastTextLangID:
 
         self.model = fasttext.load_model(model_path)
 
+    def predict_with_prob(self, text: str) -> tuple[str, float]:
+        """Return (language, probability) for the top FastText prediction."""
+        clean = text.replace("\u2581", "").strip()
+        labels, probs = self.model.predict(clean, k=1)
+        lang = cast(str, labels[0]).replace("__label__", "")
+        return lang, float(probs[0])
+
     def predict(self, text: str) -> str:
         # Remove SentencePiece underline and whitespace
         clean_text = text.replace("\u2581", "").strip()

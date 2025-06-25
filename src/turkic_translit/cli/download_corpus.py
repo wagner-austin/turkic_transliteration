@@ -1,9 +1,12 @@
 import bz2
 import html
+import json
+import logging
 import re
 import tarfile
 import tempfile
 import unicodedata as ud
+import urllib.request
 import xml.etree.ElementTree as ET
 from collections.abc import Generator
 from pathlib import Path
@@ -43,8 +46,44 @@ except ModuleNotFoundError:  # pragma: no cover – use stub in tests
 
 from ._net_utils import url_ok
 
+# ---------------------------------------------------------------------------
+# Helpers
+# ---------------------------------------------------------------------------
+
+
+def _wikipedia_lang_codes_from_sitematrix() -> list[str]:
+    """Return ISO codes for open Wikipedia editions via SiteMatrix API."""
+    url = (
+        "https://meta.wikimedia.org/w/api.php?"
+        "action=sitematrix&format=json&smtype=language&smsiteprop=code|closed"
+    )
+    with urllib.request.urlopen(url, timeout=10) as r:
+        data = json.load(r)
+
+    langs: set[str] = set()
+    for key, block in data.get("sitematrix", {}).items():
+        if not str(key).isdigit():
+            continue  # skip special keys
+        for site in block.get("site", []):
+            if site.get("code") == "wiki" and not site.get("closed"):
+                langs.add(block["code"])
+                break
+    return sorted(langs)
+
+
 # One evergreen file we can always grab / health-check.
 _LEIPZIG_FALLBACK = "deu_news_2012_1M.tar.gz"
+
+
+def _leipzig_tar_name(lang: str) -> str:
+    """Return a plausible Leipzig tarball name for *lang* (news 2012 or web 2019)."""
+    tmpl = f"{lang}_news_2012_1M.tar.gz"
+    if url_ok(f"https://downloads.wortschatz-leipzig.de/corpora/{tmpl}"):
+        return tmpl
+    tmpl = f"{lang}_web_2019_1M.tar.gz"
+    if url_ok(f"https://downloads.wortschatz-leipzig.de/corpora/{tmpl}"):
+        return tmpl
+    return _LEIPZIG_FALLBACK
 
 
 # helper alias – one positional sig keeps mypy happy
@@ -103,15 +142,16 @@ def stream_oscar(
             yield txt
 
 
-def stream_wikipedia(
+def _stream_wikipedia_xml(
     lang: str, cfg: dict[str, Any], filter_langid: Optional[str] = None
 ) -> Generator[str, None, None]:
     import click
 
     from ._net_utils import url_ok
 
-    dump = f"{lang}wiki-latest-pages-articles.xml.bz2"
-    url = f"https://dumps.wikimedia.org/{lang}wiki/latest/{dump}"
+    dump_version = "latest"
+    dump = f"{lang}wiki-{dump_version}-pages-articles.xml.bz2"
+    url = f"https://dumps.wikimedia.org/{lang}wiki/{dump_version}/{dump}"
     if not url_ok(url):
         raise click.ClickException(f"Remote corpus not reachable: {url}")
     try:
@@ -141,28 +181,60 @@ def stream_wikipedia(
                 elem.clear()
             else:
                 elem.clear()
+    # remove downloaded Wikipedia dump to avoid repo artifacts
+    import contextlib
+    import os
+
+    with contextlib.suppress(FileNotFoundError):
+        os.remove(dump)
 
 
-def _leipzig_tar_name(lang: str) -> str:
+# ---------------------------------------------------------------------------
+# New fast Hugging Face streaming driver for Wikipedia
+# ---------------------------------------------------------------------------
+
+
+def stream_wikipedia(
+    lang: str,
+    cfg: dict[str, Any],
+    filter_langid: Optional[str] = None,
+) -> Generator[str, None, None]:
+    """Stream sentences from *lang* Wikipedia via 🤗 *datasets*.
+
+    Falls back transparently to the original XML-dump path when the
+    `datasets` package or the requested language variant is unavailable.
     """
-    Return a plausible tarball name for *lang*.
+    try:
+        ds = load_dataset(
+            "wikipedia",
+            language=lang,
+            split="train",
+            streaming=True,
+            trust_remote_code=True,
+        )
+    except Exception:
+        logging.info(
+            "HuggingFace Wikipedia dataset unavailable – falling back to XML dump"
+        )
+        # Either *datasets* is missing or this language is not mirrored –
+        # degrade gracefully.
+        yield from _stream_wikipedia_xml(lang, cfg, filter_langid)
+        return
 
-    For now we support the common “{iso}_news_2012_1M.tar.gz” and
-    “{iso}_web_2019_1M.tar.gz” layouts; fall back to the German news 2012 file
-    when in doubt so health-checks never 404.
-    """
-    tmpl = f"{lang}_news_2012_1M.tar.gz"
-    test_url = f"https://downloads.wortschatz-leipzig.de/corpora/{tmpl}"
-    if url_ok(test_url):
-        return tmpl
-
-    tmpl = f"{lang}_web_2019_1M.tar.gz"
-    test_url = f"https://downloads.wortschatz-leipzig.de/corpora/{tmpl}"
-    if url_ok(test_url):
-        return tmpl
-
-    # Last resort – always exists
-    return _LEIPZIG_FALLBACK
+    model = _get_lid() if filter_langid else None
+    for row in ds:
+        txt = (row.get("text") or "").strip()
+        if not txt:
+            continue
+        txt = ud.normalize("NFC", txt)
+        if filter_langid and model is not None:
+            pred = model.predict(txt.replace("\n", " "))[0][0].replace(
+                "__label__",
+                "",
+            )
+            if pred != filter_langid:
+                continue
+        yield txt
 
 
 def stream_leipzig(
@@ -222,11 +294,15 @@ def _ls_src() -> None:
 
 
 @cli.command("list-langs")
-@click.option("--source", default="oscar-2201")
-def _ls_lang(source: str) -> None:
+@click.option("--source", default="oscar-2301")
+@click.option("-v", "--verbose", is_flag=True, help="Enable verbose debug output.")
+def _ls_lang(source: str, verbose: bool) -> None:
+    import logging
+
     import click
 
-    from ._net_utils import url_ok
+    if verbose:
+        logging.basicConfig(level=logging.DEBUG)
 
     cfg = _REG[source]
     if cfg["driver"] == "oscar":
@@ -235,25 +311,14 @@ def _ls_lang(source: str) -> None:
         names = get_dataset_config_names(cfg["hf_name"])
         click.echo(" ".join(sorted(names)))
     elif cfg["driver"] == "wikipedia":
-        # Candidate codes: hardcoded or loaded from a file if available
-        candidate_codes = [
-            # ... populate with the list of 300 ISO codes or load dynamically ...
-            # For brevity, only a few examples:
-            "en",
-            "ru",
-            "kk",
-            "ky",
-            "tr",
-            "uz",
-            "az",
-        ]
+        names = _wikipedia_lang_codes_from_sitematrix()
+        if verbose:
+            import logging
 
-        def wiki_lang_ok(lang: str) -> bool:
-            url = f"https://dumps.wikimedia.org/{lang}wiki/latest/{lang}wiki-latest-pages-articles.xml.bz2"
-            return url_ok(url)
-
-        maybe = [c for c in candidate_codes if wiki_lang_ok(c)]
-        click.echo(" ".join(maybe))
+            logging.getLogger(__name__).debug(
+                "Wikipedia languages detected: %d", len(names)
+            )
+        click.echo(" ".join(names))
     else:
         # No dynamic Leipzig index available, so we cannot list languages.
         click.echo("Dynamic Leipzig language listing unavailable.")
@@ -267,7 +332,8 @@ def _license(source: str) -> None:
 
 
 @cli.command("download")
-@click.option("--source", default="oscar-2201", show_default=True)
+@click.option("--source", default="oscar-2301", show_default=True)
+@click.option("-v", "--verbose", is_flag=True, help="Enable verbose debug output.")
 @click.option("--lang", required=True, help="ISO-639-1/3 code")
 @click.option("--out", required=True, type=click.Path(dir_okay=False, writable=True))
 @click.option(
@@ -285,6 +351,7 @@ def _dl(
     out: str,
     max_lines: Optional[int],
     filter_langid: Optional[str],
+    verbose: bool,
 ) -> None:
     import click
 
@@ -321,7 +388,7 @@ def _doctor() -> None:
         if cfg["driver"] == "oscar":
             url = f"https://huggingface.co/api/datasets/{cfg['hf_name']}"
         elif cfg["driver"] == "wikipedia":
-            url = "https://dumps.wikimedia.org/"
+            url = "https://meta.wikimedia.org/w/api.php?action=sitematrix&format=json"
         elif cfg["driver"] == "leipzig":
             from .download_corpus import _leipzig_tar_name
 

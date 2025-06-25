@@ -11,32 +11,35 @@ clean:
 
 # Run linting tools
 lint:
-	ruff check --fix .
-	ruff format
-	mypy --strict .
-
-# Auto-format code
-format:
-	ruff format
-	ruff check --fix .
+	poetry run ruff check --fix .
+	poetry run ruff format
+	poetry run mypy --strict .
 	
+# Install all dependencies (incl. UI extras)
+install:
+	poetry lock
+	poetry install --extras ui --extras corpus
+
 # Run tests
-test:
-	python -m pytest
+test: install
+	poetry run pytest
 
 check: lint test
 
 # Build distributable package
-build: clean
-	python -m build
+build: clean install
+	poetry run python -m build
 
 # Run the web UI example
-web:
-	python turkic_tools.py web
+web: install
+	poetry run python turkic_tools.py web
+
+# Run the web UI with DEBUG logs
+debug: install
+	poetry run python turkic_tools.py web
 
 # Run the web UI example
-run:
-	python turkic_tools.py web
+run: web
 
 savecode:
 	savecode . --skip tests	web --ext py toml
@@ -56,6 +59,7 @@ help:
 	@echo "  make format     - Auto-format code"
 	@echo "  make test       - Run tests"
 	@echo "  make build      - Build distribution package"
-	@echo "  make web        - Run the web UI example"
+		@echo "  make web        - Run the web UI example"
+	@echo "  make run-debug  - Run the web UI with PYTHONLOGLEVEL=DEBUG"
 	@echo "  make demo       - Run the simple demo"
 	@echo "  make full-demo  - Run the comprehensive demo"

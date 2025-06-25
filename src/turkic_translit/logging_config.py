@@ -9,7 +9,10 @@ import sys
 from functools import lru_cache
 
 # Get log level from environment or default to INFO
-LOG_LEVEL = os.environ.get("TURKIC_LOG_LEVEL", "INFO").upper()
+# Check PYTHONLOGLEVEL first (standard Python), then TURKIC_LOG_LEVEL (project-specific), then default to INFO
+LOG_LEVEL: str = (
+    os.environ.get("PYTHONLOGLEVEL") or os.environ.get("TURKIC_LOG_LEVEL") or "INFO"
+).upper()
 
 
 @lru_cache(maxsize=1)

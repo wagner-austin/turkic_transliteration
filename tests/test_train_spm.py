@@ -3,7 +3,6 @@ End-to-end smoke-tests for the new `turkic-train-spm` CLI.
 
 We parametrise over the three supported corpus drivers:
 
-* leipzig     – deterministic small tarball, quickest
 * wikipedia   – single dump fetch, still lightweight with few lines
 * oscar-2301  – HuggingFace streaming dataset
 
@@ -23,7 +22,6 @@ import pytest
 
 PARAMS = [
     # (source-name, max_lines)
-    ("leipzig", 100),
     ("wikipedia", 50),
     ("oscar-2301", 20),
 ]

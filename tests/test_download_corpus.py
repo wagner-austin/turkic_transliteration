@@ -51,10 +51,10 @@ def _dummy_driver(name: str) -> dl.StreamFn:
 def test_list_sources_and_license(runner: CliRunner) -> None:
     res = runner.invoke(dl.cli, ["list-sources"])
     assert res.exit_code == 0
-    # registry always has at least oscar-2201
-    assert "oscar-2201" in res.output
+    # registry always has at least oscar-2301
+    assert "oscar-2301" in res.output
 
-    res = runner.invoke(dl.cli, ["license", "--source", "oscar-2201"])
+    res = runner.invoke(dl.cli, ["license", "--source", "oscar-2301"])
     assert res.exit_code == 0
     assert "CC0" in res.output
 
@@ -73,7 +73,7 @@ def test_download_basic(
         [
             "download",
             "--source",
-            "oscar-2201",
+            "oscar-2301",
             "--lang",
             "kk",
             "--out",
@@ -101,7 +101,7 @@ def test_max_lines(
         [
             "download",
             "--source",
-            "oscar-2201",
+            "oscar-2301",
             "--lang",
             "ky",
             "--out",
@@ -143,7 +143,7 @@ def test_filter_langid(
         [
             "download",
             "--source",
-            "oscar-2201",
+            "oscar-2301",
             "--lang",
             "kk",
             "--out",
@@ -164,4 +164,4 @@ def test_filter_langid(
 @pytest.fixture
 def runner() -> CliRunner:
     """Provide a Click CliRunner with env isolation."""
-    return CliRunner(mix_stderr=False, env={"PYTHONIOENCODING": "utf8"})
+    return CliRunner(env={"PYTHONIOENCODING": "utf8"})

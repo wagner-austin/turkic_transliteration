@@ -5,15 +5,54 @@ import json
 import logging
 import os
 import tempfile
+import threading
+import time
 import typing as t
 from pathlib import Path
 from types import ModuleType
 from typing import TYPE_CHECKING
 
+# Gradio is optional at runtime but needed for type hints
+try:
+    import gradio as gr  # type-only; not required outside web UI
+except ModuleNotFoundError:  # pragma: no cover
+    import typing as _t
+
+    gr = _t.cast(_t.Any, None)
+
 from ..lang_filter import is_russian_token
 from ..langid import FastTextLangID
 
 log = logging.getLogger(__name__)
+
+# Directory for temporary corpus downloads – excluded from VCS via .gitignore
+
+_CRON_DIR = Path(os.getenv("TURKIC_CRON_DIR", Path.cwd() / "cronjob"))
+_CRON_DIR.mkdir(parents=True, exist_ok=True)
+
+
+# Start a background janitor thread to purge files older than 10 min.
+def _start_janitor(max_age_sec: int = 600) -> None:
+    def _janitor() -> None:
+        while True:
+            try:
+                cutoff = time.time() - max_age_sec
+                for fp in _CRON_DIR.glob("*"):
+                    try:
+                        if fp.stat().st_mtime < cutoff:
+                            fp.unlink(missing_ok=True)
+                    except FileNotFoundError:
+                        pass
+                time.sleep(max_age_sec)  # run roughly every *max_age_sec*
+            except Exception as e:  # pragma: no cover – background safety
+                log.warning(f"Janitor error: {e}")
+                time.sleep(60)
+
+    th = threading.Thread(target=_janitor, daemon=True, name="cron-janitor")
+    th.start()
+
+
+_start_janitor()
 
 
 if TYPE_CHECKING:  # for static checkers only
@@ -202,6 +241,105 @@ def median_levenshtein(
     return f"Median distance: {value:.4f}"
 
 
+# ──────────────────────────────────────────────────────────────────────────
+# NEW: lightweight corpus-to-file streaming helper
+
+
+def download_corpus_to_file(
+    source: str,
+    lang: str,
+    max_lines: int | None = None,
+    filter_langid: bool = False,
+    prob_threshold: float = 0.0,
+    *,
+    progress: gr.Progress | None = None,  # injected by Gradio
+) -> tuple[str, str]:
+    """
+    Stream sentences from *source*/*lang* into a temporary UTF-8 file.
+
+    Returns a pair *(file_path, markdown_info)* so the caller can both expose
+    the file for download **and** show a summary message.
+    """
+
+    from pathlib import Path
+
+    from turkic_translit.cli import download_corpus as dl
+
+    if source not in dl._REG:
+        raise ValueError(
+            f"Unknown corpus source {source!r}. Available: {', '.join(dl._REG)}"
+        )
+
+    driver = dl._DRIVERS[dl._REG[source]["driver"]]
+    # We fetch *unfiltered* iterator and apply our own threshold-aware filter
+    base_iter = driver(lang, dl._REG[source], None)
+
+    # Determine progress callback (Gradio Progress implements __call__)
+    if progress is None:
+
+        def _noop_progress(*_a: object, **_kw: object) -> None:
+            """Fallback progress function that does nothing."""
+
+        progress_fn: t.Callable[..., None] = _noop_progress
+    else:
+        progress_fn = t.cast(t.Callable[..., None], progress)
+
+    # Initial tick so the UI shows the bar immediately
+    progress_fn(0, desc="starting stream")
+
+    from turkic_translit.langid import FastTextLangID
+
+    model: FastTextLangID | None = FastTextLangID() if filter_langid else None
+
+    # Counters
+    i = 0  # lines written
+    removed = 0
+
+    with open(
+        _CRON_DIR / f"{source}_{lang}_{int(time.time())}.txt", "w", encoding="utf8"
+    ) as tmp:
+        tmp_path = tmp.name  # capture early so it is available after context closes
+        # Ensure *i* is defined even when the iterator is empty
+        for sentence in base_iter:
+            clean_sentence = sentence.replace("\n", " ").replace("\r", " ").strip()
+            if not clean_sentence:
+                continue  # skip blank lines
+            # Apply LangID filter if requested
+            if model is not None:
+                pred_lang, prob = model.predict_with_prob(clean_sentence)
+                if pred_lang != lang or prob < prob_threshold:
+                    removed += 1
+                    continue
+            tmp.write(clean_sentence + "\n")
+            i += 1
+            if i % 10_000 == 0:
+                progress_fn(None, desc=f"{i:,} lines kept…")
+            if max_lines is not None and i >= max_lines:
+                break
+
+    # Capture file path after context manager closes it
+    tmp_path = tmp.name
+
+    progress_fn(1.0, desc="completed")
+
+    # Compute how many lines were skipped when language filtering is active
+    # removed counter already computed
+
+    info_md = (
+        "### ✅ Download complete\n\n"
+        f"- **Source:** `{source}`\n"
+        f"- **Language:** `{lang}`\n"
+        f"- **Lines written:** {i:,}\n"
+        + (
+            f"- **Lines removed by LangID filter:** {removed:,} (p ≥ {prob_threshold})\n"
+            if filter_langid
+            else ""
+        )
+        + f"- **File:** `{Path(tmp_path).name}`\n"
+    )
+    return tmp_path, info_md
+
+
 def train_sentencepiece_model(
     input_text: str,
     training_file: t.Any = None,
@@ -328,5 +466,6 @@ __all__ = [
     "token_table_markdown",
     "mask_russian",
     "median_levenshtein",
+    "download_corpus_to_file",
     "train_sentencepiece_model",
 ]

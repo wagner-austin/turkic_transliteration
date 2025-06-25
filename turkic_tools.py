@@ -28,8 +28,12 @@ def run_web_ui() -> int:
     import importlib.machinery
     import importlib.util
     import logging
+    import os
 
-    logging.basicConfig(level=logging.WARNING, force=True)
+    # Respect PYTHONLOGLEVEL environment variable, default to WARNING for compatibility
+    _lvl_str = os.environ.get("PYTHONLOGLEVEL", "WARNING").upper()
+    _lvl = getattr(logging, _lvl_str, logging.WARNING)
+    logging.basicConfig(level=_lvl, force=True)
 
     web_app_path = PROJECT_ROOT / "src" / "turkic_translit" / "web" / "web_demo.py"
     print(f"Launching web UI from {web_app_path}...")

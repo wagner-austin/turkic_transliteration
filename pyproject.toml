@@ -4,10 +4,10 @@ build-backend = "setuptools.build_meta"
 
 
 [project]
-name = "turkic-transliterate"
+name = "turkic-translit"
 version = "0.1.8"
 description = "Deterministic Latin and IPA transliteration for Kazakh, Kyrgyz, plus tokenizer/glue scripts."
-authors = [ {name="Austin Wagner", email="awagner@uci.edu"} ]
+authors = [ {name="Austin Wagner", email="austinwagner@msn.com"} ]
 requires-python = ">=3.9"
 readme = "README.md"
 license = "MIT"
@@ -34,20 +34,25 @@ dependencies = [
     "packaging>=23.0",              # Used in tests/test_fasttext.py
     "panphon>=0.20,<0.22",          # 0.21.2 is the newest published wheel
     # PyICU is required, but Windows users must install the correct wheel manually. See README and turkic-pyicu-install for help.
-    "PyICU>=2.15",
+    # PyICU wheels: pre-built for Windows versions, fallback to PyPI elsewhere
+    "PyICU @ vendor/pyicu/pyicu-2.15-cp311-cp311-win_amd64.whl ; sys_platform == 'win32' and python_version == '3.11'",
+    "PyICU @ vendor/pyicu/pyicu-2.15-cp312-cp312-win_amd64.whl ; sys_platform == 'win32' and python_version == '3.12'",
+    "PyICU @ vendor/pyicu/pyicu-2.15-cp313-cp313-win_amd64.whl ; sys_platform == 'win32' and python_version == '3.13'",
+    "PyICU>=2.15; sys_platform != 'win32'",
     "pytest>=8.0",                  # Test runner
     "rapidfuzz>=3.5",
     "rich>=13.7",                   # Color-aware logging and console output
     "sentencepiece>=0.2.0",
     "click>=8.1",
     "types-requests>=2.31",
-    "datasets>=2.20",
+    "datasets (>=3.6.0,<4.0.0)",
     "evaluate>=0.4",             # PPL metric
     "accelerate>=0.28",          # HF Trainer device dispatch
     "transformers>=4.41,<5",        # mGPT / BLOOM causal LM
     "tqdm>=4.66",                # progress bars for LM utilities
     "scikit-learn>=1.4",        # cosine similarity utilities
     "typing_extensions>=4.12",    # for Never on Python ≤3.11
+    "wikipedia (>=1.4.0,<2.0.0)",
 ]
 
 [project.optional-dependencies]
@@ -58,7 +63,7 @@ examples = [
 ]
 winlid = []
 corpus = [
-    "datasets>=2.20",
+    "datasets>=3.0",
     "pyarrow>=14.0",
     "requests>=2.0",
     "zstandard>=0.23",
@@ -66,7 +71,6 @@ corpus = [
 
 # Development tools
 dev = [
-    "black>=23.0",         # Code formatter
     "ruff>=0.2.0",         # Fast linter
     "mypy>=1.0",           # Type checker
     "pytest>=8.0",         # Testing framework

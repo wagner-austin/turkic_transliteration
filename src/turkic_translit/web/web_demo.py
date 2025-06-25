@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 from collections.abc import Generator
+from functools import cache, lru_cache
 from typing import Any, cast
 
 """
@@ -23,6 +24,7 @@ IMPORTANT NOTES:
    is accessed.
 """
 import logging
+import os
 import pathlib
 import re  # NEW – used by _to_md_table
 import time
@@ -31,6 +33,7 @@ import gradio as gr
 
 from turkic_translit.web.web_utils import (
     direct_transliterate,
+    download_corpus_to_file,  # NEW
     mask_russian,
     median_levenshtein,
     pipeline_transliterate,
@@ -38,15 +41,13 @@ from turkic_translit.web.web_utils import (
     train_sentencepiece_model,
 )
 
-# Configure a basic logger once so long-running tasks give feedback in console.
-# We keep level=INFO so interactive users see progress but not excessive debug.
-logger = logging.getLogger("turkic_translit.web_demo")
-if not logger.handlers:
-    logging.basicConfig(
-        format="%(asctime)s [%(levelname)s] %(message)s", level=logging.INFO
-    )
-
-logging.basicConfig(level=logging.INFO)
+# Configure logging once. Honour $PYTHONLOGLEVEL if provided (DEBUG, INFO …).
+_logger = logging.getLogger("turkic_translit.web_demo")
+if not _logger.handlers:
+    _lvl_str = os.environ.get("PYTHONLOGLEVEL", "INFO").upper()
+    _lvl = getattr(logging, _lvl_str, logging.INFO)
+    logging.basicConfig(format="%(asctime)s [%(levelname)s] %(message)s", level=_lvl)
+    _logger.setLevel(_lvl)
 
 
 # ── Gradio-aware log handler ───────────────────────────────────────────────
@@ -192,6 +193,7 @@ def build_ui() -> gr.Blocks:
         "tokens": ["сәлем привет қалайсың здравствуй"],
         "filter_ru": [["қазақша текст с русскими словами", 0.5, 3]],
         "spm_examples": ["менің атым Айдар, сенің атың кім?"],
+        "corpus": [["oscar-2301", "kk", 100, True]],
     }
 
     def do_train_spm(
@@ -292,6 +294,30 @@ def build_ui() -> gr.Blocks:
                 return result, stats
             except Exception as e:
                 return "", f"**Error**: {str(e)}"
+
+        def do_corpus_download(
+            source: str,
+            lang: str,
+            max_lines: int | None,
+            filter_flag: bool,
+            conf_thr: float,
+            progress: gr.Progress | None = None,
+        ) -> tuple[str, str | None]:  # returns markdown + optional file path
+            """Download corpus via helper and return (info_markdown, file_path)."""
+            if progress is None:
+                progress = gr.Progress(track_tqdm=True)
+            try:
+                path, info = download_corpus_to_file(
+                    source,
+                    lang,
+                    int(max_lines) if max_lines else None,
+                    filter_flag,
+                    conf_thr,
+                    progress=progress,
+                )
+                return info, path
+            except Exception as exc:  # noqa: BLE001
+                return f"**Error:** {exc}", None
 
         def do_tokens(text: str) -> str:
             if not text.strip():
@@ -403,7 +429,7 @@ def build_ui() -> gr.Blocks:
                 lm_b = LMModel.from_pretrained(model_b)
 
                 progress(0.15, desc=f"streaming {sample} sentences")
-                ds = DatasetStream("oscar-2201", eval_lang, max_sentences=sample)
+                ds = DatasetStream("oscar-2301", eval_lang, max_sentences=sample)
                 sentences = list(ds)  # tqdm captured automatically
 
                 # Flush any backend INFO lines collected so far
@@ -569,6 +595,144 @@ def build_ui() -> gr.Blocks:
                 [shared_textbox, lang, output_format, include_arabic],
                 [output, stats],
             )
+
+        def _corpus_tab() -> None:
+            with gr.Column():
+                gr.Markdown(
+                    """
+                    <div class="feature-description">
+                    <strong>Corpus Downloader:</strong> Stream sentences from public corpora (OSCAR or Wikipedia) directly in the browser. Select a source and language, optionally cap the number of sentences, and decide whether to filter by FastText language ID.
+                    </div>
+                    """
+                )
+
+                with gr.Row():
+                    with gr.Column(scale=1):
+                        from turkic_translit.cli.download_corpus import (
+                            _REG,  # dynamic registry
+                        )
+
+                        source_dd = gr.Dropdown(
+                            choices=sorted(
+                                k for k in _REG if _REG[k]["driver"] != "leipzig"
+                            ),
+                            label="Corpus Source",
+                            value="oscar-2301",
+                        )
+
+                        # FastText supported ISO codes – cached after first call
+                        @lru_cache(maxsize=1)
+                        def _fasttext_langs() -> set[str]:
+                            """Return set of ISO codes recognised by lid.176 FastText model."""
+                            from turkic_translit.langid import FastTextLangID
+
+                            mdl = FastTextLangID()
+                            return {
+                                lab.replace("__label__", "")
+                                for lab in mdl.model.get_labels()
+                            }
+
+                        # Language choices depend on corpus source. Helper fetches valid ISO codes.
+                        @cache
+                        def _lang_choices(src: str) -> list[str]:
+                            """Return available ISO codes for *src* corpus."""
+                            from turkic_translit.cli import download_corpus as _dl
+
+                            cfg = _dl._REG[src]
+                            lst: list[str] = []
+                            try:
+                                if cfg["driver"] == "oscar":
+                                    from datasets import (
+                                        get_dataset_config_names,  # heavy import
+                                    )
+
+                                    lst = sorted(
+                                        get_dataset_config_names(cfg["hf_name"])
+                                    )
+                                elif cfg["driver"] == "wikipedia":
+                                    try:
+                                        from turkic_translit.cli.download_corpus import (
+                                            _wikipedia_lang_codes_from_sitematrix as _site,
+                                        )
+
+                                        lst = _site()
+                                    except Exception:
+                                        lst = []
+                            except Exception:  # noqa: BLE001 – network / import errors
+                                lst = []
+
+                            if not lst:
+                                lst = [
+                                    c
+                                    for c in ["en", "tr", "az", "uz", "kk", "ru"]
+                                    if c in _fasttext_langs()
+                                ]
+
+                            # Keep only languages FastText can ID
+                            ft = _fasttext_langs()
+                            return [code for code in lst if code in ft]
+
+                        initial_langs = _lang_choices(
+                            "oscar-2301"
+                        )  # default source before change
+                        lang_dd = gr.Dropdown(
+                            choices=initial_langs,
+                            value=initial_langs[0] if initial_langs else None,
+                            label="Language (ISO-639)",
+                        )
+
+                        # Dynamically refresh language choices when the corpus source changes
+                        def _update_langs(selected_src: str) -> Any:
+                            langs = _lang_choices(selected_src)
+                            return gr.update(
+                                choices=langs,
+                                value=langs[0] if langs else None,
+                            )
+
+                        source_dd.change(
+                            _update_langs,
+                            inputs=[source_dd],
+                            outputs=[lang_dd],
+                        )
+                        max_lines_num = gr.Number(
+                            label="Max Sentences (empty = all)", value=10, precision=0
+                        )
+                        filter_cb = gr.Checkbox(
+                            label="Filter by FastText LangID",
+                            value=True,
+                            info=(
+                                "Keep only sentences whose FastText language-ID "
+                                "matches the code above (uses lid.176 model)."
+                            ),
+                        )
+                        conf_slider = gr.Slider(
+                            minimum=0.0,
+                            maximum=1.0,
+                            step=0.05,
+                            value=0.95,
+                            label="Min Lang-ID confidence",
+                            info="Discard sentences below this probability threshold when filtering.",
+                        )
+                        download_btn = gr.Button("Download", variant="primary")
+                    with gr.Column(scale=1):
+                        info_md = gr.Markdown()
+                        file_out = gr.File(label="Corpus File")
+
+                # Hook up button
+                download_btn.click(
+                    do_corpus_download,
+                    [source_dd, lang_dd, max_lines_num, filter_cb, conf_slider],
+                    outputs=[info_md, file_out],
+                )
+
+                # Examples
+                gr.Examples(
+                    examples["corpus"],
+                    inputs=[source_dd, lang_dd, max_lines_num, filter_cb, conf_slider],
+                    outputs=[info_md, file_out],
+                    fn=do_corpus_download,
+                    label="Try this example",
+                )
 
         def _pipeline_tab() -> None:
             with gr.Column():
@@ -1004,6 +1168,8 @@ def build_ui() -> gr.Blocks:
 
         with gr.Tabs():
             # Order tabs by the logical workflow: training → sanity-check → processing → cleanup → ad-hoc → evaluation
+            with gr.Tab("📥 Download Corpus", id="corpus"):
+                _corpus_tab()
             with gr.Tab("🧩 Train Tokenizer", id="sentencepiece"):
                 _sentencepiece_tab()
             with gr.Tab("🔍 ID Token Language", id="tokens"):
@@ -1028,7 +1194,7 @@ def build_ui() -> gr.Blocks:
             </footer>
             """
         )
-    return app  # type: ignore[no-any-return]
+    return cast(gr.Blocks, app)
 
 
 class _PrettyLogFilter(logging.Filter):
