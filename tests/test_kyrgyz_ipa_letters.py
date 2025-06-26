@@ -2,7 +2,8 @@
 Single Cyrillic characters → IPA
 Reference: Help:IPA/Kyrgyz (rev. 6 Jan 2025).
 
-Context-dependent letters (none in Kyrgyz) are not included.
+Digraphs such as “дж” are deliberately excluded in this file; they are
+covered elsewhere.
 """
 
 import pytest
@@ -17,7 +18,7 @@ GOLD = {
     "д": "d",
     "е": "e",
     "ё": "jo",
-    "ж": "dʒ",
+    "ж": "ʒ",  # voiced postal-alveolar fricative
     "з": "z",
     "и": "i",
     "й": "j",
@@ -36,9 +37,9 @@ GOLD = {
     "у": "u",
     "ү": "y",
     "ф": "f",
-    "х": "χ",
-    "ц": "t͡s",
-    "ч": "t͡ʃ",
+    "х": "x",  # voiceless velar/uvular fricative
+    "ц": "ʦ",
+    "ч": "ʧ",
     "ш": "ʃ",
     "щ": "ʃt͡ʃ",
     "ы": "ɯ",

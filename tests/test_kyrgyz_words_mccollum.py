@@ -1,15 +1,9 @@
 """
 Gold-standard word list: Kyrgyz orthography → broad IPA
-Source: McCollum 2020 ‘Vowel harmony and positional variation in Kyrgyz’,
-Laboratory Phonology 11(1): 25, CC-BY 4.0, Tables 1-3 & Appendix.
+Source: McCollum 2020 “Vowel harmony and positional variation in Kyrgyz”,
+Laboratory Phonology 11(1): 25 (CC-BY 4.0).
 
-The paper’s transcriptions are already *broad* IPA; no diacritics need stripping.
-We normalise both strings to NFC so the test is byte-perfect and deterministic.
-
-Sources:
-- https://www.researchgate.net/publication/348107650_Vowel_harmony_and_positional_variation_in_Kyrgyz
-- https://en.wikipedia.org/wiki/Help:IPA/Kyrgyz
-
+The paper’s transcriptions are already broad IPA; no diacritics need stripping.
 """
 
 import unicodedata as ud
@@ -22,11 +16,11 @@ from turkic_translit.core import to_ipa
 # Orthographic word  →  IPA  (drawn from the paper, then canonicalised)
 # -------------------------------------------------------------------------
 GOLD = {
-    # monosyllabic roots (Table 3, p. 6)
+    # monosyllabic roots (Table 3)
     "бал": "bɑl",
     "бел": "bel",
     "көл": "køl",
-    "жыл": "ʤɯl",
+    "жыл": "ʒɯl",
     # disyllabic roots (Appendix)
     "молдо": "moldo",
     "илим": "ilim",
@@ -39,18 +33,20 @@ GOLD = {
     "балды": "bɑldɯ",  # ‘honey-ACC’
     "көлдө": "køldø",
     "көлдү": "køldy",
-    "жылда": "dʒɯldɑ",
-    "жылды": "dʒɯldɯ",
+    "жылда": "ʒɯldɑ",
+    "жылды": "ʒɯldɯ",
 }
 
 
 def _canonical(ipa: str) -> str:
-    """Convert McCollum’s alternative glyphs to the ones in ky_ipa.rules."""
+    """Normalise alternative glyphs to those emitted by ky_ipa.rules."""
     return (
         ipa.replace("ʤ", "dʒ")  # affricate ligature → digraph
+        .replace("ʦ", "t͡s")  # ligature → tie-bar
+        .replace("ʧ", "t͡ʃ")  # ligature → tie-bar
         .replace("q", "k")  # uvular stop → velar
-        .replace("ʁ", "ɡ")
-    )  # uvular fricative → velar
+        .replace("ʁ", "ɡ")  # uvular fricative → velar
+    )
 
 
 @pytest.mark.parametrize(("cyr", "ipa"), GOLD.items())

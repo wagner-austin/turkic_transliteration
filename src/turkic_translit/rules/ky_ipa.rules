@@ -6,15 +6,16 @@
 $V = [ɑeiouøyɯ];            # vowel macro: Kyrgyz short vowels
 
 # ---------------------------------------------------------------------------
-# positional /je/
-^Е > je ;
-^е > je ;
+# /je/ only after another vowel
+# McCollum (2020) shows that native Kyrgyz word-initial ‹е/Е› is realised
+# as plain [e]; the glide appears only post-vocalically or after ъ/ь which
+# are handled elsewhere.
 $V } Е > je ;
 $V } е > je ;
 
 # ---------------------------------------------------------------------------
 # digraph affricates (loans) ►
-ДЖ > ʤ ;  дж > ʤ ;          # voiced postalveolar affricate
+ДЖ > ʤ ;  дж > ʤ ;          # voiced postal-alveolar affricate
 
 # ---------------------------------------------------------------------------
 # One-to-one grapheme → phone map
@@ -46,8 +47,8 @@ $V } е > je ;
 Ү > y ;  ү > y ;
 Ф > f ;  ф > f ;
 Х > x ;  х > x ;
-Ц > t͡s ; ц > t͡s ;
-Ч > t͡ʃ ;  ч > t͡ʃ ;
+Ц > ʦ ; ц > ʦ ;            # ► ligature affricate
+Ч > ʧ ;  ч > ʧ ;            # ► ligature affricate
 Ш > ʃ ;  ш > ʃ ;
 Щ > ʃt͡ʃ ; щ > ʃt͡ʃ ;
 Ъ > ʔ ;  ъ > ʔ ;
