@@ -18,7 +18,7 @@ lint:
 # Install all dependencies (corpus extras)
 install:
 	poetry lock
-	poetry install --extras corpus
+	poetry install --extras corpus --extras dev
 
 # Run tests
 test: install
