@@ -21,7 +21,7 @@ foreach ($egg in $eggInfos) {
 }
 
 # Optionally load credentials from .pypirc
-function Load-PyPiCredentials {
+function Get-PyPiCredentials {
     $pypircPath = Join-Path $env:USERPROFILE ".pypirc"
     if (Test-Path $pypircPath) {
         Write-Host "Loading PyPI credentials from $pypircPath..."
@@ -44,7 +44,7 @@ function Load-PyPiCredentials {
 }
 
 if (-not $env:TWINE_USERNAME -or -not $env:TWINE_PASSWORD) {
-    Load-PyPiCredentials
+    Get-PyPiCredentials
 }
 
 if (-not $env:TWINE_USERNAME) {
@@ -59,7 +59,7 @@ if (-not $env:TWINE_PASSWORD) {
 # Run tests before releasing
 Write-Host "Running tests..."
 try {
-    pytest
+    make check
 } catch {
     Write-Error "Tests failed. Aborting release."
     exit 1
@@ -67,7 +67,7 @@ try {
 
 # Build the package
 Write-Host "Building package..."
-python -m build
+make build
 
 # Upload to PyPI
 Write-Host "Uploading package to PyPI..."
