@@ -5,7 +5,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "turkic-translit"
-version = "0.2.1"
+version = "0.2.2"
 description = "Deterministic Latin and IPA transliteration for Kazakh, Kyrgyz, plus tokenizer/glue scripts."
 authors = [ {name="Austin Wagner", email="austinwagner@msn.com"} ]
 requires-python = ">=3.9"
@@ -56,6 +56,7 @@ dependencies = [
     "pandas",
     "matplotlib>=3.9",           # cosine-similarity heat-map
     "pycountry>=23.12",          # ISO language names for pretty dropdown labels
+    "zstandard>=0.23",
 ]
 
 [project.optional-dependencies]
@@ -69,7 +70,7 @@ corpus = [
     "datasets>=3.0",
     "pyarrow>=14.0",
     "requests>=2.0",
-    "zstandard>=0.23",
+
 ]
 
 # Development tools
