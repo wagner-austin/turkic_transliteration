@@ -38,7 +38,7 @@ dependencies = [
     "PyICU @ vendor/pyicu/pyicu-2.15-cp311-cp311-win_amd64.whl ; sys_platform == 'win32' and python_version == '3.11'",
     "PyICU @ vendor/pyicu/pyicu-2.15-cp312-cp312-win_amd64.whl ; sys_platform == 'win32' and python_version == '3.12'",
     "PyICU @ vendor/pyicu/pyicu-2.15-cp313-cp313-win_amd64.whl ; sys_platform == 'win32' and python_version == '3.13'",
-    "PyICU>=2.15; sys_platform != 'win32'",
+    "PyICU>=2.13,<2.16; sys_platform != 'win32'",
     "pytest>=8.0",                  # Test runner
     "rapidfuzz>=3.5",
     "rich>=13.7",                   # Color-aware logging and console output
