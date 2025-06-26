@@ -121,14 +121,6 @@ def _get_lid() -> Any:
 def stream_oscar(
     lang: str, cfg: dict[str, Any], filter_langid: Optional[str] = None
 ) -> Generator[str, None, None]:
-    import click
-
-    from ._net_utils import url_ok
-
-    if not url_ok(f"https://huggingface.co/api/datasets/{cfg['hf_name']}"):
-        raise click.ClickException(
-            f"Remote corpus not reachable: https://huggingface.co/api/datasets/{cfg['hf_name']}"
-        )
     # Allow gated OSCAR datasets that rely on custom loading scripts.
     # `trust_remote_code=True` is required from datasets>=2.19 to execute the
     # repository's loading script.  We inherit the user-scoped HF token so no
@@ -159,13 +151,10 @@ def _stream_wikipedia_xml(
 ) -> Generator[str, None, None]:
     import click
 
-    from ._net_utils import url_ok
-
     dump_version = "latest"
     dump_name = f"{lang}wiki-{dump_version}-pages-articles.xml.bz2"
     url = f"https://dumps.wikimedia.org/{lang}wiki/{dump_version}/{dump_name}"
-    if not url_ok(url):
-        raise click.ClickException(f"Remote corpus not reachable: {url}")
+
     try:
         resp = requests.get(url, stream=True, timeout=30)
         resp.raise_for_status()
@@ -208,37 +197,10 @@ def stream_wikipedia(
     Falls back transparently to the original XML-dump path when the
     `datasets` package or the requested language variant is unavailable.
     """
-    try:
-        ds = load_dataset(
-            "wikipedia",
-            language=lang,
-            split="train",
-            streaming=True,
-            trust_remote_code=True,
-        )
-    except Exception:
-        logging.info(
-            "HuggingFace Wikipedia dataset unavailable – falling back to XML dump"
-        )
-        # Either *datasets* is missing or this language is not mirrored –
-        # degrade gracefully.
-        yield from _stream_wikipedia_xml(lang, cfg, filter_langid)
-        return
-
-    model = _get_lid() if filter_langid else None
-    for row in ds:
-        txt = (row.get("text") or "").strip()
-        if not txt:
-            continue
-        txt = ud.normalize("NFC", txt)
-        if filter_langid and model is not None:
-            pred = model.predict(txt.replace("\n", " "))[0][0].replace(
-                "__label__",
-                "",
-            )
-            if pred != filter_langid:
-                continue
-        yield txt
+    # Bypass the optional Hugging Face Wikipedia dataset and stream
+    # directly from the official XML dump. This avoids noisy 404 logs
+    # from HEAD probes when the dataset or language variant is missing.
+    yield from _stream_wikipedia_xml(lang, cfg, filter_langid)
 
 
 def stream_leipzig(
@@ -246,11 +208,7 @@ def stream_leipzig(
 ) -> Generator[str, None, None]:
     import click
 
-    from ._net_utils import url_ok
-
     tar_url = f"{cfg['base_url']}/{_leipzig_tar_name(lang)}"
-    if not url_ok(tar_url):
-        raise click.ClickException(f"Remote corpus not reachable: {tar_url}")
     try:
         with tempfile.TemporaryDirectory() as td:
             tgz = Path(td) / "lz.tgz"
@@ -301,8 +259,6 @@ def _ls_src() -> None:
 @click.option("--source", default="oscar-2301")
 @click.option("-v", "--verbose", is_flag=True, help="Enable verbose debug output.")
 def _ls_lang(source: str, verbose: bool) -> None:
-    import logging
-
     import click
 
     if verbose:
@@ -317,8 +273,6 @@ def _ls_lang(source: str, verbose: bool) -> None:
     elif cfg["driver"] == "wikipedia":
         names = _wikipedia_lang_codes_from_sitematrix()
         if verbose:
-            import logging
-
             logging.getLogger(__name__).debug(
                 "Wikipedia languages detected: %d", len(names)
             )
