@@ -650,12 +650,15 @@ def build_ui() -> gr.Blocks:
                             lst: list[str] = []
                             try:
                                 if cfg["driver"] == "oscar":
+                                    import os
                                     from datasets import (
                                         get_dataset_config_names,  # heavy import
                                     )
 
                                     lst = sorted(
-                                        get_dataset_config_names(cfg["hf_name"])
+                                        get_dataset_config_names(
+                                            cfg["hf_name"], token=os.getenv("HF_TOKEN")
+                                        )
                                     )
                                 elif cfg["driver"] == "wikipedia":
                                     try:
