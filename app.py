@@ -1,6 +1,12 @@
 # Turkic Transliteration Demo for Hugging Face Spaces
 # This application demonstrates transliteration between Cyrillic, Latin, and IPA for Turkic languages
 
+import os
+import sys
+
+# Ensure the source directory is on the Python path when running from a Hugging Face Space
+sys.path.append(os.path.join(os.path.dirname(__file__), "src"))
+
 # Import the web demo UI builder from the turkic_translit package
 # Using the new app module structure
 from turkic_translit.web.web_demo import build_ui
