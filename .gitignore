@@ -2,7 +2,9 @@
 __pycache__/
 *.py[cod]
 *$py.class
-*.xml.bz2
+# Raw Wikipedia dumps
+data/raw_wiki/
+*.bz2
 /cronjob/
 
 # Cache directories

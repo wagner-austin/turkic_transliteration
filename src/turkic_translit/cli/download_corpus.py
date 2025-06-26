@@ -2,6 +2,7 @@ import bz2
 import html
 import json
 import logging
+import os
 import re
 import tarfile
 import tempfile
@@ -94,6 +95,17 @@ _REG: dict[str, dict[str, Any]] = yaml.safe_load(
     Path(__file__).with_suffix("").with_name("corpora.yaml").read_text()
 )
 
+
+# ---------------------------------------------------------------------------
+# Storage paths
+# ---------------------------------------------------------------------------
+# Keep large raw Wikipedia XML dumps out of the project root so they don't clutter
+# the working tree.  The directory can be overridden via $TURKIC_DUMP_DIR.
+DUMP_DIR: Path = Path(os.getenv("TURKIC_DUMP_DIR", "data/raw_wiki"))
+
+# Ensure the directory exists early so concurrent downloads don't race.
+DUMP_DIR.mkdir(parents=True, exist_ok=True)
+
 # --------------------------------------------------------------------------- drivers
 
 _FASTTEXT_CACHE: dict[str, Any] = {}
@@ -150,21 +162,17 @@ def _stream_wikipedia_xml(
     from ._net_utils import url_ok
 
     dump_version = "latest"
-    dump = f"{lang}wiki-{dump_version}-pages-articles.xml.bz2"
-    url = f"https://dumps.wikimedia.org/{lang}wiki/{dump_version}/{dump}"
+    dump_name = f"{lang}wiki-{dump_version}-pages-articles.xml.bz2"
+    url = f"https://dumps.wikimedia.org/{lang}wiki/{dump_version}/{dump_name}"
     if not url_ok(url):
         raise click.ClickException(f"Remote corpus not reachable: {url}")
     try:
-        with open(dump, "wb") as f:
-            for chunk in requests.get(url, stream=True, timeout=30).iter_content(
-                chunk_size=8192
-            ):
-                f.write(chunk)
-    except requests.RequestException as e:
-        raise click.ClickException(f"Download failed for {url}: {e}") from e
-    model: Any = _get_lid() if filter_langid else None
-    with bz2.open(dump) as fp:
-        for _, elem in ET.iterparse(fp, events=("end",)):
+        resp = requests.get(url, stream=True, timeout=30)
+        resp.raise_for_status()
+        # Decompress on the fly from HTTP stream.
+        bz_stream = bz2.BZ2File(resp.raw)  # type: ignore[arg-type]
+        model: Any = _get_lid() if filter_langid else None
+        for _, elem in ET.iterparse(bz_stream, events=("end",)):
             if elem.tag.endswith("}text") and elem.text:
                 txt = html.unescape(re.sub(r"(?s)<.*?>", " ", elem.text))
                 for s in re.split(r"[.!?]", txt):
@@ -181,12 +189,8 @@ def _stream_wikipedia_xml(
                 elem.clear()
             else:
                 elem.clear()
-    # remove downloaded Wikipedia dump to avoid repo artifacts
-    import contextlib
-    import os
-
-    with contextlib.suppress(FileNotFoundError):
-        os.remove(dump)
+    except requests.RequestException as e:
+        raise click.ClickException(f"Download failed for {url}: {e}") from e
 
 
 # ---------------------------------------------------------------------------
