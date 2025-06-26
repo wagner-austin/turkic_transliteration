@@ -1,15 +1,20 @@
 # Kyrgyz → IPA transliteration rules (ky_ipa.rules)
 # Source: Help:IPA/Kyrgyz, rev. 6 Jan 2025.
-# Plain IPA on the right, NFC-normalised.
+# Updated 26 Jun 2025 to align 1 : 1 with McCollum (2020) phoneme inventory.
+# Lines marked with “►” are new in this revision.
 
-$V = [ɑaeiouøyɯ];            # vowel macro
+$V = [ɑeiouøyɯ];            # vowel macro: Kyrgyz short vowels
 
 # ---------------------------------------------------------------------------
-# (optional) positional /je/ — uncomment if you need it
-# ^Е > je ;                  # word-initial
-# ^е > je ;
-# $V } Е > je ;              # after a vowel
-# $V } е > je ;
+# positional /je/
+^Е > je ;
+^е > je ;
+$V } Е > je ;
+$V } е > je ;
+
+# ---------------------------------------------------------------------------
+# digraph affricates (loans) ►
+ДЖ > ʤ ;  дж > ʤ ;          # voiced postalveolar affricate
 
 # ---------------------------------------------------------------------------
 # One-to-one grapheme → phone map
@@ -21,7 +26,7 @@ $V = [ɑaeiouøyɯ];            # vowel macro
 Д > d ;  д > d ;
 Е > e ;  е > e ;
 Ё > jo ; ё > jo ;
-Ж > dʒ ;  ж > dʒ ;
+Ж > ʒ ;  ж > ʒ ;
 З > z ;  з > z ;
 И > i ;  и > i ;
 Й > j ;  й > j ;
@@ -40,7 +45,7 @@ $V = [ɑaeiouøyɯ];            # vowel macro
 У > u ;  у > u ;
 Ү > y ;  ү > y ;
 Ф > f ;  ф > f ;
-Х > χ ;  х > χ ;
+Х > x ;  х > x ;
 Ц > t͡s ; ц > t͡s ;
 Ч > t͡ʃ ;  ч > t͡ʃ ;
 Ш > ʃ ;  ш > ʃ ;
@@ -51,10 +56,11 @@ $V = [ɑaeiouøyɯ];            # vowel macro
 Э > e ;  э > e ;
 Ю > ju ; ю > ju ;
 Я > ja ; я > ja ;
+Ў > w ;  ў > w ;            # ► independent glide /w/
 
 # ---------------------------------------------------------------------------
-# (optional) /w/ between vowels — uncomment if desired
-# $V } У > w ;
-# $V } у > w ;
+# /w/ between vowels
+$V } У > w ;
+$V } у > w ;
 
 :: NFC ;
