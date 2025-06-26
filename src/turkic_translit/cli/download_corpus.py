@@ -131,6 +131,7 @@ def stream_oscar(
         split="train",
         streaming=True,
         trust_remote_code=True,
+        token=os.getenv("HF_TOKEN"),
     )
     model = _get_lid() if filter_langid else None
     for row in ds:
