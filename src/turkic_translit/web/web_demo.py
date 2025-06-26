@@ -651,14 +651,22 @@ def build_ui() -> gr.Blocks:
                             try:
                                 if cfg["driver"] == "oscar":
                                     import os
+
                                     from datasets import (
                                         get_dataset_config_names,  # heavy import
                                     )
 
+                                    token = os.getenv("HF_TOKEN")
+                                    logging.info(
+                                        f"Attempting to fetch OSCAR configs with token: {'present' if token else 'missing'}"
+                                    )
                                     lst = sorted(
                                         get_dataset_config_names(
-                                            cfg["hf_name"], token=os.getenv("HF_TOKEN")
+                                            cfg["hf_name"], token=token
                                         )
+                                    )
+                                    logging.info(
+                                        f"Successfully fetched {len(lst)} OSCAR configs."
                                     )
                                 elif cfg["driver"] == "wikipedia":
                                     try:
@@ -668,11 +676,20 @@ def build_ui() -> gr.Blocks:
 
                                         lst = _site()
                                     except Exception:
+                                        logging.exception(
+                                            "Failed to fetch Wikipedia lang codes"
+                                        )
                                         lst = []
                             except Exception:  # noqa: BLE001 – network / import errors
+                                logging.exception(
+                                    f"Failed to fetch language choices for source: {src}"
+                                )
                                 lst = []
 
                             if not lst:
+                                logging.warning(
+                                    f"Language list for {src} is empty, falling back to hardcoded list."
+                                )
                                 lst = [
                                     c
                                     for c in ["en", "tr", "az", "uz", "kk", "ru"]
