@@ -29,6 +29,14 @@ import pathlib
 import re  # NEW – used by _to_md_table
 import time
 
+from turkic_translit.lang_utils import pretty_lang  # unified helper
+
+
+def _labelise(codes: list[str]) -> list[tuple[str, str]]:
+    """Return (label, value) pairs for Gradio dropdown from ISO codes."""
+    return [(pretty_lang(c), c) for c in codes]
+
+
 import gradio as gr
 
 from turkic_translit.web.web_utils import (
@@ -676,16 +684,16 @@ def build_ui() -> gr.Blocks:
                             "oscar-2301"
                         )  # default source before change
                         lang_dd = gr.Dropdown(
-                            choices=initial_langs,
+                            choices=_labelise(initial_langs),
                             value=initial_langs[0] if initial_langs else None,
-                            label="Language (ISO-639)",
+                            label="Language",
                         )
 
                         # Dynamically refresh language choices when the corpus source changes
                         def _update_langs(selected_src: str) -> Any:
                             langs = _lang_choices(selected_src)
                             return gr.update(
-                                choices=langs,
+                                choices=_labelise(langs),
                                 value=langs[0] if langs else None,
                             )
 

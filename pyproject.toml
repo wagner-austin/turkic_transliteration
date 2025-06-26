@@ -84,6 +84,7 @@ ui = [
     "gradio>=4.0",
     "pandas",
     "matplotlib>=3.9",           # cosine-similarity heat-map
+    "pycountry>=23.12",          # ISO language names for pretty dropdown labels
 ]
 
 [project.scripts]

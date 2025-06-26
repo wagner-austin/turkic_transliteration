@@ -5223,6 +5223,19 @@ files = [
 global = ["pybind11-global (==2.13.6)"]
 
 [[package]]
+name = "pycountry"
+version = "24.6.1"
+description = "ISO country, subdivision, language, currency and script definitions and their translations"
+optional = true
+python-versions = ">=3.8"
+groups = ["main"]
+markers = "extra == \"ui\""
+files = [
+    {file = "pycountry-24.6.1-py3-none-any.whl", hash = "sha256:f1a4fb391cd7214f8eefd39556d740adcc233c778a27f8942c8dca351d6ce06f"},
+    {file = "pycountry-24.6.1.tar.gz", hash = "sha256:b61b3faccea67f87d10c1f2b0fc0be714409e8fcdcc1315613174f6466c10221"},
+]
+
+[[package]]
 name = "pycparser"
 version = "2.22"
 description = "C parser in Python"
@@ -8243,10 +8256,10 @@ cffi = ["cffi (>=1.11)"]
 corpus = ["datasets", "pyarrow", "requests", "zstandard"]
 dev = ["build", "make", "mypy", "pytest", "ruff", "twine", "types-requests"]
 examples = ["flask", "jupyterlab", "streamlit"]
-ui = ["gradio", "matplotlib", "pandas"]
+ui = ["gradio", "matplotlib", "pandas", "pycountry"]
 winlid = []
 
 [metadata]
 lock-version = "2.1"
 python-versions = ">=3.9"
-content-hash = "10e2b154f49c7c3900211375fae190710e5068f54a771cbc05ce917f8a1f9398"
+content-hash = "708956a9f14247e4edeead0a71e0246de5e1e449f9dbc243edc06a2493f53ed6"

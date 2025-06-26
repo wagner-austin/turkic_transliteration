@@ -12,6 +12,8 @@ from pathlib import Path
 from types import ModuleType
 from typing import TYPE_CHECKING
 
+from turkic_translit.lang_utils import pretty_lang
+
 # Gradio is optional at runtime but needed for type hints
 try:
     import gradio as gr  # type-only; not required outside web UI
@@ -328,7 +330,7 @@ def download_corpus_to_file(
     info_md = (
         "### ✅ Download complete\n\n"
         f"- **Source:** `{source}`\n"
-        f"- **Language:** `{lang}`\n"
+        f"- **Language:** {pretty_lang(lang)}\n"
         f"- **Lines written:** {i:,}\n"
         + (
             f"- **Lines removed by LangID filter:** {removed:,} (p ≥ {prob_threshold})\n"

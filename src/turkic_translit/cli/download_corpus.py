@@ -170,7 +170,7 @@ def _stream_wikipedia_xml(
         resp = requests.get(url, stream=True, timeout=30)
         resp.raise_for_status()
         # Decompress on the fly from HTTP stream.
-        bz_stream = bz2.BZ2File(resp.raw)  # type: ignore[arg-type]
+        bz_stream = bz2.BZ2File(resp.raw)
         model: Any = _get_lid() if filter_langid else None
         for _, elem in ET.iterparse(bz_stream, events=("end",)):
             if elem.tag.endswith("}text") and elem.text:
