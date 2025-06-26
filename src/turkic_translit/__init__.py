@@ -32,7 +32,8 @@ __all__ = [
     "lang_filter",
     *(["lm"] if lm is not None else []),
 ]
-__version__ = version("turkic_transliterate")
+# Retrieve version from package metadata. Package is published as "turkic-translit" on PyPI.
+__version__ = version("turkic-translit")
 
 # Warn Windows users on Python >=3.12 if PyICU is not importable
 if platform.system() == "Windows" and sys.version_info >= (3, 12):

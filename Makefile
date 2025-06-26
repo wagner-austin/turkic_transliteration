@@ -15,10 +15,10 @@ lint:
 	poetry run ruff format
 	poetry run mypy --strict .
 	
-# Install all dependencies (incl. UI extras)
+# Install all dependencies (corpus extras)
 install:
 	poetry lock
-	poetry install --extras ui --extras corpus
+	poetry install --extras corpus
 
 # Run tests
 test: install

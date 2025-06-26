@@ -53,6 +53,11 @@ dependencies = [
     "scikit-learn>=1.4",        # cosine similarity utilities
     "typing_extensions>=4.12",    # for Never on Python ≤3.11
     "wikipedia (>=1.4.0,<2.0.0)",
+    # UI dependencies
+    "gradio>=4.0",
+    "pandas",
+    "matplotlib>=3.9",           # cosine-similarity heat-map
+    "pycountry>=23.12",          # ISO language names for pretty dropdown labels
 ]
 
 [project.optional-dependencies]
@@ -78,13 +83,6 @@ dev = [
     "twine>=4.0",          # Package uploader
     "make>=0.1.6",         # Make command for Windows
     "types-requests>=2.31", # Type stubs for requests
-]
-# User interface dependencies
-ui = [
-    "gradio>=4.0",
-    "pandas",
-    "matplotlib>=3.9",           # cosine-similarity heat-map
-    "pycountry>=23.12",          # ISO language names for pretty dropdown labels
 ]
 
 [project.scripts]

@@ -1,3 +1,16 @@
+---
+title: Turkic Transliteration Demo
+emoji: 🌖
+colorFrom: green
+colorTo: green
+sdk: gradio
+sdk_version: 5.29.0
+app_file: app.py
+pinned: false
+license: apache-2.0
+short_description: Transliteration of Kazakh & Kyrgyz into Latin and IPA
+---
+
 turkic\_transliterate
 Deterministic Latin and IPA transliteration for Kazakh and Kyrgyz, plus helper utilities for tokenizer training and Russian-token filtering.
 
