@@ -269,7 +269,7 @@ def _ls_lang(source: str, verbose: bool) -> None:
     if cfg["driver"] == "oscar":
         from datasets import get_dataset_config_names
 
-        names = get_dataset_config_names(cfg["hf_name"])
+        names = get_dataset_config_names(cfg["hf_name"], trust_remote_code=True)
         click.echo(" ".join(sorted(names)))
     elif cfg["driver"] == "wikipedia":
         names = _wikipedia_lang_codes_from_sitematrix()

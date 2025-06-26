@@ -662,7 +662,7 @@ def build_ui() -> gr.Blocks:
                                     )
                                     lst = sorted(
                                         get_dataset_config_names(
-                                            cfg["hf_name"], token=token
+                                            cfg["hf_name"], token=token, trust_remote_code=True
                                         )
                                     )
                                     logging.info(
