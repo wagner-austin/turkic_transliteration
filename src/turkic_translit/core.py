@@ -1,13 +1,37 @@
 """Public API for Latin and IPA transliteration."""
 
+import sys
+
 try:
     import icu  # noqa: F401
-except ImportError as e:  # PyICU wheel is still missing
+except ImportError as e:
+    py_ver = f"{sys.version_info.major}.{sys.version_info.minor}"
+    platform = sys.platform
+
+    install_instructions = {
+        "win32": (
+            "On Windows, run:\n"
+            "  turkic-pyicu-install\n"
+            "or manually install a wheel from "
+            "https://github.com/cgohlke/pyicu-build/releases ."
+        ),
+        "linux": (
+            "On Debian/Ubuntu, run:\n"
+            "  sudo apt-get install -y libicu-dev\n"
+            "In a Hugging Face Space, add 'libicu-dev' to your packages.txt.\n"
+            "Then, reinstall the package."
+        ),
+        "darwin": (
+            "On macOS, run:\n"
+            "  brew install icu4c\n"
+            "Then, reinstall the package with CFLAGS from brew."
+        ),
+    }
+    instruction = install_instructions.get(
+        platform, "Please install the ICU C++ libraries for your platform."
+    )
     raise RuntimeError(
-        "PyICU missing. On Windows run:\n"
-        "  turkic-pyicu-install\n"
-        "or manually install a wheel from "
-        "https://github.com/cgohlke/pyicu-build/releases ."
+        f"PyICU missing on Python {py_ver} ({platform}).\n\n{instruction}"
     ) from e
 
 import unicodedata as ud
