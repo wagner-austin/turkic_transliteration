@@ -1,9 +1,7 @@
 """
 Single Cyrillic characters → IPA
-Reference: Help:IPA/Kyrgyz (rev. 6 Jan 2025).
-
-Digraphs such as “дж” are deliberately excluded in this file; they are
-covered elsewhere.
+Reference: Help:IPA/Kyrgyz (rev. 6 Jan 2025), updated for the 2025-06 long-vowel
+& ɕː revision.
 """
 
 import pytest
@@ -18,7 +16,7 @@ GOLD = {
     "д": "d",
     "е": "e",
     "ё": "jo",
-    "ж": "ʒ",  # voiced postal-alveolar fricative
+    "ж": "ʒ",
     "з": "z",
     "и": "i",
     "й": "j",
@@ -37,11 +35,11 @@ GOLD = {
     "у": "u",
     "ү": "y",
     "ф": "f",
-    "х": "x",  # voiceless velar/uvular fricative
+    "х": "x",
     "ц": "ʦ",
     "ч": "ʧ",
     "ш": "ʃ",
-    "щ": "ʃt͡ʃ",
+    "щ": "ɕː",  # ← updated (was ʃt͡ʃ)
     "ы": "ɯ",
     "э": "e",
     "ю": "ju",

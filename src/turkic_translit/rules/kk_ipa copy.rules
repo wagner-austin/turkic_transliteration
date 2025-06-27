@@ -1,0 +1,72 @@
+# Kazakh → IPA transliteration rules (kk_ipa.rules)
+# Source: McCollum & Chen 2020, *Illustration of the IPA: Kazakh* (JIPA 51 (2): 276-298).
+# Right-hand side is plain Unicode IPA (no /slashes/).
+
+$V = [ɑ æ e ə ɪ ɵ ʏ o ʊ ə̟];          # vowel macro
+
+# ---------------------------------------------------------------------------
+# Positional realisation for Е / Э
+# <Е е> always represents the diphthong /i͡e/.  <Э э> is loan-only, realised [e].
+^Е > i͡e ;  ^е > i͡e ;
+$V } Е > i͡e ;  $V } е > i͡e ;
+^Э > e ;   ^э > e ;
+$V } Э > e ;  $V } э > e ;
+
+# ---------------------------------------------------------------------------
+# Context-sensitive glide for <У>
+# After a vowel it is the glide [w]; elsewhere phonemic /uw/.
+$V } У > w ;  $V } у > w ;
+
+# ---------------------------------------------------------------------------
+# One-to-one grapheme → phone map
+А > ɑ ;  а > ɑ ;
+Ә > æ ;  ә > æ ;
+Б > b ;  б > b ;
+В > v ;  в > v ;
+Г > ɡ ;  г > ɡ ;
+Ғ > ʁ ;  ғ > ʁ ;            # voiced uvular fricative
+Д > d̪ ;  д > d̪ ;           # dental plosive
+Е > i͡e ;  е > i͡e ;         # default – most tokens handled above
+Ё > jo ; ё > jo ;
+Ж > ʒ ;  ж > ʒ ;
+З > z̪ ;  з > z̪ ;           # dental fricative
+И > i͡j ;  и > i͡j ;           # falling diphthong
+Й > j ;  й > j ;
+К > k ;  к > k ;
+Қ > q ;  қ > q ;
+Л > l̪ ;  л > l̪ ;           # dental lateral (velarised in back contexts)
+М > m ;  м > m ;
+Н > n̪ ;  н > n̪ ;           # dental nasal
+Ң > ŋ ;  ң > ŋ ;            # velar nasal
+О > o ;  о > o ;
+Ө > ɵ ;  ө > ɵ ;
+П > p ;  п > p ;
+Р > r̪ ;  р > r̪ ;           # dental trill/tap
+С > s̪ ;  с > s̪ ;           # dental fricative
+Т > t̪ ;  т > t̪ ;           # dental plosive
+У > u͡w ;  у > u͡w ;        # caught by glide rule above when needed
+Ұ > ʊ ;  ұ > ʊ ;
+Ү > ʏ ;  ү > ʏ ;
+Ф > f ;  ф > f ;
+Х > χ ;  х > χ ;
+Һ > h ;  һ > h ;
+Ц > t͡s ; ц > t͡s ;
+Ч > t͡ʃ ;  ч > t͡ʃ ;
+Ш > ʃ ;  ш > ʃ ;
+Щ > ɕː ;  щ > ɕː ;          # long alveolo-palatal fricative
+Ъ > ʔ ;  ъ > ʔ ;
+Ы > ə̟ ;  ы > ə̟ ;
+І > ɪ ;  і > ɪ ;
+Ь > ʲ ;  ь > ʲ ;
+Э > e ;  э > e ;
+Ю > ju ; ю > ju ;
+Я > ja ; я > ja ;
+
+# ---------------------------------------------------------------------------
+# Optional phonetic refinements — uncomment if you want surface allophones
+# ɡ > ɣ  || _[ɑ ʊ ə o ʏ] ;
+# k > q  || _[ɑ ʊ ə o ʏ] ;
+# v > β̞ || $V _ $V ;
+# ---------------------------------------------------------------------------
+
+:: NFC ;

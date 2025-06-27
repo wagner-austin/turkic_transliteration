@@ -1,9 +1,7 @@
 """
 Single-letter Cyrillic → IPA checks
-Reference set synchronised with McCollum & Chen 2020 (JIPA 51 (2): 276-298)
-
-‹е/Э› are omitted because their value is position-dependent and
-already covered in sentence-level tests.
+Reference set synchronised with McCollum & Chen 2020 (JIPA 51 (2): 276-298),
+**simplified** to match the current kk_ipa.rules (no diphthongs, no dental diacritics).
 """
 
 import pytest
@@ -15,25 +13,25 @@ GOLD = {
     "в": "v",
     "г": "ɡ",
     "ғ": "ʁ",
-    "д": "d̪",  # dental plosive
+    "д": "d",  # ← was d̪
     "ё": "jo",
     "ж": "ʒ",
-    "з": "z̪",  # dental fricative
-    "и": "i͡j",
+    "з": "z",  # ← was z̪
+    "и": "i",  # ← was i͡j
     "й": "j",
     "к": "k",
     "қ": "q",
-    "л": "l̪",  # dental lateral
+    "л": "l",  # ← was l̪
     "м": "m",
-    "н": "n̪",  # dental nasal
-    "ң": "ŋ",  # velar nasal
+    "н": "n",  # ← was n̪
+    "ң": "ŋ",
     "о": "o",
     "ө": "ɵ",
     "п": "p",
-    "р": "r̪",  # dental trill/tap
-    "с": "s̪",  # dental fricative
-    "т": "t̪",  # dental plosive
-    "у": "u͡w",
+    "р": "r",  # ← was r̪
+    "с": "s",  # ← was s̪
+    "т": "t",  # ← was t̪
+    "у": "u",  # ← was u͡w
     "ұ": "ʊ",
     "ү": "ʏ",
     "ф": "f",
@@ -42,8 +40,8 @@ GOLD = {
     "ц": "t͡s",
     "ч": "t͡ʃ",
     "ш": "ʃ",
-    "щ": "ɕː",  # long alveolo-palatal fricative
-    "ы": "ə̟",  # ← add diacritic if desired
+    "щ": "ɕː",
+    "ы": "ə̟",
     "і": "ɪ",
     "ю": "ju",
     "я": "ja",

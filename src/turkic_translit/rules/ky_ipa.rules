@@ -1,21 +1,25 @@
-# Kyrgyz → IPA transliteration rules (ky_ipa.rules)
-# Source: Help:IPA/Kyrgyz, rev. 6 Jan 2025.
-# Updated 26 Jun 2025 to align 1 : 1 with McCollum (2020) phoneme inventory.
-# Lines marked with “►” are new in this revision.
-
-$V = [ɑeiouøyɯ];            # vowel macro: Kyrgyz short vowels
+$V  = [ɑeiouøyɯ];            # vowel macro: Kyrgyz short vowels
+$VL = [ɑːeːiːoːøːuːyːɯː];    # vowel macro: Kyrgyz long vowels  ◄ NEW
 
 # ---------------------------------------------------------------------------
 # /je/ only after another vowel
-# McCollum (2020) shows that native Kyrgyz word-initial ‹е/Е› is realised
-# as plain [e]; the glide appears only post-vocalically or after ъ/ь which
-# are handled elsewhere.
 $V } Е > je ;
 $V } е > je ;
 
 # ---------------------------------------------------------------------------
-# digraph affricates (loans) ►
-ДЖ > ʤ ;  дж > ʤ ;          # voiced postal-alveolar affricate
+# digraph affricates (loans)
+ДЖ > ʤ ;  дж > ʤ ;
+
+# ---------------------------------------------------------------------------
+# long vowels written with double letters  ◄ NEW
+АА > ɑː ; аа > ɑː ;
+ЕЕ > eː ; ее > eː ;
+ИИ > iː ; ии > iː ;
+ОО > oː ; оо > oː ;
+ӨӨ > øː ; өө > øː ;
+УУ > uː ; уу > uː ;
+ҮҮ > yː ; үү > yː ;
+ЫЫ > ɯː ; ыы > ɯː ;
 
 # ---------------------------------------------------------------------------
 # One-to-one grapheme → phone map
@@ -47,17 +51,17 @@ $V } е > je ;
 Ү > y ;  ү > y ;
 Ф > f ;  ф > f ;
 Х > x ;  х > x ;
-Ц > ʦ ; ц > ʦ ;            # ► ligature affricate
-Ч > ʧ ;  ч > ʧ ;            # ► ligature affricate
+Ц > ʦ ; ц > ʦ ;
+Ч > ʧ ;  ч > ʧ ;
 Ш > ʃ ;  ш > ʃ ;
-Щ > ʃt͡ʃ ; щ > ʃt͡ʃ ;
+Щ > ɕː ; щ > ɕː ;          # Russian loan phoneme  ◄ CHANGED
 Ъ > ʔ ;  ъ > ʔ ;
 Ы > ɯ ;  ы > ɯ ;
 Ь > ʲ ;  ь > ʲ ;
 Э > e ;  э > e ;
 Ю > ju ; ю > ju ;
 Я > ja ; я > ja ;
-Ў > w ;  ў > w ;            # ► independent glide /w/
+Ў > w ;  ў > w ;
 
 # ---------------------------------------------------------------------------
 # /w/ between vowels
