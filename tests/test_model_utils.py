@@ -71,10 +71,13 @@ class TestModelUtils:
             assert result == self.temp_model_path
 
     def test_avoid_download_when_model_exists(self) -> None:
-        """Test that download is not performed when the model exists."""
-        # Create a temporary model file
+        """Test that download is performed when the model file is corrupted (too small)."""
+        # Create a temporary model file that's too small (corrupted)
         self.temp_model_path.parent.mkdir(parents=True, exist_ok=True)
-        self.temp_model_path.touch()
+        self.temp_model_path.write_bytes(b"corrupted" * 100)  # Small file < 100MB
+
+        # Mock download to return a valid path
+        mock_download_return = self.temp_model_path
 
         # Create a mock exists function that only returns True for our temp model path
         def mock_exists_fn(path_obj: pathlib.Path) -> bool:
@@ -87,14 +90,15 @@ class TestModelUtils:
             patch("pathlib.Path.home", return_value=pathlib.Path(self.temp_dir)),
             # Mock exists to only return True for our model
             patch("pathlib.Path.exists", mock_exists_fn),
-            # Ensure download isn't called
+            # Mock download to return our path
             patch(
-                "turkic_translit.model_utils.download_fasttext_model"
+                "turkic_translit.model_utils.download_fasttext_model",
+                return_value=mock_download_return,
             ) as mock_download,
         ):
-            # Call the function - should find our model and not try to download
+            # Call the function - should detect corrupted file and download
             result = ensure_fasttext_model()
-            mock_download.assert_not_called()
+            mock_download.assert_called_once()
 
             # The function should return our temp model path
             assert result == self.temp_model_path

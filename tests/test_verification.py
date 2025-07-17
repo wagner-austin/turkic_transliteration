@@ -131,12 +131,13 @@ def test_fasttext_lid() -> None:
 
     This test accommodates both fasttext and fasttext-wheel packages.
     """
-    # Look for the model in multiple common locations
+    # Look for the model in multiple common locations (.bin files, not .ftz)
     possible_paths = [
-        os.path.expanduser("~/lid.176.ftz"),
-        "lid.176.ftz",
-        os.path.join(os.getcwd(), "lid.176.ftz"),
-        os.path.join(os.path.dirname(__file__), "../lid.176.ftz"),
+        os.path.expanduser("~/lid.176.bin"),
+        "lid.176.bin",
+        os.path.join(os.getcwd(), "lid.176.bin"),
+        os.path.join(os.path.dirname(__file__), "../lid.176.bin"),
+        os.path.join(os.path.dirname(__file__), "../src/turkic_translit/lid.176.bin"),
     ]
 
     lid_path = None
@@ -147,7 +148,7 @@ def test_fasttext_lid() -> None:
 
     if not lid_path:
         pytest.skip(
-            "fastText model missing; download lid.176.ftz to use LID functionality"
+            "fastText model missing; download lid.176.bin to use LID functionality"
         )
 
     try:

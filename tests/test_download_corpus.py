@@ -127,11 +127,10 @@ def test_filter_langid(
         def __init__(self) -> None:
             self.call = 0
 
-        def predict(self, _s: str, k: int = 1) -> tuple[list[str], list[list[float]]]:
+        def predict(self, _s: str) -> str:
             # alternate between matching ('ru') and non-matching ('en')
             self.call += 1
-            lbl = "__label__ru" if self.call % 2 else "__label__en"
-            return ([lbl], [[0.9]])
+            return "ru" if self.call % 2 else "en"
 
     monkeypatch.setattr(dl, "_get_lid", lambda: FakeFT())
 
