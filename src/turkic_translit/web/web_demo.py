@@ -353,9 +353,9 @@ def build_ui() -> gr.Blocks:
             translit_fmt: str,
             progress: gr.Progress | None = None,
         ) -> tuple[
-            str, str | None, str | None, str
-        ]:  # returns markdown + original file + transliterated file + preview
-            """Download corpus via helper and return (info_markdown, file_path, translit_path, preview)."""
+            str, str | None, str | None, str, str
+        ]:  # returns markdown + original file + transliterated file + preview + preview_label
+            """Download corpus via helper and return (info_markdown, file_path, translit_path, preview, preview_label)."""
             if progress is None:
                 progress = gr.Progress(track_tqdm=True)
             try:
@@ -370,6 +370,7 @@ def build_ui() -> gr.Blocks:
 
                 # Create preview of the first line
                 preview = ""
+                preview_label = "**Preview** (Original corpus - first line)"
                 if path:
                     try:
                         with open(path, encoding="utf-8") as f:
@@ -438,13 +439,14 @@ def build_ui() -> gr.Blocks:
                                 preview = translit_lines[0].rstrip()
                                 if len(translit_lines) > 1:
                                     preview += " ..."
+                                preview_label = f"**Preview** ({translit_fmt} transliterated corpus - first line)"
                         except Exception as e:
                             info += f"\n\n⚠️ **Transliteration failed:** {str(e)}"
                             translit_path = None
 
-                return info, path, translit_path, preview
+                return info, path, translit_path, preview, preview_label
             except Exception as exc:  # noqa: BLE001
-                return f"**Error:** {exc}", None, None, ""
+                return f"**Error:** {exc}", None, None, "", "**Preview**"
 
         def do_tokens(text: str) -> str:
             if not text.strip():
@@ -975,10 +977,12 @@ def build_ui() -> gr.Blocks:
 
                         # Transliteration options
                         gr.Markdown("---")  # Visual separator
+                        gr.Markdown("### 📝 Transliteration Options")
                         transliterate_cb = gr.Checkbox(
-                            label="Also create transliterated version",
+                            label="✨ Also create transliterated version",
                             value=False,
-                            info="Download both original + transliterated corpus",
+                            info="Get both original + transliterated corpus files",
+                            elem_id="transliterate-checkbox",
                         )
                         translit_format = gr.Radio(
                             ["Latin", "IPA"],
@@ -1010,7 +1014,7 @@ def build_ui() -> gr.Blocks:
                         )
 
                         # Add preview section below downloads
-                        gr.Markdown("**Preview** (first line)")
+                        preview_label = gr.Markdown("**Preview**")
                         preview_text = gr.Textbox(
                             label="",
                             lines=1,
@@ -1032,7 +1036,7 @@ def build_ui() -> gr.Blocks:
                         transliterate_cb,
                         translit_format,
                     ],
-                    outputs=[info_md, file_out, file_out_translit, preview_text],
+                    outputs=[info_md, file_out, file_out_translit, preview_text, preview_label],
                 )
 
                 # Examples
@@ -1047,7 +1051,7 @@ def build_ui() -> gr.Blocks:
                         transliterate_cb,
                         translit_format,
                     ],
-                    outputs=[info_md, file_out, file_out_translit, preview_text],
+                    outputs=[info_md, file_out, file_out_translit, preview_text, preview_label],
                     fn=do_corpus_download,
                     label="Try this example",
                 )
