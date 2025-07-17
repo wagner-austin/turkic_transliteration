@@ -1,0 +1,76 @@
+# Turkish → IPA transliteration rules (tr_ipa.rules)
+# Source: Zimmer & Orgun 1992; Berkeley TELL sheet
+# ICU transliterator syntax — NFC output
+
+:: NFC ;
+
+# ─────────────────────────────────────────────────────────────────────────────
+# 0.  MACROS  (letters in the *source* alphabet, case-sensitive)
+$Vsrc  = [a e ı i o ö u ü A E I İ O Ö U Ü];   # all vowels
+$FVsrc = [e i ö ü E İ Ö Ü];                   # front vowels
+$BVsrc = [a ı o u A I O U];                   # back  vowels
+
+# ─────────────────────────────────────────────────────────────────────────────
+# 1.  PALATALISATION  (k, g → c, ɟ before front vowels)
+
+{ k }  $FVsrc > c ;
+{ K }  $FVsrc > c ;
+{ g }  $FVsrc > ɟ ;
+{ G }  $FVsrc > ɟ ;
+
+# Assimilation in geminate kk + front vowel (e.g. "teşekkür")
+{ kk } $FVsrc > cc ;
+{ KK } $FVsrc > CC ;
+
+# ─────────────────────────────────────────────────────────────────────────────
+# 2.  SOFT-G  (Ğ/ğ   "yumuşak g")
+# Per TELL: "vowel length when syllable-final and silence when syllable-initial"
+
+# 2 a. syllable-final lengthening (after vowel)
+$Vsrc { ğ } > ː ;
+$Vsrc { Ğ } > ː ;
+
+# 2 c. (optional) word-initial deletion  – leave OFF to keep single-letter test
+# ^ğ > ;
+# ^Ğ > ;
+
+# ─────────────────────────────────────────────────────────────────────────────
+# 3.  DIRECT ORTHOGRAPHY → IPA MAP  (one-to-one segmental rules)
+
+A > a ;  a > a ;
+B > b ;  b > b ;
+C > d͡ʒ ; c > d͡ʒ ;
+Ç > t͡ʃ ; ç > t͡ʃ ;
+D > d ;  d > d ;
+E > e ;  e > e ;
+F > f ;  f > f ;
+G > ɡ ;  g > ɡ ;            # palatalised above when appropriate
+Ğ > ː ;  ğ > ː ;            # overridden by soft-g rules above
+H > h ;  h > h ;
+I > ɯ ;  ı > ɯ ;
+İ > i ;  i > i ;
+J > ʒ ;  j > ʒ ;
+K > k ;  k > k ;            # palatalised above when appropriate
+L > l ;  l > l ;
+M > m ;  m > m ;
+N > n ;  n > n ;
+O > o ;  o > o ;
+Ö > ø ;  ö > ø ;
+P > p ;  p > p ;
+R > ɾ ;  r > ɾ ;
+S > s ;  s > s ;
+Ş > ʃ ;  ş > ʃ ;
+T > t ;  t > t ;
+U > u ;  u > u ;
+Ü > y ;  ü > y ;
+V > v ;  v > v ;
+Y > j ;  y > j ;
+Z > z ;  z > z ;
+
+# ─────────────────────────────────────────────────────────────────────────────
+# 4.  OPTIONAL PHONETIC REFINEMENTS  (uncomment if desired)
+
+# { l } $BVsrc > ɫ ;   # dark l next to back vowels
+# { L } $BVsrc > ɫ ;
+
+:: NFC ;
