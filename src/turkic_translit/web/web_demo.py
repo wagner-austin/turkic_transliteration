@@ -40,6 +40,7 @@ def _labelise(codes: list[str]) -> list[tuple[str, str]]:
 import gradio as gr
 
 from turkic_translit.web.web_utils import (
+    _CRON_DIR,
     direct_transliterate,
     download_corpus_to_file,  # NEW
     mask_russian,
@@ -193,15 +194,16 @@ def build_ui() -> gr.Blocks:
     # Define example inputs for each tab
     examples: dict[str, list[Any]] = {
         "direct": [
-            ["сәлем әлем", "kk", "Latin", False],
-            ["мен қазақша сөйлеймін", "kk", "IPA", False],
-            ["кыргыз тилинде сүйлөйм", "ky", "Latin", False],
+            ["сәлем әлем", "kk", "Latin", False, None],
+            ["мен қазақша сөйлеймін", "kk", "IPA", False, None],
+            ["кыргыз тилинде сүйлөйм", "ky", "Latin", False, None],
+            ["Merhaba dünya, nasılsınız?", "tr", "IPA", False, None],
         ],
         "pipeline": [["менің атым Айдар", "Latin"], ["сенің атың кім", "IPA"]],
         "tokens": ["сәлем привет қалайсың здравствуй"],
         "filter_ru": [["қазақша текст с русскими словами", 0.5, 3]],
         "spm_examples": ["менің атым Айдар, сенің атың кім?"],
-        "corpus": [["oscar-2301", "kk", 100, True]],
+        "corpus": [["oscar-2301", "kk", 100, True, 0.95, False, "Latin"]],
     }
 
     def do_train_spm(
@@ -273,26 +275,64 @@ def build_ui() -> gr.Blocks:
 
         # Warning message already displayed above if it exists
 
-        shared_textbox = gr.Textbox(
-            label="Input Text",
-            lines=4,
-            elem_id="input-text",
-            placeholder="Enter Turkic language text in Cyrillic script...",
-        )
-
         # Helper functions defined first so they're available for the UI components
+        def handle_file_upload(file_path: str | None) -> str:
+            """Read content from uploaded file."""
+            if not file_path:
+                return ""
+            try:
+                with open(file_path, encoding="utf-8") as f:
+                    return f.read()
+            except Exception as e:
+                return f"Error reading file: {str(e)}"
+
         def do_direct(
-            text: str, lang: str, fmt: str, include_arabic: bool
-        ) -> tuple[str, str]:
+            text: str,
+            lang: str,
+            fmt: str,
+            include_arabic: bool,
+            file_path: str | None = None,
+        ) -> tuple[str, str, str | None]:
+            # If a file is uploaded, use its content instead of the text input
+            if file_path:
+                text = handle_file_upload(file_path)
+                if text.startswith("Error reading file:"):
+                    return "", f"**{text}**", None
+
             if not text.strip():
-                return "", "*Please enter some text to transliterate*"
+                return (
+                    "",
+                    "*Please enter some text to transliterate or upload a file*",
+                    None,
+                )
             try:
                 result, stats = direct_transliterate(
                     text, lang, include_arabic, fmt.lower()
                 )
-                return result, stats
+                # Add note about file input if used
+                if file_path:
+                    stats += "\n*Source: Uploaded file*"
+
+                # Create downloadable file if result is non-empty and has reasonable length
+                download_path = None
+                if (
+                    result and len(result) > 50
+                ):  # Only enable download for non-trivial results
+                    import time
+
+                    timestamp = time.strftime("%Y%m%d_%H%M%S")
+                    filename = f"transliteration_{lang}_{fmt.lower()}_{timestamp}.txt"
+                    filepath = _CRON_DIR / filename
+
+                    with open(filepath, "w", encoding="utf-8") as f:
+                        f.write(result)
+
+                    download_path = str(filepath)
+                    stats += f"\n💾 *File ready for download: {filename}*"
+
+                return result, stats, download_path
             except Exception as e:
-                return "", f"**Error**: {str(e)}"
+                return "", f"**Error**: {str(e)}", None
 
         def do_pipeline(text: str, mode: str) -> tuple[str, str]:
             if not text.strip():
@@ -309,9 +349,13 @@ def build_ui() -> gr.Blocks:
             max_lines: int | None,
             filter_flag: bool,
             conf_thr: float,
+            transliterate_flag: bool,
+            translit_fmt: str,
             progress: gr.Progress | None = None,
-        ) -> tuple[str, str | None]:  # returns markdown + optional file path
-            """Download corpus via helper and return (info_markdown, file_path)."""
+        ) -> tuple[
+            str, str | None, str | None, str
+        ]:  # returns markdown + original file + transliterated file + preview
+            """Download corpus via helper and return (info_markdown, file_path, translit_path, preview)."""
             if progress is None:
                 progress = gr.Progress(track_tqdm=True)
             try:
@@ -323,9 +367,84 @@ def build_ui() -> gr.Blocks:
                     conf_thr,
                     progress=progress,
                 )
-                return info, path
+
+                # Create preview of the first line
+                preview = ""
+                if path:
+                    try:
+                        with open(path, encoding="utf-8") as f:
+                            first_line = f.readline().rstrip()
+                            preview = first_line
+                            # Check if there are more lines
+                            if f.readline():
+                                preview += " ..."
+                    except Exception:
+                        preview = "Could not generate preview"
+
+                translit_path = None
+                if transliterate_flag and path:
+                    # Import function to check supported languages dynamically
+                    from turkic_translit.core import get_supported_languages
+
+                    supported = get_supported_languages()
+
+                    # Check if language supports the requested format
+                    if lang not in supported:
+                        info += f"\n\n⚠️ **Warning:** No transliteration rules found for language '{lang}'. "
+                        info += f"Available languages: {', '.join(sorted(supported.keys()))}"
+                    elif translit_fmt.lower() not in supported[lang]:
+                        info += f"\n\n⚠️ **Warning:** {translit_fmt} transliteration not supported for '{lang}'. "
+                        info += f"Available formats for {lang}: {', '.join(supported[lang])}"
+                    else:
+                        # Create transliterated version
+                        try:
+                            from pathlib import Path
+
+                            # Read the original corpus
+                            with open(path, encoding="utf-8") as f:
+                                lines = f.readlines()
+
+                            # Create transliterated filename
+                            orig_path = Path(path)
+                            translit_filename = (
+                                orig_path.stem
+                                + f"_{translit_fmt.lower()}"
+                                + orig_path.suffix
+                            )
+                            translit_path = str(orig_path.parent / translit_filename)
+
+                            # Transliterate each line
+                            translit_lines = []
+                            for line in lines:
+                                line = line.strip()
+                                if line:
+                                    try:
+                                        result, _ = direct_transliterate(
+                                            line, lang, False, translit_fmt.lower()
+                                        )
+                                        translit_lines.append(result + "\n")
+                                    except Exception:
+                                        # If transliteration fails, keep original
+                                        translit_lines.append(line + "\n")
+
+                            # Write transliterated corpus
+                            with open(translit_path, "w", encoding="utf-8") as f:
+                                f.writelines(translit_lines)
+
+                            info += f"\n\n📝 **Transliterated corpus ({translit_fmt}):** {translit_filename}"
+
+                            # Update preview to show transliterated text (just first line since UI shows 1 line)
+                            if translit_lines:
+                                preview = translit_lines[0].rstrip()
+                                if len(translit_lines) > 1:
+                                    preview += " ..."
+                        except Exception as e:
+                            info += f"\n\n⚠️ **Transliteration failed:** {str(e)}"
+                            translit_path = None
+
+                return info, path, translit_path, preview
             except Exception as exc:  # noqa: BLE001
-                return f"**Error:** {exc}", None
+                return f"**Error:** {exc}", None, None, ""
 
         def do_tokens(text: str) -> str:
             if not text.strip():
@@ -541,19 +660,78 @@ def build_ui() -> gr.Blocks:
                     """
                 )
 
+                # Text input and file upload for this tab
+                with gr.Row():
+                    with gr.Column(scale=2):
+                        translit_textbox = gr.Textbox(
+                            label="Input Text",
+                            lines=4,
+                            elem_id="translit-input-text",
+                            placeholder="Enter Turkic language text in Cyrillic script...",
+                        )
+                    with gr.Column(scale=1):
+                        gr.Markdown("**Or upload a text file:**")
+                        translit_upload_file = gr.File(
+                            label="📁 Upload .txt file",
+                            file_types=[".txt"],
+                            type="filepath",
+                            elem_id="translit-file-upload",
+                        )
+                        gr.Markdown(
+                            "*File content replaces text input*",
+                            elem_classes=["file-upload-note"],
+                        )
+
                 with gr.Row():
                     with gr.Column(scale=3):
+                        # Dynamically get supported languages
+                        from turkic_translit.core import get_supported_languages
+
+                        supported_langs = get_supported_languages()
+                        lang_choices = sorted(supported_langs.keys())
+
+                        # Create info string with language codes
+                        lang_info = ", ".join(
+                            [
+                                f"{code} = {pretty_lang(code)}"
+                                for code in lang_choices[:3]
+                            ]
+                        )
+                        if len(lang_choices) > 3:
+                            lang_info += f", +{len(lang_choices) - 3} more"
+
                         lang = gr.Radio(
-                            ["kk", "ky"],
+                            lang_choices,
                             label="Language",
-                            value="kk",
-                            info="kk = Kazakh, ky = Kyrgyz",
+                            value=lang_choices[0] if lang_choices else "kk",
+                            info=lang_info,
                         )
                         output_format = gr.Radio(
                             ["Latin", "IPA"],
                             label="Output Format",
                             value="Latin",
                             info="IPA: International Phonetic Alphabet",
+                        )
+
+                        # Function to update available formats based on selected language
+                        def update_format_choices(selected_lang: str) -> Any:
+                            if selected_lang in supported_langs:
+                                formats = supported_langs[selected_lang]
+                                # Capitalize format names for display
+                                display_formats = [fmt.capitalize() for fmt in formats]
+                                return gr.update(
+                                    choices=display_formats,
+                                    value=display_formats[0]
+                                    if display_formats
+                                    else "IPA",
+                                )
+                            return gr.update()
+
+                        # Update format choices when language changes
+                        lang.change(
+                            update_format_choices,
+                            inputs=[lang],
+                            outputs=[output_format],
                         )
                         include_arabic = gr.Checkbox(
                             False,
@@ -564,12 +742,21 @@ def build_ui() -> gr.Blocks:
                     with gr.Column(scale=7):
                         output = gr.Textbox(label="Output", lines=4, interactive=False)
                         stats = gr.Markdown()
+                        download_file = gr.File(
+                            label="📥 Download Result", elem_id="download-output"
+                        )
 
                 with gr.Row(elem_classes=["examples-row"]):
                     gr.Examples(
                         examples=cast(list[list[Any]], examples["direct"]),
-                        inputs=[shared_textbox, lang, output_format, include_arabic],
-                        outputs=[output, stats],
+                        inputs=[
+                            translit_textbox,
+                            lang,
+                            output_format,
+                            include_arabic,
+                            translit_upload_file,
+                        ],
+                        outputs=[output, stats, download_file],
                         fn=do_direct,
                         label="Try these examples",
                     )
@@ -578,30 +765,72 @@ def build_ui() -> gr.Blocks:
             # Trigger on button click
             btn.click(
                 do_direct,
-                [shared_textbox, lang, output_format, include_arabic],
-                [output, stats],
+                [
+                    translit_textbox,
+                    lang,
+                    output_format,
+                    include_arabic,
+                    translit_upload_file,
+                ],
+                [output, stats, download_file],
             )
             # Also trigger on text input change for real-time transliteration
-            shared_textbox.change(
+            translit_textbox.change(
                 do_direct,
-                [shared_textbox, lang, output_format, include_arabic],
-                [output, stats],
+                [
+                    translit_textbox,
+                    lang,
+                    output_format,
+                    include_arabic,
+                    translit_upload_file,
+                ],
+                [output, stats, download_file],
             )
             # Update when language or format changes
             lang.change(
                 do_direct,
-                [shared_textbox, lang, output_format, include_arabic],
-                [output, stats],
+                [
+                    translit_textbox,
+                    lang,
+                    output_format,
+                    include_arabic,
+                    translit_upload_file,
+                ],
+                [output, stats, download_file],
             )
             output_format.change(
                 do_direct,
-                [shared_textbox, lang, output_format, include_arabic],
-                [output, stats],
+                [
+                    translit_textbox,
+                    lang,
+                    output_format,
+                    include_arabic,
+                    translit_upload_file,
+                ],
+                [output, stats, download_file],
             )
             include_arabic.change(
                 do_direct,
-                [shared_textbox, lang, output_format, include_arabic],
-                [output, stats],
+                [
+                    translit_textbox,
+                    lang,
+                    output_format,
+                    include_arabic,
+                    translit_upload_file,
+                ],
+                [output, stats, download_file],
+            )
+            # Trigger when file is uploaded
+            translit_upload_file.change(
+                do_direct,
+                [
+                    translit_textbox,
+                    lang,
+                    output_format,
+                    include_arabic,
+                    translit_upload_file,
+                ],
+                [output, stats, download_file],
             )
 
         def _corpus_tab() -> None:
@@ -740,26 +969,85 @@ def build_ui() -> gr.Blocks:
                             maximum=1.0,
                             step=0.05,
                             value=0.95,
-                            label="Min Lang-ID confidence",
-                            info="Discard sentences below this probability threshold when filtering.",
+                            label="Min Lang-ID Confidence Threshold",
+                            info="FastText analyzes each SENTENCE and outputs a confidence score. 0.95 = keep sentences where model is 95%+ sure it's the target language | 0.5 = keep sentences with 50%+ confidence | Lower values include more mixed-language or ambiguous sentences",
                         )
+
+                        # Transliteration options
+                        gr.Markdown("---")  # Visual separator
+                        transliterate_cb = gr.Checkbox(
+                            label="Also create transliterated version",
+                            value=False,
+                            info="Download both original + transliterated corpus",
+                        )
+                        translit_format = gr.Radio(
+                            ["Latin", "IPA"],
+                            label="Transliteration Format",
+                            value="Latin",
+                            visible=False,  # Hidden until checkbox is checked
+                        )
+
+                        # Show/hide transliteration format based on checkbox
+                        transliterate_cb.change(
+                            lambda x: gr.update(visible=x),
+                            inputs=[transliterate_cb],
+                            outputs=[translit_format],
+                        )
+
                         download_btn = gr.Button("Download", variant="primary")
                     with gr.Column(scale=1):
                         info_md = gr.Markdown()
-                        file_out = gr.File(label="Corpus File")
+                        file_out = gr.File(label="Original Corpus")
+                        file_out_translit = gr.File(
+                            label="Transliterated Corpus", visible=False
+                        )
+
+                        # Show/hide transliterated file output based on checkbox
+                        transliterate_cb.change(
+                            lambda x: gr.update(visible=x),
+                            inputs=[transliterate_cb],
+                            outputs=[file_out_translit],
+                        )
+
+                        # Add preview section below downloads
+                        gr.Markdown("**Preview** (first line)")
+                        preview_text = gr.Textbox(
+                            label="",
+                            lines=1,
+                            interactive=False,
+                            show_copy_button=True,
+                            elem_id="corpus-preview",
+                            show_label=False,
+                        )
 
                 # Hook up button
                 download_btn.click(
                     do_corpus_download,
-                    [source_dd, lang_dd, max_lines_num, filter_cb, conf_slider],
-                    outputs=[info_md, file_out],
+                    [
+                        source_dd,
+                        lang_dd,
+                        max_lines_num,
+                        filter_cb,
+                        conf_slider,
+                        transliterate_cb,
+                        translit_format,
+                    ],
+                    outputs=[info_md, file_out, file_out_translit, preview_text],
                 )
 
                 # Examples
                 gr.Examples(
                     examples["corpus"],
-                    inputs=[source_dd, lang_dd, max_lines_num, filter_cb, conf_slider],
-                    outputs=[info_md, file_out],
+                    inputs=[
+                        source_dd,
+                        lang_dd,
+                        max_lines_num,
+                        filter_cb,
+                        conf_slider,
+                        transliterate_cb,
+                        translit_format,
+                    ],
+                    outputs=[info_md, file_out, file_out_translit, preview_text],
                     fn=do_corpus_download,
                     label="Try this example",
                 )
@@ -773,6 +1061,14 @@ def build_ui() -> gr.Blocks:
                     which includes language identification, tokenization, and transliteration.
                     </div>
                     """
+                )
+
+                # Text input for pipeline tab
+                pipeline_textbox = gr.Textbox(
+                    label="Input Text",
+                    lines=4,
+                    elem_id="pipeline-input-text",
+                    placeholder="Enter mixed Kazakh/Kyrgyz text...",
                 )
 
                 with gr.Row():
@@ -791,7 +1087,7 @@ def build_ui() -> gr.Blocks:
                 with gr.Row(elem_classes=["examples-row"]):
                     gr.Examples(
                         examples=cast(list[list[Any]], examples["pipeline"]),
-                        inputs=[shared_textbox, mode],
+                        inputs=[pipeline_textbox, mode],
                         outputs=[output, stats],
                         fn=do_pipeline,
                         label="Try these examples",
@@ -799,15 +1095,15 @@ def build_ui() -> gr.Blocks:
                     btn = gr.Button("Pipeline Transliterate", variant="primary")
 
                 # Button click for pipeline transliteration
-                btn.click(do_pipeline, [shared_textbox, mode], [output, stats])
+                btn.click(do_pipeline, [pipeline_textbox, mode], [output, stats])
 
                 # Real-time transliteration as you type
-                shared_textbox.change(
-                    do_pipeline, [shared_textbox, mode], [output, stats]
+                pipeline_textbox.change(
+                    do_pipeline, [pipeline_textbox, mode], [output, stats]
                 )
 
                 # Update when mode changes
-                mode.change(do_pipeline, [shared_textbox, mode], [output, stats])
+                mode.change(do_pipeline, [pipeline_textbox, mode], [output, stats])
 
         def _tokens_tab() -> None:
             with gr.Column():
@@ -820,23 +1116,31 @@ def build_ui() -> gr.Blocks:
                     """
                 )
 
+                # Text input for tokens tab
+                tokens_textbox = gr.Textbox(
+                    label="Input Text",
+                    lines=4,
+                    elem_id="tokens-input-text",
+                    placeholder="Enter mixed language text...",
+                )
+
                 token_md = gr.Markdown()
                 analyze_btn = gr.Button("Analyze Tokens", variant="primary")
 
                 with gr.Row(elem_classes=["examples-row"]):
                     gr.Examples(
                         examples=cast(list[str], examples["tokens"]),
-                        inputs=[shared_textbox],
+                        inputs=[tokens_textbox],
                         outputs=[token_md],
                         fn=do_tokens,
                         label="Try these examples",
                     )
 
             # Button click for token analysis
-            analyze_btn.click(do_tokens, [shared_textbox], token_md)
+            analyze_btn.click(do_tokens, [tokens_textbox], token_md)
 
             # Real-time token analysis as you type
-            shared_textbox.change(do_tokens, [shared_textbox], token_md)
+            tokens_textbox.change(do_tokens, [tokens_textbox], token_md)
 
         def _filter_ru_tab() -> None:
             with gr.Column():
@@ -865,6 +1169,14 @@ def build_ui() -> gr.Blocks:
                             else "lid.176.ftz"
                         ),
                     )
+                )
+
+                # Text input for filter Russian tab
+                filter_textbox = gr.Textbox(
+                    label="Input Text",
+                    lines=4,
+                    elem_id="filter-input-text",
+                    placeholder="Enter text with mixed Turkic and Russian words...",
                 )
 
                 with gr.Row():
@@ -914,7 +1226,7 @@ def build_ui() -> gr.Blocks:
                             ["қазақша и русский в одном тексте", 0.5, 2],
                             ["Көптеген орыс сөздер арасында казахский текст", 0.6, 4],
                         ],
-                        inputs=[shared_textbox, threshold, min_len],
+                        inputs=[filter_textbox, threshold, min_len],
                         outputs=[output, debug_tbl],
                         fn=do_mask,
                         label="Try these examples",
@@ -923,20 +1235,20 @@ def build_ui() -> gr.Blocks:
 
             # Button click for masking Russian
             btn.click(
-                do_mask, [shared_textbox, threshold, min_len], [output, debug_tbl]
+                do_mask, [filter_textbox, threshold, min_len], [output, debug_tbl]
             )
 
             # Real-time masking as you type
-            shared_textbox.change(
-                do_mask, [shared_textbox, threshold, min_len], [output, debug_tbl]
+            filter_textbox.change(
+                do_mask, [filter_textbox, threshold, min_len], [output, debug_tbl]
             )
 
             # Update when parameters change
             threshold.change(
-                do_mask, [shared_textbox, threshold, min_len], [output, debug_tbl]
+                do_mask, [filter_textbox, threshold, min_len], [output, debug_tbl]
             )
             min_len.change(
-                do_mask, [shared_textbox, threshold, min_len], [output, debug_tbl]
+                do_mask, [filter_textbox, threshold, min_len], [output, debug_tbl]
             )
 
         def _compare_tab() -> None:
