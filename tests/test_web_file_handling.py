@@ -15,9 +15,10 @@ def test_direct_transliterate_with_turkish() -> None:
     assert result == "meɾhaba"
     assert "Bytes" in stats
 
-    # Test that Latin transliteration raises an error for Turkish
-    with pytest.raises(ValueError, match="Turkish .* only supports IPA output"):
-        direct_transliterate("merhaba", "tr", False, "latin")
+    # Test that Latin transliteration now works for Turkish
+    result, stats = direct_transliterate("merhaba", "tr", False, "latin")
+    assert result == "merhaba"  # ASCII-Latin fold (no diacritics in this word)
+    assert "Bytes" in stats
 
 
 def test_file_upload_processing(tmp_path: Path) -> None:

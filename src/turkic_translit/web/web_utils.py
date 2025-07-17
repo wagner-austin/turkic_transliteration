@@ -89,8 +89,6 @@ def direct_transliterate(
     if fmt not in {"latin", "ipa"}:
         raise ValueError(f"out_fmt must be 'latin' or 'ipa', got {out_fmt!r}")
     if fmt == "latin":
-        if lang == "tr":
-            raise ValueError("Turkish (tr) only supports IPA output, not Latin")
         result = to_latin(text, lang, include_arabic)
     else:
         result = to_ipa(text, lang)
