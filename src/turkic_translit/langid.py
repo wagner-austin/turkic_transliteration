@@ -33,8 +33,19 @@ class FastTextLangID:
     def predict_with_prob(self, text: str) -> tuple[str, float]:
         """Return (language, probability) for the top FastText prediction."""
         clean = text.replace("\u2581", "").strip()
+        if not clean:
+            logger.warning("Empty text passed to predict_with_prob")
+            return "unknown", 0.0
         labels, probs = self.model.predict(clean, k=1)
         lang = cast(str, labels[0]).replace("__label__", "")
+        # Log suspicious results
+        if lang == "en" and float(probs[0]) == 0.25001001358032227:
+            logger.debug(
+                f"Suspicious FastText result for '{clean[:50]}...': lang={lang}, prob={probs[0]}"
+            )
+            # Try with k=5 to see what other predictions it has
+            labels5, probs5 = self.model.predict(clean, k=5)
+            logger.debug(f"Top 5 predictions: {list(zip(labels5, probs5))}")
         return lang, float(probs[0])
 
     def predict(self, text: str) -> str:
