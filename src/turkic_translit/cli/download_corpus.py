@@ -4,14 +4,16 @@ import json
 import logging
 import os
 import re
+import sys
 import tarfile
 import tempfile
+import time
 import unicodedata as ud
 import urllib.request
 import xml.etree.ElementTree as ET
 from collections.abc import Generator
 from pathlib import Path
-from typing import Any, Callable, Optional
+from typing import Any, Callable, Optional, TypeVar
 
 import click
 import requests
@@ -46,6 +48,49 @@ except ModuleNotFoundError:  # pragma: no cover – use stub in tests
 
 
 from ._net_utils import url_ok
+
+# ---------------------------------------------------------------------------
+
+
+T = TypeVar("T")
+
+
+def _timeout_wrapper(
+    func: Callable[..., T], timeout_seconds: int = 300
+) -> Callable[..., T]:
+    """Wrapper to add timeout to functions that might hang."""
+    import functools
+    import threading
+
+    @functools.wraps(func)
+    def wrapper(*args: Any, **kwargs: Any) -> T:
+        result: list[Optional[T]] = [None]
+        exception: list[Optional[Exception]] = [None]
+
+        def target() -> None:
+            try:
+                result[0] = func(*args, **kwargs)
+            except Exception as e:
+                exception[0] = e
+
+        thread = threading.Thread(target=target)
+        thread.daemon = True
+        thread.start()
+        thread.join(timeout_seconds)
+
+        if thread.is_alive():
+            raise TimeoutError(f"Operation timed out after {timeout_seconds} seconds")
+
+        if exception[0]:
+            raise exception[0]
+
+        if result[0] is None:
+            raise RuntimeError("Function execution failed without raising an exception")
+
+        return result[0]
+
+    return wrapper
+
 
 # ---------------------------------------------------------------------------
 # Helpers
@@ -112,39 +157,87 @@ _FASTTEXT_CACHE: dict[str, Any] = {}
 
 
 def _get_lid() -> Any:
+    from turkic_translit.langid import FastTextLangID
     from turkic_translit.model_utils import ensure_fasttext_model
 
     lid_path = str(ensure_fasttext_model())
-    return _FASTTEXT_CACHE.setdefault(lid_path, load_model(lid_path))
+    if lid_path not in _FASTTEXT_CACHE:
+        _FASTTEXT_CACHE[lid_path] = FastTextLangID(lid_path)
+    return _FASTTEXT_CACHE[lid_path]
 
 
 def stream_oscar(
     lang: str, cfg: dict[str, Any], filter_langid: Optional[str] = None
 ) -> Generator[str, None, None]:
+    logger = logging.getLogger(__name__)
+
+    # Log environment info for debugging
+    logger.info(f"Starting OSCAR download for language: {lang}")
+    logger.info(f"Dataset: {cfg['hf_name']}")
+    logger.info(f"HF_TOKEN present: {'Yes' if os.getenv('HF_TOKEN') else 'No'}")
+    logger.debug(f"HTTP_PROXY: {os.getenv('HTTP_PROXY', 'Not set')}")
+    logger.debug(f"HTTPS_PROXY: {os.getenv('HTTPS_PROXY', 'Not set')}")
+
     # Allow gated OSCAR datasets that rely on custom loading scripts.
     # `trust_remote_code=True` is required from datasets>=2.19 to execute the
     # repository's loading script.  We inherit the user-scoped HF token so no
     # extra `token=`/`use_auth_token=` arg is necessary.
-    ds = load_dataset(
-        cfg["hf_name"],
-        lang,
-        split="train",
-        streaming=True,
-        trust_remote_code=True,
-        token=os.getenv("HF_TOKEN"),
-    )
+    try:
+        logger.info("Initializing dataset stream...")
+        start_time = time.time()
+
+        ds = load_dataset(
+            cfg["hf_name"],
+            lang,
+            split="train",
+            streaming=True,
+            trust_remote_code=True,
+            token=os.getenv("HF_TOKEN"),
+        )
+
+        init_time = time.time() - start_time
+        logger.info(f"Dataset initialized in {init_time:.2f}s")
+
+    except Exception as e:
+        logger.error(f"Failed to initialize dataset: {type(e).__name__}: {e}")
+        logger.debug("Full error:", exc_info=True)
+        raise
+
     model = _get_lid() if filter_langid else None
-    for row in ds:
-        txt = (row["text"] or "").strip()
-        if txt:
-            txt = ud.normalize("NFC", txt)
-            if filter_langid and model is not None:
-                pred = model.predict(txt.replace("\n", " "))[0][0].replace(
-                    "__label__", ""
-                )
-                if pred != filter_langid:
-                    continue
-            yield txt
+    if filter_langid:
+        logger.info(f"Language ID filtering enabled for: {filter_langid}")
+
+    row_count = 0
+    last_log_time = time.time()
+
+    try:
+        logger.info("Starting to stream data...")
+        for row in ds:
+            row_count += 1
+
+            # Only log in debug mode to avoid confusion when called from web UI
+            current_time = time.time()
+            if current_time - last_log_time > 10:
+                logger.debug(f"stream_oscar internal: processed {row_count} rows...")
+                last_log_time = current_time
+
+            txt = (row["text"] or "").strip()
+            if txt:
+                txt = ud.normalize("NFC", txt)
+                if filter_langid and model is not None:
+                    pred = model.predict(txt.replace("\n", " "))
+                    if pred != filter_langid:
+                        continue
+                yield txt
+
+    except Exception as e:
+        logger.error(
+            f"Error during streaming after {row_count} rows: {type(e).__name__}: {e}"
+        )
+        logger.debug("Full error:", exc_info=True)
+        raise
+
+    logger.info(f"Streaming completed. Total rows processed: {row_count}")
 
 
 def _stream_wikipedia_xml(
@@ -170,9 +263,7 @@ def _stream_wikipedia_xml(
                     if s:
                         s = ud.normalize("NFC", s)
                         if filter_langid and model is not None:
-                            pred = model.predict(s.replace("\n", " "))[0][0].replace(
-                                "__label__", ""
-                            )
+                            pred = model.predict(s.replace("\n", " "))
                             if pred != filter_langid:
                                 continue
                         yield s
@@ -227,9 +318,7 @@ def stream_leipzig(
                             sent = cols[1] if len(cols) > 1 else line.partition(" ")[2]
                             sent = sent.strip()
                             if filter_langid:
-                                pred = model.predict(sent.replace("\n", " "))[0][
-                                    0
-                                ].replace("__label__", "")
+                                pred = model.predict(sent.replace("\n", " "))
                                 if pred != filter_langid:
                                     continue
                             yield sent
@@ -269,8 +358,26 @@ def _ls_lang(source: str, verbose: bool) -> None:
     if cfg["driver"] == "oscar":
         from datasets import get_dataset_config_names
 
-        names = get_dataset_config_names(cfg["hf_name"], trust_remote_code=True)
-        click.echo(" ".join(sorted(names)))
+        logger = logging.getLogger(__name__)
+        logger.info(f"Fetching available languages for {cfg['hf_name']}...")
+
+        try:
+            # Wrap the call with timeout
+            get_configs_with_timeout = _timeout_wrapper(
+                get_dataset_config_names, timeout_seconds=60
+            )
+            names = get_configs_with_timeout(cfg["hf_name"], trust_remote_code=True)
+            click.echo(" ".join(sorted(names)))
+        except TimeoutError as e:
+            logger.error("Timeout: Failed to fetch dataset configs after 60 seconds")
+            logger.error("This might be due to network issues or proxy configuration")
+            raise click.ClickException(
+                "Failed to fetch dataset languages (timeout). "
+                "Check your internet connection and proxy settings."
+            ) from e
+        except Exception as e:
+            logger.error(f"Failed to fetch dataset configs: {type(e).__name__}: {e}")
+            raise
     elif cfg["driver"] == "wikipedia":
         names = _wikipedia_lang_codes_from_sitematrix()
         if verbose:
@@ -314,25 +421,83 @@ def _dl(
 ) -> None:
     import click
 
+    # Configure logging based on verbose flag
+    log_level = logging.DEBUG if verbose else logging.INFO
+    logging.basicConfig(
+        level=log_level,
+        format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
+        handlers=[logging.StreamHandler(sys.stdout)],
+    )
+
+    # Also set HuggingFace logging if available
+    try:
+        import datasets
+
+        datasets.logging.set_verbosity(
+            datasets.logging.DEBUG if verbose else datasets.logging.WARNING
+        )
+    except ImportError:
+        pass
+
+    logger = logging.getLogger(__name__)
+    logger.info("Starting corpus download")
+    logger.info(f"Source: {source}, Language: {lang}, Output: {out}")
+
     cfg: dict[str, Any] = _REG[source]
     stream_fn = _DRIVERS[cfg["driver"]]
     Path(out).parent.mkdir(parents=True, exist_ok=True)
     lines = 0
     with open(out, "w", encoding="utf8") as fh:
-        model = _get_lid() if filter_langid else None
-        for text in stream_fn(lang, cfg, filter_langid):
-            if max_lines is not None and lines >= max_lines:
-                break
-            if model and filter_langid:
-                pred = model.predict(text.replace("\n", " "))[0][0].replace(
-                    "__label__", ""
-                )
-                if pred != filter_langid:
-                    continue
-            fh.write(text + "\n")
-            lines += 1
-            if lines % 50_000 == 0:
-                click.echo(f"{lines:,} lines...", err=True)
+        start_time = time.time()
+        last_progress_time = start_time
+
+        logger.info("Starting to download and process corpus...")
+
+        try:
+            for text in stream_fn(lang, cfg, filter_langid):
+                if max_lines is not None and lines >= max_lines:
+                    logger.info(f"Reached requested limit of {max_lines} lines")
+                    break
+                # Optional post-filtering if driver did not honour --filter-langid
+                if filter_langid:
+                    # Lazily create the model once
+                    nonlocal_model: Any
+                    if "post_lid" not in locals():
+                        nonlocal_model = _get_lid()
+                        post_lid = nonlocal_model
+                    else:
+                        post_lid = locals().get("post_lid")
+                    if post_lid.predict(text.replace("\n", " ")) != filter_langid:
+                        continue
+                fh.write(text + "\n")
+                lines += 1
+
+                # Progress reporting
+                current_time = time.time()
+                if lines % 100 == 0 or (current_time - last_progress_time > 10):
+                    elapsed = current_time - start_time
+                    rate = lines / elapsed if elapsed > 0 else 0
+                    if max_lines:
+                        logger.info(
+                            f"Progress: {lines}/{max_lines} lines saved ({rate:.0f} lines/sec)"
+                        )
+                    else:
+                        logger.info(
+                            f"Progress: {lines:,} lines saved ({rate:.0f} lines/sec)"
+                        )
+                    last_progress_time = current_time
+
+        except KeyboardInterrupt:
+            logger.warning("Download interrupted by user")
+            raise
+        except Exception as e:
+            logger.error(
+                f"Download failed after {lines:,} lines: {type(e).__name__}: {e}"
+            )
+            raise
+
+    elapsed_total = time.time() - start_time
+    logger.info(f"Download completed in {elapsed_total:.1f}s")
     click.secho(f"\u2713 {lines:,} lines \u2192 {out}", fg="green")
 
 
