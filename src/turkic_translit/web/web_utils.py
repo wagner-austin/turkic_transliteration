@@ -89,6 +89,8 @@ def direct_transliterate(
     if fmt not in {"latin", "ipa"}:
         raise ValueError(f"out_fmt must be 'latin' or 'ipa', got {out_fmt!r}")
     if fmt == "latin":
+        if lang == "tr":
+            raise ValueError("Turkish (tr) only supports IPA output, not Latin")
         result = to_latin(text, lang, include_arabic)
     else:
         result = to_ipa(text, lang)
@@ -262,10 +264,15 @@ def download_corpus_to_file(
     Returns a pair *(file_path, markdown_info)* so the caller can both expose
     the file for download **and** show a summary message.
     """
-
+    import logging
     from pathlib import Path
 
     from turkic_translit.cli import download_corpus as dl
+
+    logger = logging.getLogger(__name__)
+    logger.info(
+        f"Web UI corpus download: source={source}, lang={lang}, max_lines={max_lines}, filter_langid={filter_langid}"
+    )
 
     if source not in dl._REG:
         raise ValueError(
@@ -289,35 +296,72 @@ def download_corpus_to_file(
     # Initial tick so the UI shows the bar immediately
     progress_fn(0, desc="starting stream")
 
-    from turkic_translit.langid import FastTextLangID
-
-    model: FastTextLangID | None = FastTextLangID() if filter_langid else None
+    model: FastTextLangID | None = None
+    if filter_langid:
+        logger.info("Getting FastText language ID model from singleton...")
+        try:
+            model = _langid_singleton()
+            logger.info(f"FastText model loaded successfully: {model}")
+        except Exception as e:
+            logger.error(f"Failed to load FastText model: {e}")
+            raise
 
     # Counters
     i = 0  # lines written
     removed = 0
+    total_processed = 0
 
     with open(
         _CRON_DIR / f"{source}_{lang}_{int(time.time())}.txt", "w", encoding="utf8"
     ) as tmp:
         tmp_path = tmp.name  # capture early so it is available after context closes
+        logger.info(f"Starting to process sentences (max_lines={max_lines})...")
         # Ensure *i* is defined even when the iterator is empty
         for sentence in base_iter:
+            # Check if we've already reached the limit before processing
+            if max_lines is not None and i >= max_lines:
+                logger.info(f"Reached max_lines limit: {i} >= {max_lines}")
+                break
+
+            total_processed += 1
+            # Safety-net: stop early if we've processed far more lines than requested
+            if (
+                max_lines is not None
+                and filter_langid
+                and total_processed >= max_lines * 50
+            ):
+                logger.warning(
+                    "Processing limit reached without enough lines kept; breaking early to avoid long hang."
+                )
+                break
             clean_sentence = sentence.replace("\n", " ").replace("\r", " ").strip()
             if not clean_sentence:
                 continue  # skip blank lines
-            # Apply LangID filter if requested
+            # Apply LangID filter if requested - USE PREDICT() LIKE THE CLI DOES
             if model is not None:
-                pred_lang, prob = model.predict_with_prob(clean_sentence)
-                if pred_lang != lang or prob < prob_threshold:
+                pred_lang, pred_prob = model.predict_with_prob(clean_sentence)
+                if total_processed <= 5:
+                    logger.info(
+                        f"Sentence {total_processed}: '{clean_sentence[:50]}...' -> predicted: {pred_lang}, wanted: {lang}"
+                    )
+                # Skip sentence if wrong language or below probability threshold
+                if pred_lang != lang or pred_prob < prob_threshold:
                     removed += 1
                     continue
             tmp.write(clean_sentence + "\n")
             i += 1
-            if i % 10_000 == 0:
-                progress_fn(None, desc=f"{i:,} lines kept…")
-            if max_lines is not None and i >= max_lines:
-                break
+
+            # Update progress and log
+            if i % 10 == 0 or (max_lines and i == max_lines):
+                if max_lines:
+                    progress_msg = f"{i}/{max_lines} lines kept"
+                    progress_fn(min(1.0, i / max_lines), desc=progress_msg)
+                    logger.info(f"Progress: {progress_msg}")
+                else:
+                    progress_msg = f"{i:,} lines kept"
+                    progress_fn(None, desc=progress_msg)
+                    if i % 100 == 0:  # Less frequent logging when no limit
+                        logger.info(f"Progress: {progress_msg}")
 
     # Capture file path after context manager closes it
     tmp_path = tmp.name
@@ -327,11 +371,16 @@ def download_corpus_to_file(
     # Compute how many lines were skipped when language filtering is active
     # removed counter already computed
 
+    logger.info(
+        f"Download complete: {i} lines written from {total_processed} sentences processed"
+    )
+
     info_md = (
         "### ✅ Download complete\n\n"
         f"- **Source:** `{source}`\n"
         f"- **Language:** {pretty_lang(lang)}\n"
         f"- **Lines written:** {i:,}\n"
+        f"- **Total sentences processed:** {total_processed:,}\n"
         + (
             f"- **Lines removed by LangID filter:** {removed:,} (p ≥ {prob_threshold})\n"
             if filter_langid
