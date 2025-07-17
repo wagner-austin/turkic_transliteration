@@ -1036,7 +1036,13 @@ def build_ui() -> gr.Blocks:
                         transliterate_cb,
                         translit_format,
                     ],
-                    outputs=[info_md, file_out, file_out_translit, preview_text, preview_label],
+                    outputs=[
+                        info_md,
+                        file_out,
+                        file_out_translit,
+                        preview_text,
+                        preview_label,
+                    ],
                 )
 
                 # Examples
@@ -1051,7 +1057,13 @@ def build_ui() -> gr.Blocks:
                         transliterate_cb,
                         translit_format,
                     ],
-                    outputs=[info_md, file_out, file_out_translit, preview_text, preview_label],
+                    outputs=[
+                        info_md,
+                        file_out,
+                        file_out_translit,
+                        preview_text,
+                        preview_label,
+                    ],
                     fn=do_corpus_download,
                     label="Try this example",
                 )
