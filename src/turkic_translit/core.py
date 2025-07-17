@@ -42,16 +42,70 @@ _RULE_DIR = Path(__file__).with_suffix("").parent / "rules"
 
 
 @lru_cache
+def get_supported_languages() -> dict[str, list[str]]:
+    """Dynamically detect supported languages and their available formats.
+
+    Returns a dict like: {'kk': ['latin', 'ipa'], 'ky': ['latin', 'ipa'], 'tr': ['ipa']}
+    """
+    supported: dict[str, list[str]] = {}
+
+    # Scan the rules directory for available files
+    for rule_file in _RULE_DIR.glob("*.rules"):
+        filename = rule_file.stem
+
+        # Parse filename pattern: lang_format.rules
+        if "_" in filename:
+            parts = filename.split("_", 1)
+            if len(parts) == 2:
+                lang, fmt = parts
+
+                # Normalize format names
+                if fmt == "lat2023" or fmt == "lat":
+                    fmt = "latin"
+
+                if lang not in supported:
+                    supported[lang] = []
+                if fmt not in supported[lang]:
+                    supported[lang].append(fmt)
+
+    return supported
+
+
+@lru_cache
 def _icu_trans(name: str) -> icu.Transliterator:
     txt = (_RULE_DIR / name).read_text(encoding="utf8")
     return icu.Transliterator.createFromRules(name, txt, 0)
 
 
 def to_latin(text: str, lang: str, include_arabic: bool = False) -> str:
-    if lang not in ("kk", "ky"):
-        raise ValueError("lang must be 'kk' or 'ky'")
-    rule = f"{lang}_lat2023.rules"
-    trans = _icu_trans(rule)
+    supported = get_supported_languages()
+
+    if lang not in supported or "latin" not in supported[lang]:
+        available = [
+            lang_code for lang_code, fmts in supported.items() if "latin" in fmts
+        ]
+        raise ValueError(
+            f"Latin transliteration not supported for '{lang}'. "
+            f"Available languages: {', '.join(sorted(available))}"
+        )
+
+    # Try different possible rule file names
+    possible_rules = [
+        f"{lang}_lat2023.rules",
+        f"{lang}_lat.rules",
+        f"{lang}_latin.rules",
+    ]
+    rule_file = None
+
+    for rule in possible_rules:
+        if (_RULE_DIR / rule).exists():
+            rule_file = rule
+            break
+
+    if not rule_file:
+        raise ValueError(f"No Latin rules file found for language '{lang}'")
+
+    trans = _icu_trans(rule_file)
     if include_arabic:
         ar = _icu_trans("ar_lat.rules")
         text = ar.transliterate(text)
@@ -60,5 +114,20 @@ def to_latin(text: str, lang: str, include_arabic: bool = False) -> str:
 
 
 def to_ipa(text: str, lang: str) -> str:
-    trans = _icu_trans(f"{lang}_ipa.rules")
+    supported = get_supported_languages()
+
+    if lang not in supported or "ipa" not in supported[lang]:
+        available = [
+            lang_code for lang_code, fmts in supported.items() if "ipa" in fmts
+        ]
+        raise ValueError(
+            f"IPA transliteration not supported for '{lang}'. "
+            f"Available languages: {', '.join(sorted(available))}"
+        )
+
+    rule_file = f"{lang}_ipa.rules"
+    if not (_RULE_DIR / rule_file).exists():
+        raise ValueError(f"IPA rules file not found for language '{lang}'")
+
+    trans = _icu_trans(rule_file)
     return ud.normalize("NFC", trans.transliterate(text))
