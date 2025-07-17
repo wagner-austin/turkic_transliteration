@@ -22,7 +22,7 @@ install:
 
 # Run tests
 test: install
-	poetry run pytest
+	poetry run pytest -rsxv
 
 check: lint test
 
@@ -30,16 +30,20 @@ check: lint test
 build: clean install
 	poetry run python -m build
 
-# Run the web UI example
-web: install
-	poetry run python turkic_tools.py web
-
 # Run the web UI with DEBUG logs
 debug: install
 	poetry run python turkic_tools.py web
 
 # Run the web UI example
+web: debug
+	poetry run python turkic_tools.py web
+
+# Run the web UI example
 run: web
+
+# Test corpus download with progress
+test-corpus: install
+	poetry run turkic-translit download-corpus download --source oscar-2301 --lang tr --out test_corpus.txt --max-lines 1000 -v
 
 savecode:
 	savecode . --skip tests	web --ext py toml
