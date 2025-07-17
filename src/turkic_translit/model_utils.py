@@ -113,8 +113,17 @@ def ensure_fasttext_model() -> pathlib.Path:
     home_lid = pathlib.Path.home() / "lid.176.bin"
 
     # Try to find an existing bin model file first
+    # Expected full model size ~126 MB; treat anything <100 MB as suspicious
+    min_bin_bytes = 100 * 1024 * 1024  # 100 MB
+
     for path in [pkg_lid, web_lid, home_lid]:
         if path.exists():
+            size = path.stat().st_size
+            if size < min_bin_bytes:
+                logger.warning(
+                    f"FastText bin model at {path} is only {size / 1024 / 1024:.1f} MB – looks corrupted; redownloading."
+                )
+                break  # ignore and proceed to download section
             logger.info(f"Found existing FastText bin model at {path}")
             return path
 
