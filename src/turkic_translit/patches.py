@@ -48,30 +48,46 @@ def apply_patches() -> None:
         return
 
     _PATCH_DONE = True
-    # Fix panphon encoding issues on Windows
+    # Fix encoding issues on Windows for all libraries
     if sys.platform == "win32":
         try:
             from typing import Any
 
             original_open: Any = open
 
-            # Monkey patch the built-in open function when used by panphon
-            def patched_open_for_panphon(
+            # Monkey patch the built-in open function for encoding issues
+            def patched_open_with_encoding(
                 file: Any, mode: Any = "r", *args: Any, **kwargs: Any
             ) -> Any:
-                # Add explicit UTF-8 encoding for CSV files opened by panphon
+                # Add explicit UTF-8 encoding for text files when no encoding is specified
                 if (
-                    "panphon" in sys.modules
-                    and mode == "r"
+                    mode in ("r", "rt", "w", "wt", "a", "at")
                     and isinstance(file, str)
-                    and file.endswith(".csv")
                     and "encoding" not in kwargs
+                    and "b" not in mode
                 ):
-                    kwargs["encoding"] = "utf-8"
-                    # Only log the first time per unique file
-                    if file not in _PATCHED_FILES:
-                        log.debug(f"Applied UTF-8 encoding patch for {file}")
-                        _PATCHED_FILES.add(file)
+                    # Check if it's being called from problematic libraries
+                    import traceback
+
+                    stack = traceback.extract_stack()
+                    for frame in stack:
+                        if any(
+                            lib in frame.filename
+                            for lib in [
+                                "panphon",
+                                "transformers",
+                                "datasets",
+                                "evaluate",
+                            ]
+                        ):
+                            kwargs["encoding"] = "utf-8"
+                            # Only log the first time per unique file
+                            if file not in _PATCHED_FILES:
+                                log.debug(
+                                    f"Applied UTF-8 encoding patch for {file} from {frame.filename}"
+                                )
+                                _PATCHED_FILES.add(file)
+                            break
                 return original_open(file, mode, *args, **kwargs)
 
             # Set the environment variable for good measure
@@ -80,8 +96,8 @@ def apply_patches() -> None:
             import builtins
             from typing import cast
 
-            builtins.open = cast(Any, patched_open_for_panphon)
-            log.info("Applied panphon UTF-8 patch for Windows")
+            builtins.open = cast(Any, patched_open_with_encoding)
+            log.info("Applied UTF-8 encoding patch for Windows")
             # We've already applied the patch above
         except ImportError:
             log.warning("Could not patch panphon (not installed)")

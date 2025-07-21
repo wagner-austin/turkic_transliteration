@@ -11,6 +11,12 @@ import subprocess
 import sys
 import urllib.request
 
+# Apply encoding patches before importing anything else
+if platform.system() == "Windows":
+    import os
+
+    os.environ["PYTHONUTF8"] = "1"
+
 import click
 
 
