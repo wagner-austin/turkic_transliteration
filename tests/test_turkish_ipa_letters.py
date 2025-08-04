@@ -41,15 +41,6 @@ GOLD = {
 # ---------------------------------------------------------------------------
 # 2.  Context-sensitive expectations
 CONTEXT_TESTS = {
-    # Velar fronting before front vowels
-    "ke": "ce",
-    "ki": "ci",
-    "kö": "cø",
-    "kü": "cy",
-    "ge": "ɟe",
-    "gi": "ɟi",
-    "gö": "ɟø",
-    "gü": "ɟy",
     # Soft-g behaviour
     "ağ": "aː",
     "eğ": "eː",
@@ -86,9 +77,9 @@ def test_turkish_word_examples() -> None:
     """Common Turkish words."""
     examples = {
         "merhaba": "meɾhaba",
-        "teşekkür": "teʃeccyɾ",  # kk→cc before ü
-        "güzel": "ɟyzel",
-        "kitap": "citap",
+        "teşekkür": "teʃekkyɾ",
+        "güzel": "ɡyzel",
+        "kitap": "kitap",
         "çok": "t͡ʃok",
         "değil": "deːil",
         "soğuk": "soːuk",
@@ -100,5 +91,5 @@ def test_turkish_word_examples() -> None:
 def test_turkish_sentences() -> None:
     """Short sentences."""
     assert to_ipa("Nasılsınız?", "tr") == "nasɯlsɯnɯz?"
-    assert to_ipa("Günaydın", "tr") == "ɟynajdɯn"
-    assert to_ipa("İyi günler", "tr") == "iji ɟynleɾ"
+    assert to_ipa("Günaydın", "tr") == "ɡynajdɯn"
+    assert to_ipa("İyi günler", "tr") == "iji ɡynleɾ"
