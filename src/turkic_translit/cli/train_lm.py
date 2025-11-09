@@ -8,6 +8,7 @@ import logging
 import click
 
 from ..lm import DatasetStream, LMModel
+from ..logging_config import setup as _log_setup
 
 logger = logging.getLogger(__name__)
 
@@ -24,6 +25,7 @@ def cli(langs: str, base_model: str, epochs: int, output_dir: str) -> None:
         turkic-train-lm --langs kk,ky --base-model facebook/mGPT --epochs 1 \
             --output-dir runs/kkky_mgpt
     """
+    _log_setup()
     iso_list = [iso.strip() for iso in langs.split(",") if iso.strip()]
     if not iso_list:
         raise click.BadParameter("--langs must contain at least one ISO code")
