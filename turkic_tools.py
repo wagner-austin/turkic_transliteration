@@ -24,33 +24,21 @@ def run_web_ui() -> int:
     dependencies like the FastText wheel for Russian filtering), consider
     running web_demo.py directly instead of using this entry point.
     """
-    # Configure logging to ensure warnings are visible
-    import importlib.machinery
-    import importlib.util
-    import logging
-    import os
+    # Configure logging centrally (honours TURKIC_LOG_LEVEL)
+    from turkic_translit.logging_config import setup as _log_setup
 
-    # Respect PYTHONLOGLEVEL environment variable, default to WARNING for compatibility
-    _lvl_str = os.environ.get("PYTHONLOGLEVEL", "WARNING").upper()
-    _lvl = getattr(logging, _lvl_str, logging.WARNING)
-    logging.basicConfig(level=_lvl, force=True)
+    _log_setup()
 
-    web_app_path = PROJECT_ROOT / "src" / "turkic_translit" / "web" / "web_demo.py"
-    print(f"Launching web UI from {web_app_path}...")
+    print("Launching web UI...")
     print("Note: Some dependency warnings may not be fully visible in the console.")
 
     try:
-        # Import the web_demo module dynamically
-        loader = importlib.machinery.SourceFileLoader("web_demo", str(web_app_path))
-        spec = importlib.util.spec_from_loader("web_demo", loader)
-        if spec is None:
-            raise ImportError(f"Could not load module from {web_app_path}")
-        web_demo = importlib.util.module_from_spec(spec)
-        loader.exec_module(web_demo)
+        # Import the web_demo module using proper package import
+        from turkic_translit.web.web_demo import build_ui
 
         # Initialize and launch the UI, opening browser automatically
         print("Starting web server and opening browser automatically...")
-        ui = web_demo.build_ui()
+        ui = build_ui()
         ui.queue().launch(inbrowser=True)
         return 0
     except KeyboardInterrupt:
@@ -58,6 +46,9 @@ def run_web_ui() -> int:
         return 0
     except Exception as e:
         print(f"Error launching web UI: {e}")
+        import traceback
+
+        traceback.print_exc()
         return 1
 
 
