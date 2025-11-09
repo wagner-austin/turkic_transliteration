@@ -14,6 +14,13 @@ python scripts/setup_dev.py
 
 This script will install the package with all development dependencies, set up PyICU on Windows if needed, and verify that all development tools are working properly.
 
+To see structured logs during development:
+
+```bash
+export TURKIC_LOG_LEVEL=DEBUG
+export TURKIC_LOG_FORMAT=json   # or 'rich'
+```
+
 ## Release Scripts
 
 The `release/` directory contains scripts for building and publishing the package to PyPI:
