@@ -40,6 +40,7 @@ dependencies = [
     "pytest>=8.0",                  # Test runner
     "rapidfuzz>=3.5",
     "rich>=13.7",                   # Color-aware logging and console output
+    "python-json-logger>=2.0.4",    # Structured JSON logging
     "sentencepiece>=0.2.0",
     "click>=8.1",
     "types-requests>=2.31",
@@ -71,6 +72,9 @@ corpus = [
     "pyarrow>=14.0",
     "requests>=2.0",
 
+]
+sentry = [
+    "sentry-sdk>=2.0",
 ]
 
 # Development tools
