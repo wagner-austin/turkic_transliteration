@@ -2,10 +2,25 @@
 
 This document covers the web interface for the Turkic Transliteration Suite.
 
-## Russian-masking debug output
+## Tabs Overview
 
-The Filter-Russian tab receives a tuple `(masked_text, confidence_table_md)` from the helper `do_mask`.
-The Markdown table is built by `_to_md_table`, which parses the `<!--debug ... -->` block emitted by `mask_russian`.
-Widgets therefore always expect two outputs; if you add new consumers remember to wire both.
+The current UI includes:
+- Download Corpus
+- Train Tokenizer (SentencePiece)
+- Transliterate to IPA/Latin
+- Mutual Intelligibility (LM analysis)
 
-Note that ANSI removal now happens in `mask_russian`, so downstream code no longer needs to scrub colour codes.
+Removed tabs:
+- ID Token Language
+- Filter Russian
+- Levenshtein Distance
+
+These features still exist in the library/CLI where applicable, but the web UI no longer exposes them.
+
+## Logging and Errors
+
+- Logging is centralized. Control verbosity with `TURKIC_LOG_LEVEL` (DEBUG, INFO, WARNING, ERROR).
+- Default log format is JSON with correlation IDs; change with `TURKIC_LOG_FORMAT=rich` for human‑readable output.
+- Each user action adds a correlation ID and minimal request context (e.g., action name, language).
+- Errors surfaced in the UI are standardized and include the correlation ID for cross‑referencing logs.
+- Optional Sentry integration is available via `pip install turkic-translit[sentry]` and `TURKIC_SENTRY_DSN`.
