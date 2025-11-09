@@ -91,7 +91,7 @@ def download_fasttext_model(target_path: Optional[pathlib.Path] = None) -> pathl
         return target_path
 
     except Exception as e:
-        logger.error(f"Failed to download FastText model: {e}")
+        logger.exception("Failed to download FastText model")
         raise OSError(f"Failed to download FastText model: {e}") from e
 
 
