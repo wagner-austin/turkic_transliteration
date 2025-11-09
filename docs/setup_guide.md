@@ -43,6 +43,9 @@ pip install -e .[dev,ui]
 
 # On Windows, if you need fasttext-wheel for language ID:
 pip install -e .[dev,ui,winlid]
+
+# Optional: error service (Sentry)
+pip install -e .[sentry]
 ```
 
 ## Required Dependencies
@@ -55,6 +58,9 @@ pip install epitran
 pip install sentencepiece rapidfuzz
 pip install numpy scipy pybind11 wheel
 pip install fasttext-wheel
+
+# Optional structured logging format (installed by default)
+pip install python-json-logger
 ```
 
 ## Cleaning Up
