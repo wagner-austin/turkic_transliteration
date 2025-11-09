@@ -9,7 +9,9 @@ from typing import TextIO
 import click
 import fasttext
 
+from ..error_service import init_error_service, set_correlation_id
 from ..lang_filter import RU_ONLY, is_russian_token
+from ..logging_config import setup as _log_setup
 from ..model_utils import ensure_fasttext_model
 
 logger = logging.getLogger(__name__)
@@ -95,6 +97,11 @@ def main(
         --fallback-orth: Apply pure-Cyrillic test regardless of threshold
         --debug: Emit structured debug info (JSON) to stderr
     """
+    # Configure logging and error service for direct module execution
+    _log_setup()
+    init_error_service()
+    set_correlation_id(os.getenv("TURKIC_CORRELATION_ID"))
+
     # Use our model_utils to find or download the model
     try:
         model_path = ensure_fasttext_model()
@@ -117,7 +124,7 @@ def main(
                 f"Model may not be working correctly! Test prediction for 'привет': {test_result}"
             )
     except Exception as e:
-        logger.error(f"Failed to load FastText model: {e}")
+        logger.exception("Failed to load FastText model")
         raise click.ClickException(f"Failed to load FastText model: {e}") from e
 
     uz_core = set()
@@ -125,9 +132,7 @@ def main(
         with open(stoplist, encoding="utf-8") as f:
             uz_core = {line.strip().lower() for line in f if line.strip()}
 
-    # In a web context, keep logs at INFO to avoid ANSI colour codes
-    if os.environ.get("GRADIO"):
-        logging.getLogger().setLevel(logging.INFO)
+    # Do not override global logging configuration in web context.
 
     # Debug output function for CLI mode
     def debug_token(tok: str, lbl: list[str], conf: list[float]) -> None:
