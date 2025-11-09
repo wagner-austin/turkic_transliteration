@@ -8,6 +8,7 @@ import logging
 import click
 
 from ..lm import DatasetStream, LMModel, cross_perplexity
+from ..logging_config import setup as _log_setup
 
 logger = logging.getLogger(__name__)
 
@@ -18,6 +19,7 @@ logger = logging.getLogger(__name__)
 @click.option("--sample", default=50_000, show_default=True, type=int)
 def cli(model: str, eval_lang: str, sample: int) -> None:
     """Compute sliding-window perplexity of *model* on *eval_lang* corpus."""
+    _log_setup()
     logger.info("Loading model from %s", model)
     lm = LMModel.from_pretrained(model)
 
