@@ -7,10 +7,6 @@ import logging
 import os
 import sys
 
-from .logging_config import setup
-
-setup()
-
 log = logging.getLogger(__name__)
 _PATCH_DONE = False
 _PATCHED_FILES = set()
