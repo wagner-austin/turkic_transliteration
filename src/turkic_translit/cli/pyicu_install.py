@@ -19,6 +19,8 @@ if platform.system() == "Windows":
 
 import click
 
+from ..logging_config import setup as _log_setup
+
 
 @click.command()
 @click.option(
@@ -29,7 +31,7 @@ import click
 )
 def main(version: str | None) -> None:
     """Download and install a PyICU wheel for Windows/Python >=3.10."""
-    logging.basicConfig(format="turkic-pyicu-install: %(message)s", level=logging.INFO)
+    _log_setup()
     log = logging.getLogger("turkic-pyicu-install")
 
     major, minor = sys.version_info[:2]
