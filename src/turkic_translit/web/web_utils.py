@@ -14,6 +14,13 @@ from typing import TYPE_CHECKING
 
 from turkic_translit.lang_utils import pretty_lang
 
+from ..error_service import (
+    error_markdown,
+    error_response,
+    set_correlation_id,
+    set_request_context,
+)
+
 # Gradio is optional at runtime but needed for type hints
 try:
     import gradio as gr  # type-only; not required outside web UI
@@ -57,6 +64,54 @@ def _start_janitor(max_age_sec: int = 600) -> None:
 _start_janitor()
 
 
+def labelise(codes: list[str]) -> list[tuple[str, str]]:
+    """Return (label, value) pairs for Gradio dropdown from ISO codes."""
+    return [(pretty_lang(c), c) for c in codes]
+
+
+class GradioLogHandler(logging.Handler):
+    """Buffers log records so UI callbacks can flush them into the browser."""
+
+    def __init__(self) -> None:
+        super().__init__()
+        self.buffer: list[str] = []
+
+    def emit(self, record: logging.LogRecord) -> None:
+        self.buffer.append(self.format(record))
+
+    def dump(self) -> str:
+        out, self.buffer = "\n".join(self.buffer), []
+        return out
+
+
+class UiPrettyLogFilter(logging.Filter):
+    """Skip verbose HTTP and housekeeping messages for UI logs."""
+
+    _SKIP_PHRASES = (
+        "HTTP Request:",
+        "turkic_model.model not found",
+    )
+
+    def filter(self, record: logging.LogRecord) -> bool:  # noqa: D401
+        msg = record.getMessage()
+        return not any(p in msg for p in self._SKIP_PHRASES)
+
+
+_UI_LOG_HANDLER: GradioLogHandler | None = None
+
+
+def get_ui_log_handler() -> GradioLogHandler:
+    """Return shared UI log handler attached to the package logger."""
+    global _UI_LOG_HANDLER
+    if _UI_LOG_HANDLER is None:
+        h = GradioLogHandler()
+        h.setFormatter(logging.Formatter("%(message)s"))
+        h.addFilter(UiPrettyLogFilter())
+        logging.getLogger("turkic_translit").addHandler(h)
+        _UI_LOG_HANDLER = h
+    return _UI_LOG_HANDLER
+
+
 if TYPE_CHECKING:  # for static checkers only
     from ..pipeline import TurkicTransliterationPipeline  # Import from main package
 
@@ -85,6 +140,10 @@ def direct_transliterate(
     """
     from ..core import to_ipa, to_latin  # Import from main package
 
+    # Correlation for this user action
+    set_correlation_id()
+    set_request_context(action="direct_transliterate", lang=lang, out_fmt=out_fmt)
+
     fmt = out_fmt.lower()
     if fmt not in {"latin", "ipa"}:
         raise ValueError(f"out_fmt must be 'latin' or 'ipa', got {out_fmt!r}")
@@ -106,6 +165,10 @@ def pipeline_transliterate(text: str, mode: str) -> tuple[str, str]:
     Returns: (result, stats_markdown)
     Raises: ValueError if mode is invalid (passed to pipeline).
     """
+    # Correlation for this user action
+    set_correlation_id()
+    set_request_context(action="pipeline_transliterate", mode=mode)
+
     mode = mode.lower()
     if mode not in {"latin", "ipa"}:
         raise ValueError(f"mode must be 'latin' or 'ipa', got {mode!r}")
@@ -137,6 +200,10 @@ def token_table_markdown(text: str) -> str:
     Returns: markdown string
     Raises: ImportError if pandas is not installed.
     """
+    # Correlation for this user action
+    set_correlation_id()
+    set_request_context(action="token_table", sample=len(text))
+
     if pd is None:
         raise ImportError(
             "install turkic-transliterate[ui] to use token_table_markdown"
@@ -180,6 +247,10 @@ def mask_russian(
     import re
 
     _ansi_re = re.compile(r"\x1b\[[0-9;]*m")
+
+    # Correlation for this user action
+    set_correlation_id()
+    set_request_context(action="mask_russian", thr=thr, min_len=min_len)
 
     try:
         # Get model from singleton
@@ -230,6 +301,10 @@ def median_levenshtein(
     Example: 'Median distance: 0.1234'
     Raises: ValueError if file objects are missing .name.
     """
+    # Correlation for this user action
+    set_correlation_id()
+    set_request_context(action="median_lev", sample=sample or 0)
+
     from .. import sanity  # Import from main package, not web subpackage
 
     lat_path = getattr(file_lat, "name", None)
@@ -268,14 +343,21 @@ def download_corpus_to_file(
     from turkic_translit.cli import download_corpus as dl
 
     logger = logging.getLogger(__name__)
+    # Correlation for this user action
+    set_correlation_id()
+    set_request_context(action="download_corpus", source=source, lang=lang)
     logger.info(
         f"Web UI corpus download: source={source}, lang={lang}, max_lines={max_lines}, filter_langid={filter_langid}"
     )
 
     if source not in dl._REG:
-        raise ValueError(
-            f"Unknown corpus source {source!r}. Available: {', '.join(dl._REG)}"
+        payload = error_response(
+            f"Unknown corpus source {source!r}.",
+            status=400,
+            code="invalid_source",
+            details={"available": list(dl._REG.keys())},
         )
+        return "", error_markdown(payload)
 
     driver = dl._DRIVERS[dl._REG[source]["driver"]]
     # We fetch *unfiltered* iterator and apply our own threshold-aware filter
@@ -300,8 +382,8 @@ def download_corpus_to_file(
         try:
             model = _langid_singleton()
             logger.info(f"FastText model loaded successfully: {model}")
-        except Exception as e:
-            logger.error(f"Failed to load FastText model: {e}")
+        except Exception:
+            logger.exception("Failed to load FastText model")
             raise
 
     # Counters
@@ -517,4 +599,6 @@ __all__ = [
     "median_levenshtein",
     "download_corpus_to_file",
     "train_sentencepiece_model",
+    "labelise",
+    "get_ui_log_handler",
 ]
