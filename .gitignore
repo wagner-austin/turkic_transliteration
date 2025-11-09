@@ -70,3 +70,4 @@ pyicu-*.whl
 temp.txt
 src/turkic_translit/lid.176.ftz
 src/turkic_translit/lid.176.bin
+src/turkic_translit/lid218e.bin
