@@ -4,7 +4,6 @@ import json
 import logging
 import os
 import re
-import sys
 import tarfile
 import tempfile
 import time
@@ -19,6 +18,8 @@ import click
 import requests
 import yaml  # type: ignore # Requires types-PyYAML
 from typing_extensions import Never
+
+from ..logging_config import setup as _log_setup
 
 # 3rd-party heavy deps are optional in constrained CI environments.
 # We fallback to lightweight stubs so the module can still import and our
@@ -103,7 +104,11 @@ def _wikipedia_lang_codes_from_sitematrix() -> list[str]:
         "https://meta.wikimedia.org/w/api.php?"
         "action=sitematrix&format=json&smtype=language&smsiteprop=code|closed"
     )
-    with urllib.request.urlopen(url, timeout=10) as r:
+    # Wikipedia requires a User-Agent header, otherwise returns 403 Forbidden
+    req = urllib.request.Request(
+        url, headers={"User-Agent": "turkic-transliteration/1.0 (https://github.com)"}
+    )
+    with urllib.request.urlopen(req, timeout=10) as r:
         data = json.load(r)
 
     langs: set[str] = set()
@@ -198,9 +203,8 @@ def stream_oscar(
         init_time = time.time() - start_time
         logger.info(f"Dataset initialized in {init_time:.2f}s")
 
-    except Exception as e:
-        logger.error(f"Failed to initialize dataset: {type(e).__name__}: {e}")
-        logger.debug("Full error:", exc_info=True)
+    except Exception:
+        logger.exception("Failed to initialize dataset")
         raise
 
     model = _get_lid() if filter_langid else None
@@ -230,11 +234,8 @@ def stream_oscar(
                         continue
                 yield txt
 
-    except Exception as e:
-        logger.error(
-            f"Error during streaming after {row_count} rows: {type(e).__name__}: {e}"
-        )
-        logger.debug("Full error:", exc_info=True)
+    except Exception:
+        logger.exception(f"Error during streaming after {row_count} rows")
         raise
 
     logger.info(f"Streaming completed. Total rows processed: {row_count}")
@@ -335,8 +336,16 @@ _DRIVERS: dict[str, StreamFn] = {
 
 # --------------------------------------------------------------------------- CLI
 @click.group()
-def cli() -> None:
-    pass
+@click.option(
+    "--log-level",
+    type=click.Choice(["debug", "info", "warning", "error", "critical"]),
+    default="info",
+    show_default=True,
+    help="Set logging level for corpus commands",
+)
+def cli(log_level: str) -> None:
+    os.environ["TURKIC_LOG_LEVEL"] = log_level.upper()
+    _log_setup()
 
 
 @cli.command("list-sources")
@@ -347,12 +356,10 @@ def _ls_src() -> None:
 
 @cli.command("list-langs")
 @click.option("--source", default="oscar-2301")
-@click.option("-v", "--verbose", is_flag=True, help="Enable verbose debug output.")
-def _ls_lang(source: str, verbose: bool) -> None:
+def _ls_lang(source: str) -> None:
     import click
 
-    if verbose:
-        logging.basicConfig(level=logging.DEBUG)
+    # Logging configured by CLI group
 
     cfg = _REG[source]
     if cfg["driver"] == "oscar":
@@ -369,21 +376,16 @@ def _ls_lang(source: str, verbose: bool) -> None:
             names = get_configs_with_timeout(cfg["hf_name"], trust_remote_code=True)
             click.echo(" ".join(sorted(names)))
         except TimeoutError as e:
-            logger.error("Timeout: Failed to fetch dataset configs after 60 seconds")
-            logger.error("This might be due to network issues or proxy configuration")
+            logger.exception("Timeout while fetching dataset configs")
             raise click.ClickException(
                 "Failed to fetch dataset languages (timeout). "
                 "Check your internet connection and proxy settings."
             ) from e
         except Exception as e:
-            logger.error(f"Failed to fetch dataset configs: {type(e).__name__}: {e}")
-            raise
+            logger.exception("Failed to fetch dataset configs")
+            raise click.ClickException("Failed to fetch dataset configs") from e
     elif cfg["driver"] == "wikipedia":
         names = _wikipedia_lang_codes_from_sitematrix()
-        if verbose:
-            logging.getLogger(__name__).debug(
-                "Wikipedia languages detected: %d", len(names)
-            )
         click.echo(" ".join(names))
     else:
         # No dynamic Leipzig index available, so we cannot list languages.
@@ -399,7 +401,6 @@ def _license(source: str) -> None:
 
 @cli.command("download")
 @click.option("--source", default="oscar-2301", show_default=True)
-@click.option("-v", "--verbose", is_flag=True, help="Enable verbose debug output.")
 @click.option("--lang", required=True, help="ISO-639-1/3 code")
 @click.option("--out", required=True, type=click.Path(dir_okay=False, writable=True))
 @click.option(
@@ -417,24 +418,18 @@ def _dl(
     out: str,
     max_lines: Optional[int],
     filter_langid: Optional[str],
-    verbose: bool,
 ) -> None:
     import click
 
-    # Configure logging based on verbose flag
-    log_level = logging.DEBUG if verbose else logging.INFO
-    logging.basicConfig(
-        level=log_level,
-        format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
-        handlers=[logging.StreamHandler(sys.stdout)],
-    )
+    # Logging configured by CLI group
 
     # Also set HuggingFace logging if available
     try:
         import datasets
 
+        lvl = logging.getLogger().getEffectiveLevel()
         datasets.logging.set_verbosity(
-            datasets.logging.DEBUG if verbose else datasets.logging.WARNING
+            datasets.logging.DEBUG if lvl <= logging.DEBUG else datasets.logging.WARNING
         )
     except ImportError:
         pass
@@ -491,10 +486,10 @@ def _dl(
             logger.warning("Download interrupted by user")
             raise
         except Exception as e:
-            logger.error(
+            logger.exception("Download failed after %s lines", f"{lines:,}")
+            raise click.ClickException(
                 f"Download failed after {lines:,} lines: {type(e).__name__}: {e}"
-            )
-            raise
+            ) from e
 
     elapsed_total = time.time() - start_time
     logger.info(f"Download completed in {elapsed_total:.1f}s")
