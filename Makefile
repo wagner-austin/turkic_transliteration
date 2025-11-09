@@ -22,7 +22,7 @@ endif
 lint: install
 	poetry run ruff check --fix .
 	poetry run ruff format
-	poetry run mypy --strict .
+	poetry run mypy --strict
 	
 # Check and validate environment
 check-environment:
@@ -65,10 +65,14 @@ ifeq ($(OS),Windows_NT)
 	@powershell -Command "if (Test-Path '$$env:LOCALAPPDATA\pypoetry\Cache\artifacts') { Remove-Item -Path '$$env:LOCALAPPDATA\pypoetry\Cache\artifacts' -Recurse -Force }"
 endif
 	@echo "Ensuring poetry.lock exists..."
-	@python -c "import os, subprocess, sys; exec(\"\"\"if not os.path.exists('poetry.lock'):\n    print('Creating poetry.lock file...')\n    result = subprocess.run(['poetry', 'lock', '--no-update'], capture_output=True, text=True)\n    if result.returncode != 0:\n        print('Failed to create lock file:', result.stderr)\n        print('Clearing cache and retrying...')\n        subprocess.run(['poetry', 'cache', 'clear', 'pypi', '--all', '--no-interaction'], capture_output=True)\n        result = subprocess.run(['poetry', 'lock'], capture_output=True, text=True)\n        if result.returncode != 0:\n            print('ERROR: Failed to create lock file:', result.stderr)\n            sys.exit(1)\"\"\")"
+	@python -c "import os, subprocess, sys; exec(\"\"\"if not os.path.exists('poetry.lock'):\n    print('Creating poetry.lock file...')\n    result = subprocess.run(['poetry', 'lock'], capture_output=True, text=True)\n    if result.returncode != 0:\n        print('Failed to create lock file:', result.stderr)\n        print('Clearing cache and retrying...')\n        subprocess.run(['poetry', 'cache', 'clear', 'pypi', '--all', '--no-interaction'], capture_output=True)\n        result = subprocess.run(['poetry', 'lock'], capture_output=True, text=True)\n        if result.returncode != 0:\n            print('ERROR: Failed to create lock file:', result.stderr)\n            sys.exit(1)\"\"\")"
 
 # Install all dependencies (corpus extras)
-install: pre-install
+lock: check-poetry
+	@echo "Locking dependencies (poetry.lock)..."
+	@poetry lock
+
+install: pre-install lock
 	@echo "Installing dependencies..."
 	@poetry install --extras corpus --extras dev --no-ansi || \
 		(echo "Installation failed. Attempting recovery..." && \
@@ -80,7 +84,7 @@ install: pre-install
 		poetry install --extras corpus --extras dev --no-ansi)
 ifeq ($(OS),Windows_NT)
 	@echo "Installing PyICU for Windows..."
-	-@poetry run python src/turkic_translit/cli/pyicu_install.py
+	-@poetry run python -m turkic_translit.cli.pyicu_install
 endif
 	@echo "Verifying installation..."
 	@poetry run python -c "import turkic_tools; print('[OK] Installation successful!')" || (echo "ERROR: Installation verification failed" && exit 1)
@@ -108,7 +112,7 @@ run: web
 
 # Test corpus download with progress
 test-corpus: install
-	poetry run turkic-translit download-corpus download --source oscar-2301 --lang tr --out test_corpus.txt --max-lines 1000 -v
+	poetry run turkic-translit --log-level debug download-corpus download --source oscar-2301 --lang tr --out test_corpus.txt --max-lines 1000
 
 savecode:
 	savecode . --skip tests	web --ext py toml
@@ -129,6 +133,7 @@ help:
 	@echo "  make test       - Run tests"
 	@echo "  make build      - Build distribution package"
 		@echo "  make web        - Run the web UI example"
-	@echo "  make run-debug  - Run the web UI with PYTHONLOGLEVEL=DEBUG"
+	@echo "  make lock       - Refresh poetry.lock"
+	@echo "  make run-debug  - Run the web UI with TURKIC_LOG_LEVEL=DEBUG"
 	@echo "  make demo       - Run the simple demo"
 	@echo "  make full-demo  - Run the comprehensive demo"
