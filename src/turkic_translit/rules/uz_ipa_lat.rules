@@ -1,0 +1,69 @@
+# Uzbek (Latin) → IPA (uz_ipa_lat.rules)
+# Basis: standard/Tashkent Uzbek. One-to-one mapping; simple allophones optional.
+# Key orthography: sh, ch, ng are single phonemes; gʻ and oʻ use an apostrophe-like mark.
+# References: consonant & vowel inventories; apostrophe behavior in loans; o vs oʻ. 
+
+# --- Macros ----------------------------------------------------------------
+$Apo = [ʼ ' ‘ ’ ʻ ʾ] ;               # apostrophe variants commonly seen
+$V   = [a e i o oʻ u] ;              # Uzbek Latin vowels (see note on i below)
+
+# --- Multi-character sequences first --------------------------------------
+ng > ŋ ;           NG > ŋ ;          # Latin ‹ng› is /ŋ/
+sh > ʃ ;           SH > ʃ ;
+ch > t͡ʃ ;         CH > t͡ʃ ;
+ts > t͡s ;         TS > t͡s ;
+
+# ‹yo/yu/ya/ye› sequences (common in loans/spellings)
+yo > jo ;          Yo > jo ;         YO > jo ;
+yu > ju ;          Yu > ju ;         YU > ju ;
+ya > ja ;          Ya > ja ;         YA > ja ;
+ye > je ;          Ye > je ;         YE > je ;
+
+# Distinct letters with apostrophe:
+o $Apo > o ;       O $Apo > o ;      # oʻ (close-mid back rounded) — distinct from ‹o›
+g $Apo > ʁ ;       G $Apo > ʁ ;      # gʻ is a voiced uvular fricative
+
+# --- Vowels (simple mapping) -----------------------------------------------
+a > a ;            A > a ;
+e > e ;            E > e ;
+o > ɔ ;            O > ɔ ;           # ‹o› is open-mid/backed; simplified as [ɔ]
+u > u ;            U > u ;
+i > i ;            I > i ;           # see optional line below re: [ɨ]
+
+# --- Consonants ------------------------------------------------------------
+b > b ;  B > b ;
+v > v ;  V > v ;
+g > ɡ ;  G > ɡ ;                     # plain g (not gʻ)
+d > d ;  D > d ;
+j > ʒ ;  J > ʒ ;                     # Latin ‹j› is /ʒ/
+z > z ;  Z > z ;
+y > j ;  Y > j ;                     # Latin ‹y› is /j/
+k > k ;  K > k ;
+q > q ;  Q > q ;
+l > l ;  L > l ;
+m > m ;  M > m ;
+n > n ;  N > n ;
+p > p ;  P > p ;
+r > r ;  R > r ;
+s > s ;  S > s ;
+t > t ;  T > t ;
+f > f ;  F > f ;
+x > x ;  X > x ;                     # voiceless velar fricative
+h > h ;  H > h ;
+
+# --- Apostrophe in loans ----------------------------------------------------
+# Ambiguous in Uzbek orthography: may mark glottal stop and/or vowel length.
+# Basic (safe) choice: glottal stop only between vowels:
+$V } $Apo { $V > ʔ ;
+
+# OPTIONAL: length mark in common patterns like ma’no ‘meaning’ (a’ → aː).
+# Uncomment if you prefer to render ‹a’› as length in loans:
+# a $Apo > aː ;
+
+# --- Optional phonetic refinements (keep commented to omit allophones) -----
+# k > kʲ  || _ [i e a] ;             # velars palatalize before non-back vowels (common)
+# ɡ > ɡʲ  || _ [i e a] ;
+# i > ɨ   || [q x ʁ] _ ;             # map ‹i› to [ɨ] after uvular/velar fricatives
+
+# --- Normalization ----------------------------------------------------------
+:: NFC ;
