@@ -115,9 +115,10 @@ turkic-translit --lang kk --in text.txt --out\_latin kk\_lat.txt --ipa --out\_ip
 • --log-level       debug | info | warning | error | critical (default: info)
 
 Logging
-The central logging setup uses Rich for colour when available.
-Set TURKIC\_LOG\_LEVEL or pass --log-level to the CLI.
-Fallback to standard logging when Rich is absent.
+Central logging supports structured JSON with correlation IDs and stack traces. Control verbosity with `TURKIC_LOG_LEVEL` (DEBUG, INFO, WARNING, ERROR). Format via `TURKIC_LOG_FORMAT=json|rich` (default json). Entry points configure logging; libraries can call `turkic_translit.logging_config.setup()` to adopt the same config.
+
+Error service
+Optional Sentry integration via `TURKIC_SENTRY_DSN` (and `TURKIC_ENV`, `TURKIC_SENTRY_TRACES`). Install with `pip install turkic-translit[sentry]`. Correlation IDs are generated per request/command; you can also set a fixed one using `TURKIC_CORRELATION_ID`.
 
 # Project Organization
 
