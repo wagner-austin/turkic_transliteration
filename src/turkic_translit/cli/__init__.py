@@ -8,7 +8,12 @@ working without modification. Additionally, the individual sub-command functions
 
 from __future__ import annotations
 
+import os
+
 import click
+
+from ..error_service import init_error_service, set_correlation_id
+from ..logging_config import setup as _log_setup
 
 # --------------------------------------------------------------------------- #
 # Import sub-command entry-points **before** any executable code to satisfy
@@ -35,8 +40,19 @@ except Exception:  # pragma: no cover – optional deps missing
 
 
 @click.group()
-def main() -> None:  # noqa: D401 – CLI root
+@click.option(
+    "--log-level",
+    type=click.Choice(["debug", "info", "warning", "error", "critical"]),
+    default="info",
+    show_default=True,
+    help="Set logging level for all commands",
+)
+def main(log_level: str) -> None:  # noqa: D401 – CLI root
     """Turkic-Transliterate command-line tools."""
+    os.environ["TURKIC_LOG_LEVEL"] = log_level.upper()
+    _log_setup()
+    init_error_service()
+    set_correlation_id(os.getenv("TURKIC_CORRELATION_ID"))
 
 
 # --------------------------------------------------------------------------- #
