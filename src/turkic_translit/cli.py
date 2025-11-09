@@ -7,6 +7,7 @@ from contextlib import nullcontext
 from typing import Optional, TextIO
 
 from .core import to_ipa, to_latin
+from .error_service import init_error_service, set_correlation_id
 from .logging_config import setup as _log_setup
 
 # Initialize logger
@@ -239,16 +240,16 @@ def main() -> None:
     """Main CLI entry point for Turkic transliteration."""
     import platform
 
+    # Configure logging and error service for this invocation
+    _log_setup()
+    init_error_service()
+    set_correlation_id(os.getenv("TURKIC_CORRELATION_ID"))
+
     # Check for Windows Python 3.12+ which has issues with PyICU
     if platform.system() == "Windows" and sys.version_info >= (3, 12):
-        sys.stderr.write(
-            "[turkic-transliterate] ERROR: PyICU might have issues on Windows for Python 3.12+!\n"
-            "If you encounter problems, please create a virtual environment with Python 3.11:\n\n"
-            "    py -3.11 -m venv turkic311\n"
-            "    turkic311\\Scripts\\activate\n"
-            "    pip install turkic-transliterate\n"
-            "    turkic-pyicu-install\n\n"
-            "See the README for more details.\n"
+        log.error(
+            "PyICU might have issues on Windows for Python 3.12+. "
+            "Consider Python 3.11 and 'turkic-pyicu-install'. See README for details."
         )
 
     # Parse arguments
@@ -307,6 +308,7 @@ def main() -> None:
             encoding,
         )
     except UnicodeDecodeError as e:
+        log.exception("Encoding error while processing input/output")
         sys.stderr.write(f"Encoding error: {e}\n")
         sys.stderr.write(
             "If you're on Windows, make sure your input file is properly encoded in UTF-8.\n"
