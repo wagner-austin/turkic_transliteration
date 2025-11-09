@@ -34,6 +34,14 @@ The project follows a standard Python package structure:
 - Use Ruff for linting: `ruff check .`
 - Write type hints and use mypy: `mypy --strict .`
 
+### Logging & Errors
+
+- Do not call `logging.basicConfig` or modify the root logger. Entrypoints should call `turkic_translit.logging_config.setup()`.
+- Acquire module loggers via `logging.getLogger(__name__)` and use appropriate levels (debug/info/warning/error).
+- Use `logger.exception(...)` at error boundaries to capture stack traces.
+- When adding UI-facing errors, use `turkic_translit.error_service.error_response()` to standardize payloads.
+- Correlation IDs and request context are available via `set_correlation_id()` / `set_request_context()` in `turkic_translit.error_service`.
+
 ### Testing
 
 - Write tests for all new functionality
