@@ -1,4 +1,4 @@
-#!/usr/bin/env python3
+﻿#!/usr/bin/env python3
 """
 Test script for lid218e.bin model - script-aware language identification.
 
@@ -40,7 +40,7 @@ def test_lid218e():
     for path in model_paths:
         if path.exists():
             model_path = path
-            print(f"✓ Found model at: {path}")
+            print(f"âœ“ Found model at: {path}")
             print(f"  Size: {path.stat().st_size / (1024**3):.2f} GB\n")
             break
 
@@ -58,30 +58,30 @@ def test_lid218e():
     # Load model
     print("Loading model (this may take a moment for 1.2GB file)...")
     model = fasttext.load_model(str(model_path))
-    print("✓ Model loaded successfully!\n")
+    print("âœ“ Model loaded successfully!\n")
 
     # Test cases: (text, expected_lang, expected_script, description)
     test_cases = [
         # Uzbek - Latin vs Cyrillic
         ("O'zbekiston", "uzb", "Latn", "Uzbek (Latin)"),
         (
-            "Oʻzbekiston respublikasi",
+            "OÊ»zbekiston respublikasi",
             "uzb",
             "Latn",
             "Uzbek (Latin with modifier letter)",
         ),
-        ("Ўзбекистон", "uzb", "Cyrl", "Uzbek (Cyrillic)"),
-        ("Ўзбекистон Республикаси", "uzb", "Cyrl", "Uzbek (Cyrillic, longer)"),
+        ("ÐŽÐ·Ð±ÐµÐºÐ¸ÑÑ‚Ð¾Ð½", "uzb", "Cyrl", "Uzbek (Cyrillic)"),
+        ("ÐŽÐ·Ð±ÐµÐºÐ¸ÑÑ‚Ð¾Ð½ Ð ÐµÑÐ¿ÑƒÐ±Ð»Ð¸ÐºÐ°ÑÐ¸", "uzb", "Cyrl", "Uzbek (Cyrillic, longer)"),
         # Kazakh - Cyrillic
-        ("Қазақстан", "kaz", "Cyrl", "Kazakh (Cyrillic)"),
-        ("Қазақстан Республикасы", "kaz", "Cyrl", "Kazakh (Cyrillic, longer)"),
+        ("ÒšÐ°Ð·Ð°Ò›ÑÑ‚Ð°Ð½", "kaz", "Cyrl", "Kazakh (Cyrillic)"),
+        ("ÒšÐ°Ð·Ð°Ò›ÑÑ‚Ð°Ð½ Ð ÐµÑÐ¿ÑƒÐ±Ð»Ð¸ÐºÐ°ÑÑ‹", "kaz", "Cyrl", "Kazakh (Cyrillic, longer)"),
         # Kyrgyz - Cyrillic
-        ("Кыргызстан", "kir", "Cyrl", "Kyrgyz (Cyrillic)"),
-        ("Кыргыз Республикасы", "kir", "Cyrl", "Kyrgyz (Cyrillic, longer)"),
+        ("ÐšÑ‹Ñ€Ð³Ñ‹Ð·ÑÑ‚Ð°Ð½", "kir", "Cyrl", "Kyrgyz (Cyrillic)"),
+        ("ÐšÑ‹Ñ€Ð³Ñ‹Ð· Ð ÐµÑÐ¿ÑƒÐ±Ð»Ð¸ÐºÐ°ÑÑ‹", "kir", "Cyrl", "Kyrgyz (Cyrillic, longer)"),
         # Turkish - Latin
-        ("Türkiye Cumhuriyeti", "tur", "Latn", "Turkish (Latin)"),
+        ("TÃ¼rkiye Cumhuriyeti", "tur", "Latn", "Turkish (Latin)"),
         # Russian - Cyrillic
-        ("Российская Федерация", "rus", "Cyrl", "Russian (Cyrillic)"),
+        ("Ð Ð¾ÑÑÐ¸Ð¹ÑÐºÐ°Ñ Ð¤ÐµÐ´ÐµÑ€Ð°Ñ†Ð¸Ñ", "rus", "Cyrl", "Russian (Cyrillic)"),
         # English - Latin
         ("Hello world", "eng", "Latn", "English (Latin)"),
     ]
@@ -112,7 +112,7 @@ def test_lid218e():
         success = lang_match and script_match
 
         # Display result
-        status = "✓ PASS" if success else "✗ FAIL"
+        status = "âœ“ PASS" if success else "âœ— FAIL"
         print(f"{status} {description}")
         print(f'  Text:     "{text}"')
         print(f"  Expected: {expected_lang}_{expected_script}")
@@ -142,14 +142,14 @@ def test_lid218e():
     print(f"RESULTS: {passed} passed, {failed} failed out of {len(test_cases)} tests")
     print("=" * 80)
 
-    if failed == 0:
-        print("\n✓ All tests passed! The model correctly detects scripts.")
-        return 0
-    print(
-        f"\n✗ {failed} test(s) failed. The model may need adjustment or test expectations may be wrong."
-    )
-    return 1
+        assert failed == 0, f"{failed} test(s) failed. The model may need adjustment or test expectations may be wrong."
+    print("\nAll tests passed! The model correctly detects scripts.")
 
 
 if __name__ == "__main__":
-    sys.exit(test_lid218e())
+    try:
+        test_lid218e()
+    except AssertionError as e:
+        print(e)
+        sys.exit(1)
+    sys.exit(0)
