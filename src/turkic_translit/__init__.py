@@ -11,7 +11,6 @@ try:
 except Exception:  # pragma: no cover – missing optional deps
     lm = None  # type: ignore
 from .core import to_ipa, to_latin
-from .logging_config import setup as _log_setup
 from .web.web_utils import (
     direct_transliterate,
     mask_russian,
@@ -20,7 +19,8 @@ from .web.web_utils import (
     token_table_markdown,
 )
 
-_log_setup()
+# Logging is configured by entrypoints (CLI/web). Package import does not
+# alter global logging configuration.
 
 __all__ = [
     "to_latin",
@@ -41,14 +41,9 @@ if platform.system() == "Windows" and sys.version_info >= (3, 12):
     try:
         import PyICU  # noqa: F401
     except ImportError:
-        import sys as _sys
+        import logging as _logging
 
-        _sys.stderr.write(
-            "[turkic-transliterate] ERROR: PyICU is not installed and cannot be built automatically on Windows for Python 3.12+!\n"
-            "To use this package, please create a virtual environment with Python 3.11 and install as follows:\n\n"
-            "    py -3.11 -m venv turkic311\n"
-            "    turkic311\\Scripts\\activate\n"
-            "    pip install turkic-transliterate\n"
-            "    turkic-pyicu-install\n\n"
-            "See the README for more details.\n"
+        _logging.getLogger("turkic_translit").error(
+            "PyICU is not installed and cannot be built automatically on Windows for Python 3.12+. "
+            "Use Python 3.11 and install via 'turkic-pyicu-install'. See README for details."
         )
