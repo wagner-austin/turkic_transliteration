@@ -63,6 +63,9 @@ local_settings.py
 # Ignore SentencePiece test models
 mini.*
 
+# Claude
+.claude
+
 # Documentation files that shouldn't be tracked
 Setup Commands for Conda env with dependencies.txt
 Why pip install pyicu fails on Windows.txt
