@@ -46,9 +46,8 @@ W  > ʋ ;
 
 # 1.3 POSTALVEOLAR FRICATIVE
 #     Standard orthography uses <š>. Many texts use <sh>; we map both to /ʃ/.
+#     Note: š/Š geminates are handled in section 2.2
 
-š  > ʃ ;
-Š  > ʃ ;
 s h > ʃ ;
 S h > ʃ ;
 s H > ʃ ;
@@ -58,7 +57,7 @@ S H > ʃ ;
 # 1.4 GLOTTAL STOP
 #     Apostrophe <'> marks a glottal stop in forms like <vaa'an>.
 
-'  > ʔ ;
+\' > ʔ ;
 
 
 # 1.5 APPROXIMATE HANDLING OF FOREIGN LETTERS
@@ -90,33 +89,7 @@ Z  > s ;
 
 # 2.1 VOWELS
 
-# Short vowels
-a  > ɑ ;
-A  > ɑ ;
-
-ä  > æ ;
-Ä  > æ ;
-
-e  > e ;
-E  > e ;
-
-i  > i ;
-I  > i ;
-
-o  > o ;
-O  > o ;
-
-ö  > ø ;
-Ö  > ø ;
-
-u  > u ;
-U  > u ;
-
-y  > y ;
-Y  > y ;
-
-
-# Long vowels (double letters)
+# Long vowels (double letters) - MUST come before short vowels
 
 aa > ɑː ;
 AA > ɑː ;
@@ -143,93 +116,136 @@ yy > yː ;
 YY > yː ;
 
 
+# Short vowels
+
+a  > ɑ ;
+A  > ɑ ;
+
+ä  > æ ;
+Ä  > æ ;
+
+e  > e ;
+E  > e ;
+
+i  > i ;
+I  > i ;
+
+o  > o ;
+O  > o ;
+
+ö  > ø ;
+Ö  > ø ;
+
+u  > u ;
+U  > u ;
+
+y  > y ;
+Y  > y ;
+
+
 # 2.2 CONSONANTS
 
-# Core plosives (short / long)
-p   > p ;
-P   > p ;
+# Long consonants (geminates) - MUST come before short consonants
+
 pp  > pː ;
 PP  > pː ;
 
-t   > t ;
-T   > t ;
 tt  > tː ;
 TT  > tː ;
 
-k   > k ;
-K   > k ;
 kk  > kː ;
 KK  > kː ;
+
+bb  > bː ;
+BB  > bː ;
+
+dd  > dː ;
+DD  > dː ;
+
+gg  > ɡː ;
+GG  > ɡː ;
+
+mm  > mː ;
+MM  > mː ;
+
+nn  > nː ;
+NN  > nː ;
+
+ll  > lː ;
+LL  > lː ;
+
+rr  > rː ;
+RR  > rː ;
+
+ss  > sː ;
+SS  > sː ;
+
+ff  > fː ;
+FF  > fː ;
+
+hh  > hː ;
+HH  > hː ;
+
+šš  > ʃː ;
+ŠŠ  > ʃː ;
+
+jj  > jː ;    # geminate /j/ only in some dialects / expressive forms
+
+
+# Short consonants
+
+# Core plosives
+p   > p ;
+P   > p ;
+
+t   > t ;
+T   > t ;
+
+k   > k ;
+K   > k ;
 
 # Marginal voiced plosives (mainly in loans)
 b   > b ;
 B   > b ;
-bb  > bː ;
-BB  > bː ;
 
 d   > d ;
 D   > d ;
-dd  > dː ;
-DD  > dː ;
 
 g   > ɡ ;
 G   > ɡ ;
-gg  > ɡː ;
-GG  > ɡː ;
 
-
-# Nasals (short / long)
+# Nasals
 m   > m ;
 M   > m ;
-mm  > mː ;
-MM  > mː ;
 
 n   > n ;
 N   > n ;
-nn  > nː ;
-NN  > nː ;
 
-
-# Liquids (short / long)
+# Liquids
 l   > l ;
 L   > l ;
-ll  > lː ;
-LL  > lː ;
 
 r   > r ;
 R   > r ;
-rr  > rː ;
-RR  > rː ;
 
-
-# Fricatives (short / long)
+# Fricatives
 s   > s ;
 S   > s ;
-ss  > sː ;
-SS  > sː ;
 
 f   > f ;
 F   > f ;
-ff  > fː ;
-FF  > fː ;
 
 h   > h ;
 H   > h ;
-hh  > hː ;
-HH  > hː ;
 
 # Postalveolar (from <š>, <sh> above)
 # ʃ mapping already handled context-sensitively; duplicates here are harmless:
 š   > ʃ ;
 Š   > ʃ ;
-šš  > ʃː ;
-ŠŠ  > ʃː ;
-
 
 # Approximants / glides
 j   > j ;
 J   > j ;
-jj  > jː ;    # geminate /j/ only in some dialects / expressive forms
 
 # /ʋ/ already handled as v/w in section 1.2.
 
