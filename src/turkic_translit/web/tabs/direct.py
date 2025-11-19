@@ -77,19 +77,6 @@ def register() -> None:
                     info="IPA: International Phonetic Alphabet",
                 )
 
-                def update_format_choices(selected_lang: str) -> Any:
-                    if selected_lang in supported_langs:
-                        formats = supported_langs[selected_lang]
-                        display_formats = [fmt.capitalize() for fmt in formats]
-                        return gr.update(
-                            choices=display_formats,
-                            value=display_formats[0] if display_formats else "IPA",
-                        )
-                    return gr.update()
-
-                lang.change(
-                    update_format_choices, inputs=[lang], outputs=[output_format]
-                )
                 include_arabic = gr.Checkbox(
                     False,
                     label="Also transliterate Arabic script",

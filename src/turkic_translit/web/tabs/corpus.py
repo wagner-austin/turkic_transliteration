@@ -136,23 +136,14 @@ def register() -> None:
                     value="Latin",
                     visible=False,
                 )
-                transliterate_cb.change(
-                    lambda x: gr.update(visible=x),
-                    inputs=[transliterate_cb],
-                    outputs=[translit_format],
-                )
 
                 download_btn = gr.Button("Download", variant="primary")
             with gr.Column(scale=1):
                 info_md = gr.Markdown()
                 file_out = gr.File(label="Original Corpus")
                 file_out_translit = gr.File(
-                    label="Transliterated Corpus", visible=False
-                )
-                transliterate_cb.change(
-                    lambda x: gr.update(visible=x),
-                    inputs=[transliterate_cb],
-                    outputs=[file_out_translit],
+                    label="Transliterated Corpus",
+                    visible=False,
                 )
 
                 preview_label = gr.Markdown("**Preview**")
@@ -164,6 +155,13 @@ def register() -> None:
                     elem_id="corpus-preview",
                     show_label=False,
                 )
+
+        # Combined callback for transliterate checkbox to update both format radio and file output visibility
+        transliterate_cb.change(
+            lambda x: (gr.update(visible=x), gr.update(visible=x)),
+            inputs=[transliterate_cb],
+            outputs=[translit_format, file_out_translit],
+        )
 
         def _do_download(
             source: str,
