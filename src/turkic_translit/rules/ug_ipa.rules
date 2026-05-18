@@ -1,6 +1,8 @@
 # Uyghur → IPA transliteration rules (ug_ipa.rules)
 #
-# Source: McCollum 2021, "Transparency, locality, and contrast in Uyghur backness harmony"
+# Source: McCollum, A. G. (2021). "Transparency, locality, and contrast in Uyghur backness harmony".
+#         Laboratory Phonology: Journal of the Association for Laboratory Phonology, 12(1): article 8.
+#         DOI: https://doi.org/10.5334/labphon.239
 #
 # Simplified:
 #   - 7-vowel system /ɑ æ e i y ø o u/ (+ marginal /e/)
@@ -51,6 +53,28 @@ $V = [ɑ æ e i y ø o u];        # vowel macro (phonemic set used here)
 
 # Hamza (purely orthographic in standard Uyghur)
 ئ >  ;       # deletion
+
+# ---------------------------------------------------------------------------
+# ADDITIONS 2025-12-02: Missing chars found in OSCAR corpus audit
+# See docs/ipa-rules-refactor.md
+# ---------------------------------------------------------------------------
+
+# Missing Arabic consonants
+ع > ʕ ;       # AIN - pharyngeal fricative
+ح > ħ ;       # HAH - voiceless pharyngeal fricative
+ء > ʔ ;       # HAMZA standalone - glottal stop
+
+# Arabic punctuation (normalize to space)
+، >  ;        # ARABIC COMMA
+؟ >  ;        # ARABIC QUESTION MARK
+ـ >  ;        # TATWEEL (kashida stretcher)
+
+# Arabic diacritics (delete - optional short vowel marks)
+َ >  ;        # FATHA
+ِ >  ;        # KASRA
+ُ >  ;        # DAMMA
+ْ >  ;        # SUKUN
+ّ >  ;        # SHADDA
 
 # ---------------------------------------------------------------------------
 

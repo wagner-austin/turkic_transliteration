@@ -1,6 +1,10 @@
-# Uzbek (Cyrillic) → IPA transliteration rules (uz_ipa_cyr.rules)
+# Uzbek (Cyrillic) → IPA transliteration rules (uzc_ipa.rules)
 #
-# Basis: standard / Tashkent Uzbek, modern Cyrillic orthography.
+# Source: Ido, S. (2025). "Uzbek".
+#         Journal of the International Phonetic Association, 55(1-2): 152-168.
+#         DOI: https://doi.org/10.1017/S0025100324000148
+#
+# Basis: Standard/Tashkent Uzbek, modern Cyrillic orthography.
 # Ў = oʻ, Ғ = gʻ. Russian-only letters kept minimal; hard/soft signs treated phonemically.
 
 # ---------------------------------------------------------------------------

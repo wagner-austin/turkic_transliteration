@@ -1,8 +1,11 @@
 # Azerbaijani (North) → IPA transliteration rules (az_ipa.rules)
 #
-# Sources:
-# - Mokari, P. G. & Werner, S. (2017). “Azerbaijani.” JIPA 47(2): 207–212.
-# - Standard Baku-oriented descriptions of orthography & pronunciation (e.g. Siegel, Essentials of Azerbaijani).
+# Source: Ghaffarvand Mokari, P. & Werner, S. (2017). "Azerbaijani".
+#         Journal of the International Phonetic Association, 47(2): 207–212.
+#         DOI: https://doi.org/10.1017/S0025100317000184
+#
+# Additional reference: Standard Baku-oriented descriptions of orthography & pronunciation
+#                       (e.g., Siegel, Essentials of Azerbaijani).
 #
 # Simplified: no vowel length, no stress, no aspiration marking, no dental vs. alveolar
 # distinctions, no automatic final devoicing, no systematic palatal/velar allophony.
