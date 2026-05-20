@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from functools import cache, lru_cache
 from pathlib import Path
-from typing import Any, cast
+from typing import cast
 
 import gradio as gr
 
@@ -95,12 +95,7 @@ def register() -> None:
                         lst = sorted(_ipa_supported_langs())
 
                     ft = _fasttext_langs()
-                    ipa = _ipa_supported_langs()
-                    # Only expose languages we have IPA rules for *and* that
-                    # FastText can identify; everything else is hidden from
-                    # the UI so users can't request transliteration we can't
-                    # perform.
-                    return [code for code in lst if code in ft and code in ipa]
+                    return [code for code in lst if code in ft]
 
                 initial_langs = _lang_choices("oscar-2301")
                 lang_dd = gr.Dropdown(
@@ -109,13 +104,6 @@ def register() -> None:
                     label="Language",
                 )
 
-                def _update_langs(selected_src: str) -> Any:
-                    langs = _lang_choices(selected_src)
-                    return gr.update(
-                        choices=labelise(langs), value=langs[0] if langs else None
-                    )
-
-                source_dd.change(_update_langs, inputs=[source_dd], outputs=[lang_dd])
                 max_lines_num = gr.Number(
                     label="Max Sentences (empty = all)", value=10, precision=0
                 )
@@ -136,11 +124,60 @@ def register() -> None:
 
                 gr.Markdown("---")
                 gr.Markdown("### IPA Transliteration")
+                _initial_lang = initial_langs[0] if initial_langs else None
+                _initial_has_ipa = (
+                    _initial_lang is not None
+                    and _initial_lang in _ipa_supported_langs()
+                )
                 transliterate_cb = gr.Checkbox(
                     label="Also create IPA-transliterated version",
                     value=False,
-                    info="Get both original + IPA-transliterated corpus files",
+                    interactive=_initial_has_ipa,
+                    info=(
+                        "Get both original + IPA-transliterated corpus files"
+                        if _initial_has_ipa
+                        else f"No IPA rules for '{_initial_lang}' — transliteration unavailable"
+                    ),
                     elem_id="transliterate-checkbox",
+                )
+
+                def _update_transliterate_cb(selected_lang: str | None) -> gr.Checkbox:
+                    if selected_lang and selected_lang in _ipa_supported_langs():
+                        return gr.Checkbox(
+                            label="Also create IPA-transliterated version",
+                            interactive=True,
+                            info="Get both original + IPA-transliterated corpus files",
+                        )
+                    return gr.Checkbox(
+                        label="Also create IPA-transliterated version",
+                        value=False,
+                        interactive=False,
+                        info=f"No IPA rules for '{selected_lang}' — transliteration unavailable",
+                    )
+
+                lang_dd.change(
+                    _update_transliterate_cb,
+                    inputs=[lang_dd],
+                    outputs=[transliterate_cb],
+                )
+
+                def _update_langs(
+                    selected_src: str,
+                ) -> tuple[gr.Dropdown, gr.Checkbox]:
+                    langs = _lang_choices(selected_src)
+                    new_default = langs[0] if langs else None
+                    lang_update = gr.Dropdown(
+                        choices=labelise(langs),
+                        value=new_default,
+                        label="Language",
+                    )
+                    cb_update = _update_transliterate_cb(new_default)
+                    return lang_update, cb_update
+
+                source_dd.change(
+                    _update_langs,
+                    inputs=[source_dd],
+                    outputs=[lang_dd, transliterate_cb],
                 )
 
                 download_btn = gr.Button("Download", variant="primary")
