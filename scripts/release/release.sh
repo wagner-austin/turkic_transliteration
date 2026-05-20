@@ -27,12 +27,12 @@ if [[ -z "${TWINE_PASSWORD:-}" ]]; then
 fi
 
 echo "Running tests..."
-pytest || { echo "Tests failed. Aborting release."; exit 1; }
+poetry run pytest || { echo "Tests failed. Aborting release."; exit 1; }
 
 echo "Building package..."
-python -m build
+poetry run python -m build
 
 echo "Uploading package to PyPI..."
-twine upload dist/*
+poetry run twine upload dist/*
 
 echo "Release process completed successfully."

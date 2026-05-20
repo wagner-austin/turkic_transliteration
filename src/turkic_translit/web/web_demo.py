@@ -110,7 +110,7 @@ def build_ui() -> gr.Blocks:
 
         gr.Markdown(
             """
-            Explore transliteration capabilities for Turkic languages between Cyrillic, Latin, and IPA representations.
+            Explore IPA transliteration for Turkic languages.
             Navigate through the tabs below to access different features.
             """
         )
@@ -129,25 +129,11 @@ def build_ui() -> gr.Blocks:
 
             _tab.register()
 
-        def _sentencepiece_tab() -> None:
-            from turkic_translit.web.tabs import sentencepiece as _tab
-
-            _tab.register()
-
-        def _mutual_tab() -> None:
-            from turkic_translit.web.tabs import mutual as _tab
-
-            _tab.register()
-
         with gr.Tabs():
             with gr.Tab("📥 Download Corpus", id="corpus"):
                 _corpus_tab()
-            with gr.Tab("🧩 Train Tokenizer", id="sentencepiece"):
-                _sentencepiece_tab()
-            with gr.Tab("📝 Transliterate to IPA/Latin", id="direct"):
+            with gr.Tab("📝 Transliterate to IPA", id="direct"):
                 _direct_tab()
-            with gr.Tab("🤝 Mutual Intelligibility", id="mutual"):
-                _mutual_tab()
 
         gr.Markdown(
             """

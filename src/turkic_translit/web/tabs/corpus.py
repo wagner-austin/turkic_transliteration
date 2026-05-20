@@ -42,6 +42,17 @@ def register() -> None:
                         lab.replace("__label__", "") for lab in mdl.model.get_labels()
                     }
 
+                @lru_cache(maxsize=1)
+                def _ipa_supported_langs() -> set[str]:
+                    """Return language codes that have an `{lang}_ipa.rules` file."""
+                    from turkic_translit.core import get_supported_languages
+
+                    return {
+                        code
+                        for code, fmts in get_supported_languages().items()
+                        if "ipa" in fmts
+                    }
+
                 @cache
                 def _lang_choices(src: str) -> list[str]:
                     import logging
@@ -81,14 +92,15 @@ def register() -> None:
 
                     if not lst:
                         logger.warning(f"Using fallback language list for {src}")
-                        lst = [
-                            c
-                            for c in ["en", "tr", "az", "uz", "kk", "ru"]
-                            if c in _fasttext_langs()
-                        ]
+                        lst = sorted(_ipa_supported_langs())
 
                     ft = _fasttext_langs()
-                    return [code for code in lst if code in ft]
+                    ipa = _ipa_supported_langs()
+                    # Only expose languages we have IPA rules for *and* that
+                    # FastText can identify; everything else is hidden from
+                    # the UI so users can't request transliteration we can't
+                    # perform.
+                    return [code for code in lst if code in ft and code in ipa]
 
                 initial_langs = _lang_choices("oscar-2301")
                 lang_dd = gr.Dropdown(
@@ -123,18 +135,12 @@ def register() -> None:
                 )
 
                 gr.Markdown("---")
-                gr.Markdown("### Transliteration Options")
+                gr.Markdown("### IPA Transliteration")
                 transliterate_cb = gr.Checkbox(
-                    label="Also create transliterated version",
+                    label="Also create IPA-transliterated version",
                     value=False,
-                    info="Get both original + transliterated corpus files",
+                    info="Get both original + IPA-transliterated corpus files",
                     elem_id="transliterate-checkbox",
-                )
-                translit_format = gr.Radio(
-                    ["Latin", "IPA"],
-                    label="Transliteration Format",
-                    value="Latin",
-                    visible=False,
                 )
 
                 download_btn = gr.Button("Download", variant="primary")
@@ -156,11 +162,11 @@ def register() -> None:
                     show_label=False,
                 )
 
-        # Combined callback for transliterate checkbox to update both format radio and file output visibility
+        # Toggle the transliterated-file output visibility with the checkbox.
         transliterate_cb.change(
-            lambda x: (gr.update(visible=x), gr.update(visible=x)),
+            lambda x: gr.update(visible=x),
             inputs=[transliterate_cb],
-            outputs=[translit_format, file_out_translit],
+            outputs=[file_out_translit],
         )
 
         def _do_download(
@@ -170,7 +176,6 @@ def register() -> None:
             filter_flag: bool,
             conf_thr: float,
             transliterate_flag: bool,
-            translit_fmt: str,
             progress: gr.Progress | None = None,
         ) -> tuple[str, str | None, str | None, str, str]:
             if progress is None:
@@ -198,25 +203,18 @@ def register() -> None:
 
                 translit_path = None
                 if transliterate_flag and path:
-                    from turkic_translit.core import get_supported_languages
-
-                    supported = get_supported_languages()
                     info_msg = info
-                    if lang not in supported:
+                    if lang not in _ipa_supported_langs():
                         info_msg += (
-                            f"\n\n**Warning:** No rules found for language '{lang}'."
+                            f"\n\n**Warning:** No IPA rules for language '{lang}'."
                         )
-                    elif translit_fmt.lower() not in supported[lang]:
-                        info_msg += f"\n\n**Warning:** {translit_fmt} transliteration not supported for '{lang}'."
                     else:
                         try:
                             with open(path, encoding="utf-8") as f:
                                 lines = f.readlines()
                             orig_path = Path(path)
                             translit_filename = (
-                                orig_path.stem
-                                + f"_{translit_fmt.lower()}"
-                                + orig_path.suffix
+                                orig_path.stem + "_ipa" + orig_path.suffix
                             )
                             translit_path = str(orig_path.parent / translit_filename)
                             from turkic_translit.web.web_utils import (
@@ -228,9 +226,7 @@ def register() -> None:
                                 line = line.strip()
                                 if line:
                                     try:
-                                        result, _ = _dt(
-                                            line, lang, False, translit_fmt.lower()
-                                        )
+                                        result, _ = _dt(line, lang, False, "ipa")
                                         translit_lines.append(result + "\n")
                                     except Exception:
                                         translit_lines.append(line + "\n")
@@ -240,7 +236,9 @@ def register() -> None:
                                 preview = translit_lines[0].rstrip()
                                 if len(translit_lines) > 1:
                                     preview += " ..."
-                                preview_label_txt = f"**Preview** ({translit_fmt} transliterated corpus - first line)"
+                                preview_label_txt = (
+                                    "**Preview** (IPA-transliterated corpus - first line)"
+                                )
                             info = info_msg
                         except Exception as e:  # pragma: no cover
                             info = (
@@ -264,7 +262,6 @@ def register() -> None:
                 filter_cb,
                 conf_slider,
                 transliterate_cb,
-                translit_format,
             ],
             outputs=[info_md, file_out, file_out_translit, preview_text, preview_label],
         )
@@ -272,7 +269,7 @@ def register() -> None:
         gr.Examples(
             cast(
                 list[list[object]],
-                [["oscar-2301", "kk", 100, True, 0.95, False, "Latin"]],
+                [["oscar-2301", "kk", 100, True, 0.95, False]],
             ),
             inputs=[
                 source_dd,
@@ -281,7 +278,6 @@ def register() -> None:
                 filter_cb,
                 conf_slider,
                 transliterate_cb,
-                translit_format,
             ],
             outputs=[info_md, file_out, file_out_translit, preview_text, preview_label],
             fn=_do_download,
