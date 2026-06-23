@@ -16,9 +16,9 @@ GOLD_CONSONANTS = {
     "v": "v",
     "g": "ɡ",
     "d": "d",
-    "j": "d͡ʒ",     # affricate
+    "j": "d͡ʒ",  # affricate
     "z": "z",
-    "y": "j",       # palatal glide
+    "y": "j",  # palatal glide
     "k": "k",
     "q": "q",
     "l": "l",
@@ -37,7 +37,7 @@ GOLD_VOWELS = {
     "a": "a",
     "e": "e",
     "i": "i",
-    "o": "ɔ",       # open-mid (not oʻ)
+    "o": "ɔ",  # open-mid (not oʻ)
     "u": "u",
 }
 
@@ -51,8 +51,8 @@ DIGRAPH_TESTS = {
 
 # Letters with apostrophe
 APOSTROPHE_TESTS = {
-    "oʻ": "o",      # close-mid back rounded
-    "gʻ": "ʁ",      # voiced uvular fricative
+    "oʻ": "o",  # close-mid back rounded
+    "gʻ": "ʁ",  # voiced uvular fricative
 }
 
 # Iotated sequences (loans)
@@ -99,16 +99,17 @@ def test_iotated_sequences(input: str, expected: str) -> None:
 # ---------------------------------------------------------------------------
 # 4.  Word-level tests
 
+
 def test_uzbek_lat_words() -> None:
     """Common Uzbek Latin words."""
     examples = {
-        "kitob": "kitɔb",      # book
-        "qalam": "qalam",      # pen
-        "maktab": "maktab",    # school
-        "shahar": "ʃahar",     # city
-        "choy": "t͡ʃɔj",       # tea
-        "gʻisht": "ʁiʃt",      # brick
-        "oʻqish": "oqiʃ",      # reading
+        "kitob": "kitɔb",  # book
+        "qalam": "qalam",  # pen
+        "maktab": "maktab",  # school
+        "shahar": "ʃahar",  # city
+        "choy": "t͡ʃɔj",  # tea
+        "gʻisht": "ʁiʃt",  # brick
+        "oʻqish": "oqiʃ",  # reading
     }
     for uz, ipa in examples.items():
         assert to_ipa(uz, "uz") == ipa

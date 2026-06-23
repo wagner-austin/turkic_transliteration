@@ -273,9 +273,7 @@ def register() -> None:
                                 preview = translit_lines[0].rstrip()
                                 if len(translit_lines) > 1:
                                     preview += " ..."
-                                preview_label_txt = (
-                                    "**Preview** (IPA-transliterated corpus - first line)"
-                                )
+                                preview_label_txt = "**Preview** (IPA-transliterated corpus - first line)"
                             info = info_msg
                         except Exception as e:  # pragma: no cover
                             info = (

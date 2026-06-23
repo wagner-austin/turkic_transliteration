@@ -57,9 +57,7 @@ def register() -> None:
 
                 supported_langs = get_supported_languages()
                 lang_choices = sorted(
-                    code
-                    for code, fmts in supported_langs.items()
-                    if "ipa" in fmts
+                    code for code, fmts in supported_langs.items() if "ipa" in fmts
                 )
 
                 lang_info = ", ".join(
@@ -98,9 +96,7 @@ def register() -> None:
                     None,
                 )
             try:
-                result, stats_md = direct_transliterate(
-                    text, lang, False, "ipa"
-                )
+                result, stats_md = direct_transliterate(text, lang, False, "ipa")
                 if file_path:
                     stats_md += "\n*Source: Uploaded file*"
 

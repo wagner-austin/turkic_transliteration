@@ -15,9 +15,9 @@ GOLD_CONSONANTS = {
     "б": "b",
     "в": "v",
     "г": "ɡ",
-    "ғ": "ʁ",      # gʻ
+    "ғ": "ʁ",  # gʻ
     "д": "d",
-    "ж": "d͡ʃ",     # affricate
+    "ж": "d͡ʃ",  # affricate
     "з": "z",
     "й": "j",
     "к": "k",
@@ -29,7 +29,7 @@ GOLD_CONSONANTS = {
     "р": "r",
     "с": "s",
     "т": "t",
-    "ў": "o",      # oʻ - close-mid back rounded
+    "ў": "o",  # oʻ - close-mid back rounded
     "у": "u",
     "ф": "f",
     "х": "x",
@@ -42,7 +42,7 @@ GOLD_CONSONANTS = {
 GOLD_VOWELS = {
     "а": "a",
     "и": "i",
-    "о": "ɔ",      # open-mid
+    "о": "ɔ",  # open-mid
     "у": "u",
     "э": "e",
     # Note: "е" is context-sensitive, tested separately in CONTEXT_E
@@ -57,7 +57,7 @@ GOLD_IOTATED = {
 
 # Context-sensitive: е → je word-initially
 CONTEXT_E = {
-    "ем": "jem",      # word-initial
+    "ем": "jem",  # word-initial
     "еш": "jeʃ",
 }
 
@@ -69,8 +69,8 @@ DIGRAPH_TESTS = {
 
 # Hard/soft signs
 SPECIAL_TESTS = {
-    "ъ": "ʔ",      # glottal stop
-    "ь": "ʲ",      # palatalization
+    "ъ": "ʔ",  # glottal stop
+    "ь": "ʲ",  # palatalization
 }
 
 # ---------------------------------------------------------------------------
@@ -115,12 +115,13 @@ def test_special_chars(input: str, expected: str) -> None:
 # ---------------------------------------------------------------------------
 # 4.  Word-level tests
 
+
 def test_uzbek_cyr_words() -> None:
     """Common Uzbek Cyrillic words."""
     examples = {
-        "китоб": "kitɔb",      # book
-        "қалам": "qalam",      # pen
-        "мактаб": "maktab",    # school
+        "китоб": "kitɔb",  # book
+        "қалам": "qalam",  # pen
+        "мактаб": "maktab",  # school
     }
     for uz, ipa in examples.items():
         assert to_ipa(uz, "uzc") == ipa
