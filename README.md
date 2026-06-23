@@ -8,183 +8,175 @@ sdk_version: 5.29.0
 app_file: app.py
 pinned: false
 license: apache-2.0
-short_description: Transliteration of Kazakh & Kyrgyz into Latin and IPA
+short_description: Transliteration of Turkic languages into Latin and IPA
 ---
 
-turkic\_transliterate
-Deterministic Latin and IPA transliteration for Kazakh and Kyrgyz, plus helper utilities for tokenizer training and Russian-token filtering.
+# turkic_transliterate
 
-Quick install
+Deterministic Latin and IPA transliteration for Turkic languages, plus helper
+utilities for corpus building, tokenizer/LM training, and Russian-token
+filtering. Languages are discovered dynamically from rule files in
+`src/turkic_translit/rules/`, so support grows by adding a `.rules` file.
 
-1. Install Miniconda or Anaconda (recommended).
-2. Clone the repo and create the environment:
-   conda env create -f env.yml
-3. Activate the environment:
-   conda activate turkic
-4. Run the verification tests:
-   python -m pytest      (all tests should pass)
+**Supported languages** (verified by the test suite): Azerbaijani, Finnish,
+Kazakh, Kyrgyz, Turkish, Uyghur, and Uzbek (both Cyrillic and Latin input).
+IPA output is available for all of them; Latin output covers Kazakh and Kyrgyz
+(plus embedded Arabic-script handling). The batch `turkic-translit` CLI is
+currently limited to `kk`/`ky`; the library API (`to_ipa`/`to_latin`) and the
+web demo cover the full set.
 
-Python compatibility
-• Works on CPython 3.10 and 3.11.
-• CPython 3.12+ is supported everywhere except on Windows until official PyICU wheels are available; see “Windows & PyICU” below.
+## Install
 
-Package names
-• Runtime import path:  turkic\_translit
-• Distributable name on PyPI:  turkic\_transliterate
-• Command-line entry point:  turkic-translit
-
-## Developer Setup
-
-For the simplest developer setup experience, run the setup script:
+This project uses **Poetry**. Python **3.9+**.
 
 ```bash
+# Simplest: the dev setup script (also installs the Windows PyICU wheel)
 python scripts/setup_dev.py
+
+# Or with Poetry directly
+poetry install
+
+# Or with pip (editable, with dev + web-UI extras)
+pip install -e .[dev,ui]        # add ,winlid on Windows for the fasttext wheel
 ```
 
-This script will:
-1. Install the package with all development dependencies
-2. Set up PyICU on Windows automatically
-3. Verify that development tools are working properly
+Optional extras: `dev` (ruff, mypy, pytest) · `ui` (Gradio demo) ·
+`winlid` (Windows fasttext wheel for language ID) · `sentry` (error reporting).
 
-### Manual Installation
+### Windows & PyICU
 
-Alternatively, install with pip:
+PyPI rules prevent the correct Windows PyICU wheel from installing automatically
+during `pip install`. After installing, Windows users run:
 
 ```bash
-pip install -e .[dev,ui]        # add ,winlid on Windows if you need fasttext-wheel
+turkic-pyicu-install
 ```
 
-### Development Tools
+which fetches the right PyICU wheel for your Python version. `scripts/setup_dev.py`
+does this for you.
 
-#### Linux/macOS/Windows with GNU Make
+### Package names
 
-If you have GNU Make installed, you can use the Makefile for common tasks:
+- Import path: `turkic_translit`
+- PyPI distributable: `turkic_transliterate`
+- Primary CLI entry point: `turkic-translit`
+
+## Development
+
+The Makefile wraps the common tasks (all via Poetry):
 
 ```bash
-make lint       # Run linting (ruff, black, mypy)
-make format     # Auto-format code
-make test       # Run tests
-make web        # Launch the web UI
-make help       # Show all available commands
+make check   # lint + test (the full gate)
+make lint    # ruff check --fix, ruff format, mypy --strict
+make test    # pytest
+make web     # launch the Gradio web UI
+make help    # list all targets
 ```
 
-#### Windows
-
-**Option 1: Install GNU Make using Chocolatey (Recommended)**
-
-Install GNU Make using Chocolatey (requires admin privileges):
+On Windows without GNU Make, use the PowerShell wrapper:
 
 ```powershell
-# In an Admin PowerShell window
-choco install make
+./scripts/run.ps1 lint
+./scripts/run.ps1 test
+./scripts/run.ps1 web
+./scripts/run.ps1 help
 ```
 
-After installation, you can use the same `make` commands as on Linux/macOS.
+Type-checking is `mypy --strict` (config in `mypy.ini`, scoped to `src/`).
+Formatting and linting are both handled by **ruff** (`ruff format` replaced
+black).
 
-**Option 2: Use the PowerShell Script Alternative**
+## Command-line tools
 
-If you prefer not to install Chocolatey or GNU Make, use the PowerShell script:
+Console entry points defined in `pyproject.toml`:
 
-```powershell
-./scripts/run.ps1 lint       # Run linting
-./scripts/run.ps1 format     # Auto-format code
-./scripts/run.ps1 test       # Run tests
-./scripts/run.ps1 web        # Launch the web UI
-./scripts/run.ps1 help       # Show all available commands
+| Command | Purpose |
+|---------|---------|
+| `turkic-translit` | Transliterate text to Latin and/or IPA (`--lang kk\|ky`) |
+| `turkic-filter-russian` | Drop or mask Russian tokens from a stream |
+| `turkic-download-corpus` | Download/prepare OSCAR corpora |
+| `turkic-build-spm` / `turkic-train-spm` | Train a SentencePiece tokenizer |
+| `turkic-train-lm` / `turkic-eval-lm` | Train / evaluate a language model |
+| `turkic-leven` | Levenshtein-based comparison utility |
+| `turkic-web` | Launch the Gradio web demo |
+| `turkic-pyicu-install` | Install the correct PyICU wheel (Windows) |
+
+### `turkic-translit` usage
+
+```bash
+turkic-translit --lang kk --in text.txt --out_latin kk_lat.txt \
+    --ipa --out_ipa kk_ipa.txt --arabic --log-level debug
 ```
 
-Optional extras
-dev   → black, ruff, pytest
-ui    → gradio web demo
-winlid (Windows only) → fasttext-wheel for language ID
+- `--lang` — `kk` or `ky`
+- `--ipa` — emit IPA alongside Latin
+- `--arabic` — also transliterate embedded Arabic script
+- `--benchmark` — print throughput statistics
+- `--log-level` — debug | info | warning | error | critical (default: info)
 
-Windows & PyICU
+### Tokenizer training
 
-**Important:** Due to PyPI rules, the correct PyICU wheel for Windows cannot be installed automatically during pip install. After installing this package with pip, Windows users must run the helper script to install the appropriate PyICU wheel:
+```bash
+turkic-build-spm --input corpora/kk_lat.txt,corpora/ky_lat.txt \
+    --model_prefix spm/turkic12k --vocab_size 12000
+```
 
-    turkic-pyicu-install
+### Filtering Russian tokens
 
-This script will download and install the correct PyICU wheel from Christoph Gohlke’s repository based on your Python version. See the script for details.
+```bash
+cat uz_raw.txt | turkic-filter-russian --mode drop > uz_clean.txt
+```
 
-Command-line usage
-turkic-translit --lang kk --in text.txt --out\_latin kk\_lat.txt --ipa --out\_ipa kk\_ipa.txt --arabic --log-level debug
-• --lang            kk or ky
-• --ipa             emit IPA alongside Latin
-• --arabic          also transliterate embedded Arabic script
-• --benchmark       print throughput statistics
-• --log-level       debug | info | warning | error | critical (default: info)
-
-Logging
-Central logging supports structured JSON with correlation IDs and stack traces. Control verbosity with `TURKIC_LOG_LEVEL` (DEBUG, INFO, WARNING, ERROR). Format via `TURKIC_LOG_FORMAT=json|rich` (default json). Entry points configure logging; libraries can call `turkic_translit.logging_config.setup()` to adopt the same config.
-
-Error service
-Optional Sentry integration via `TURKIC_SENTRY_DSN` (and `TURKIC_ENV`, `TURKIC_SENTRY_TRACES`). Install with `pip install turkic-translit[sentry]`. Correlation IDs are generated per request/command; you can also set a fixed one using `TURKIC_CORRELATION_ID`.
-
-# Project Organization
-
-The project is organized into the following directories:
-
-- `src/turkic_translit/` - Core source code for the package
-- `examples/` - Example scripts showing how to use the package
-  - `examples/web/` - Web interface for demonstrating transliteration features
-- `data/` - Sample data files and language resources
-- `docs/` - Documentation and reference materials
-- `scripts/` - Utility scripts for development and release
-  - `scripts/release/` - Scripts for building and publishing packages
-- `vendor/pyicu/` - Pre-built PyICU wheels for Windows
-- `tests/` - Test suite for the package
-
-## FastText Language Identification Model
-
-This package uses the [FastText language identification model](https://dl.fbaipublicfiles.com/fasttext/supervised-models/lid.176.bin) (`lid.176.bin`) for Russian token filtering and language detection. **The model file is not included in the repository or pip package due to its large size.**
-
-**Automatic Download:**
-- When you use features that require language identification (such as Russian token filtering or the Gradio web demo), the package will automatically download `lid.176.bin` from the official Facebook AI public link if it is not already present.
-- The file will be saved in the package directory on first use.
-
-**No manual action is needed.** This ensures compatibility with pip installs, Hugging Face Spaces, and other cloud environments.
-
-If you need to download the model manually, you can do so from:
-https://dl.fbaipublicfiles.com/fasttext/supervised-models/lid.176.bin
-
-
-## Using the Examples
-
-Use the main entry point script to run examples:
+## Demos via `turkic_tools.py`
 
 ```bash
 python turkic_tools.py [command]
 ```
 
-Available commands:
-- `web` - Launch the Gradio web interface for real-time transliteration
-- `demo` - Run the simple CLI demo
-- `full-demo` - Run the comprehensive demo with multiple languages
-- `help` - Display available commands
+- `web` — launch the Gradio web interface
+- `demo` — simple CLI demo
+- `full-demo` — comprehensive multi-language demo
+- `help` — list commands
 
-Tokenizer training example
-turkic-build-spm --input corpora/kk\_lat.txt,corpora/ky\_lat.txt --model\_prefix spm/turkic12k --vocab\_size 12000
+## Project Organization
 
-Filtering Russian tokens from Uzbek
-cat uz\_raw\.txt | turkic-filter-russian --mode drop > uz\_clean.txt
+- `src/turkic_translit/` — core package (`core.py`, `transliterate.py`,
+  `rules/`, `cli/`, `web/`, `lm/`, language-ID and filtering modules)
+- `data/` — sample data and language resources
+- `docs/` — documentation and setup/troubleshooting guides
+- `scripts/` — dev + release utilities (`setup_dev.py`, `run.ps1`, `release/`)
+- `vendor/` — pre-built PyICU wheels for Windows
+- `tests/` — test suite (per-language IPA coverage for all supported languages)
+- `cronjob/` — scheduled-task assets for the hosted demo
+- `app.py` — Hugging Face Space entry point for the web UI
 
-Developer checklist
-black .
-ruff check .
-pytest -q
+## FastText language-identification model
 
-All code is UTF-8-only; on Windows a BOM is written when piping to files to avoid encoding issues.
+Russian-token filtering and language detection use FastText's `lid.176.bin`.
+The model is **not** committed (too large); it is downloaded automatically from
+the official Facebook AI link on first use and cached in the package directory —
+no manual step needed for pip installs, Hugging Face Spaces, or CI. Manual
+source if needed:
+https://dl.fbaipublicfiles.com/fasttext/supervised-models/lid.176.bin
 
-License
+## Logging & error reporting
+
+Central logging supports structured JSON with correlation IDs. Control with
+`TURKIC_LOG_LEVEL` (DEBUG…ERROR) and `TURKIC_LOG_FORMAT=json|rich` (default
+json); libraries can call `turkic_translit.logging_config.setup()`. Optional
+Sentry integration via `TURKIC_SENTRY_DSN` (+ `TURKIC_ENV`,
+`TURKIC_SENTRY_TRACES`); install with `pip install turkic-translit[sentry]`.
+
+All I/O is UTF-8; on Windows a BOM is written when piping to files to avoid
+encoding issues.
+
+## Relationship to the LSTM project
+
+This repo is the upstream data pipeline for the Turkic mutual-intelligibility
+LSTM experiments (github.com/wagner-austin/LSTM): `turkic-download-corpus` plus
+the IPA transliteration rules produce the per-language IPA corpora that project
+trains on.
+
+## License
+
 Apache-2.0
-
-### Type-checking
-
-```bash
-pip install mypy
-mypy --strict .
-```
-
-The included mypy.ini restricts analysis to the src/ tree and skips
-build/, dist/, virtual-env and egg directories so duplicate-module
-errors do not occur even if you build wheels locally.

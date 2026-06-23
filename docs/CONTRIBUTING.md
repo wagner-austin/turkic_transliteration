@@ -10,13 +10,14 @@ The project follows a standard Python package structure:
 .
 ├── data/             # Sample data and language resources
 ├── docs/             # Documentation
-├── examples/         # Example scripts and applications
-│   └── web/          # Web interface examples
 ├── src/              # Source code
 │   └── turkic_translit/  # Main package
-│       └── cli/      # Command-line tools
+│       ├── cli/      # Command-line tools
+│       ├── web/      # Gradio web UI
+│       └── rules/    # Per-language transliteration rule files
 ├── tests/            # Test suite
-└── vendor/           # Third-party dependencies
+├── scripts/          # Dev and release utilities
+└── vendor/           # Pre-built PyICU wheels (Windows)
 ```
 
 ## Development Guidelines
@@ -30,9 +31,9 @@ The project follows a standard Python package structure:
 
 ### Code Style
 
-- Use Black for formatting: `black .`
-- Use Ruff for linting: `ruff check .`
-- Write type hints and use mypy: `mypy --strict .`
+- Format and lint with Ruff: `ruff format` and `ruff check --fix .`
+- Write type hints and use mypy: `mypy --strict`
+- `make lint` runs all three together; `make check` runs lint + tests.
 
 ### Logging & Errors
 
@@ -60,6 +61,15 @@ The project follows a standard Python package structure:
 
 If you need to add sample data, place it in the `data/` directory, with appropriate subdirectories for organization.
 
-## Examples
+## Adding a language
 
-If you're adding example code, place it in the `examples/` directory. For web-based examples, use the `examples/web/` subdirectory.
+Transliteration languages are discovered dynamically from rule files in
+`src/turkic_translit/rules/` (e.g. `tr_ipa.rules`, `kk_lat.rules`). To add a
+language, add its `{lang}_{ipa,lat}.rules` file there; see
+`src/turkic_translit/rules/README.md`. Add per-language tests under `tests/`.
+
+## Demos
+
+Demo entry points live in `turkic_tools.py` (`web`, `demo`, `full-demo`) and
+the Gradio UI in `src/turkic_translit/web/`. There is no separate `examples/`
+directory — all runnable code belongs in `src/turkic_translit/`.

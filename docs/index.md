@@ -12,11 +12,10 @@ Welcome to the documentation for the Turkic Transliteration package. This direct
 
 The Turkic Transliteration project is organized as follows:
 
-- `src/turkic_translit/` - Core source code for the package
-- `examples/` - Example scripts showing how to use the package
-  - `examples/web/` - Web interface for demonstrating transliteration features
+- `src/turkic_translit/` - Core source code (incl. `cli/`, `web/`, `rules/`)
 - `tests/` - Test suite ensuring package functionality
 - `docs/` - Documentation and guides (you are here)
+- `scripts/` - Dev and release utilities
 
 ## Quick Links
 

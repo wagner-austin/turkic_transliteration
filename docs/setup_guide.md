@@ -2,16 +2,20 @@
 
 This document provides detailed setup instructions for the Turkic Transliteration package.
 
-## Conda Environment Setup
+## Environment Setup
+
+This project uses **Poetry** and supports **Python 3.9+**. The quickest path is
+the dev setup script, which also installs the Windows PyICU wheel:
 
 ```bash
-# Create a new conda environment with Python 3.12
-conda create -n turkic python=3.12 -c conda-forge -y   
-conda activate turkic
-conda config --set channel_priority strict 
+python scripts/setup_dev.py
+```
 
-# For Python 3.10 (alternative setup)
-# conda create -n turkic python=3.10 -c conda-forge -y
+Or set up with Poetry directly:
+
+```bash
+poetry install          # creates the virtualenv and installs everything
+poetry run pytest       # verify (all tests should pass)
 ```
 
 ## PyICU Installation on Windows
@@ -65,8 +69,8 @@ pip install python-json-logger
 
 ## Cleaning Up
 
-If you need to remove the environment:
+If you need to remove the Poetry virtualenv:
 
 ```bash
-conda env remove -n turkic -y
+poetry env remove --all
 ```
