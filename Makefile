@@ -89,12 +89,12 @@ endif
 	@echo "Verifying installation..."
 	@poetry run python -c "import turkic_tools; print('[OK] Installation successful!')" || (echo "ERROR: Installation verification failed" && exit 1)
 
-# Run tests. -X utf8 forces Python's UTF-8 mode so third-party
-# libraries (notably panphon) that open text files without an
-# explicit encoding on Windows do not fall back to cp1252 and
-# fail on non-ASCII characters.
+# Run tests. Test-specific encoding workarounds (e.g. the panphon
+# UTF-8 wrapper in tests/test_verification.py) live in the tests
+# themselves rather than at the interpreter level, so the plain
+# ``pytest`` invocation is sufficient.
 test: install
-	poetry run python -X utf8 -m pytest -rsxv
+	poetry run pytest -rsxv
 
 check: lint test
 

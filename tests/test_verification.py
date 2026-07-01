@@ -1,6 +1,10 @@
+import builtins
 import os
 import tempfile
+from collections.abc import Iterator
+from contextlib import contextmanager
 from pathlib import Path
+from typing import IO, Any
 
 import icu
 import panphon
@@ -17,6 +21,55 @@ try:
     HAS_FASTTEXT = True
 except ImportError:
     HAS_FASTTEXT = False
+
+
+@contextmanager
+def _panphon_utf8_workaround() -> Iterator[None]:
+    """Force ``builtins.open`` to use UTF-8 for text-mode reads inside the block.
+
+    Works around a persistent upstream bug in ``panphon``: its
+    ``FeatureTable._read_bases`` (and related) open the packaged CSVs
+    without an ``encoding=`` argument, so on Windows Python 3.11 default
+    (cp1252) the IPA characters in the data files trip
+    ``UnicodeDecodeError``. The bug is present in 0.21.2 (our current
+    pin), 0.22.2 (latest PyPI), and ``master``.
+
+    Scope of the coercion is deliberately narrow: only text-mode
+    ``open()`` calls with no explicit encoding are redirected to
+    UTF-8, and the original ``builtins.open`` is restored on exit.
+    Binary reads and encoding-explicit reads are untouched.
+    """
+    real_open = builtins.open
+
+    def _open_utf8(
+        file: Any,
+        mode: str = "r",
+        buffering: int = -1,
+        encoding: str | None = None,
+        errors: str | None = None,
+        newline: str | None = None,
+        closefd: bool = True,
+        opener: Any = None,
+    ) -> IO[Any]:
+        effective_encoding = encoding
+        if "b" not in mode and encoding is None:
+            effective_encoding = "utf-8"
+        return real_open(
+            file,
+            mode,
+            buffering=buffering,
+            encoding=effective_encoding,
+            errors=errors,
+            newline=newline,
+            closefd=closefd,
+            opener=opener,
+        )
+
+    builtins.open = _open_utf8
+    try:
+        yield
+    finally:
+        builtins.open = real_open
 
 
 # 1. Test PyICU transliteration
@@ -36,7 +89,8 @@ def test_epitran_panphon_ipa() -> None:
     """
     test_word = "Ғылым"  # "Knowledge" in Kazakh
     ipa = to_ipa(test_word, "kk")
-    ft = panphon.FeatureTable()
+    with _panphon_utf8_workaround():
+        ft = panphon.FeatureTable()
     vec = ft.word_to_vector_list(ipa)
 
     # Print for inspection during test runs
