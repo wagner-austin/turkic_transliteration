@@ -20,6 +20,7 @@ import yaml  # type: ignore # Requires types-PyYAML
 from typing_extensions import Never
 
 from ..logging_config import setup as _log_setup
+from ._net_utils import DEFAULT_HEADERS
 
 # 3rd-party heavy deps are optional in constrained CI environments.
 # We fallback to lightweight stubs so the module can still import and our
@@ -251,7 +252,7 @@ def _stream_wikipedia_xml(
     url = f"https://dumps.wikimedia.org/{lang}wiki/{dump_version}/{dump_name}"
 
     try:
-        resp = requests.get(url, stream=True, timeout=30)
+        resp = requests.get(url, stream=True, timeout=30, headers=DEFAULT_HEADERS)
         resp.raise_for_status()
         # Decompress on the fly from HTTP stream.
         bz_stream = bz2.BZ2File(resp.raw)
@@ -305,7 +306,9 @@ def stream_leipzig(
     try:
         with tempfile.TemporaryDirectory() as td:
             tgz = Path(td) / "lz.tgz"
-            tgz.write_bytes(requests.get(tar_url, timeout=30).content)
+            tgz.write_bytes(
+                requests.get(tar_url, timeout=30, headers=DEFAULT_HEADERS).content
+            )
             model: Any = _get_lid() if filter_langid else None
             with tarfile.open(tgz) as tar:
                 for member in tar.getmembers():

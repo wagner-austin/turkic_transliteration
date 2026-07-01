@@ -5,7 +5,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "turkic-translit"
-version = "0.3.8"
+version = "0.3.9"
 description = "Deterministic Latin and IPA transliteration for Kazakh, Kyrgyz, Uzbek, Turkish, Azerbaijani, Uyghur, Finnish, plus tokenizer/glue scripts."
 authors = [ {name="Austin Wagner", email="austinwagner@msn.com"} ]
 requires-python = ">=3.9"
@@ -90,7 +90,7 @@ dev = [
 
 [project.scripts]
 turkic-translit = "turkic_translit.cli:main"
-turkic-pyicu-install = "turkic_translit.cli.pyicu_install:main"
+turkic-pyicu-install = "turkic_translit.pyicu_install:main"
 turkic-filter-russian = "turkic_translit.cli.filter_russian:main"
 turkic-download-corpus = "turkic_translit.cli.download_corpus:cli"
 turkic-build-spm = "turkic_translit.cli.build_spm:main"
@@ -109,7 +109,7 @@ include-package-data = true
 package-dir = {"" = "src"}
 
 [tool.setuptools.package-data]
-"turkic_translit" = ["rules/*.rules"]
+"turkic_translit" = ["py.typed", "rules/*.rules"]
 "turkic_translit.cli" = ["corpora.yaml"]
 
 [tool.ruff]

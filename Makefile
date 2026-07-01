@@ -84,14 +84,17 @@ install: pre-install lock
 		poetry install --extras corpus --extras dev --no-ansi)
 ifeq ($(OS),Windows_NT)
 	@echo "Installing PyICU for Windows..."
-	-@poetry run python -m turkic_translit.cli.pyicu_install
+	-@poetry run python -m turkic_translit.pyicu_install
 endif
 	@echo "Verifying installation..."
 	@poetry run python -c "import turkic_tools; print('[OK] Installation successful!')" || (echo "ERROR: Installation verification failed" && exit 1)
 
-# Run tests
+# Run tests. -X utf8 forces Python's UTF-8 mode so third-party
+# libraries (notably panphon) that open text files without an
+# explicit encoding on Windows do not fall back to cp1252 and
+# fail on non-ASCII characters.
 test: install
-	poetry run pytest -rsxv
+	poetry run python -X utf8 -m pytest -rsxv
 
 check: lint test
 

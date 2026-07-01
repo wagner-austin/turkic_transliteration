@@ -47,7 +47,7 @@ def main() -> None:
         except ImportError:
             print("PyICU is not installed. Running the PyICU installer...")
             subprocess.check_call(
-                [sys.executable, "-m", "turkic_translit.cli.pyicu_install"]
+                [sys.executable, "-m", "turkic_translit.pyicu_install"]
             )
 
     # Run basic configuration checks

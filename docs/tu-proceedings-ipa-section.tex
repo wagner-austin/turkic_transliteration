@@ -1,0 +1,164 @@
+% =============================================================================
+% Tu+ Conference Proceedings — IPA Transcription section
+% Draft author: Austin Wagner
+% Target: sections §3 (or wherever Moldir slots it) within the 15-page limit
+% Length: ~4 pages of the 2-column ACL layout
+%
+% Citation style: natbib (\citep{}, \citet{}) matching Moldir's SCiL draft
+% Assumes acl.sty + tipa + booktabs + inputenc[utf8]
+%
+% Bibliography keys used here:
+%   Phonology primaries — zimmer1992turkish, mokari2017azerbaijani,
+%     mccollum2021kazakh, mccollum2020vowel, mccollum2021transparency,
+%     ido2025uzbek, suomi2009finnish
+%   Infrastructure — abadji-etal-2022-towards, joulin2016bag, joulin2017bag,
+%     kudo2018sentencepiece, unicode-uts35, raikoti2025fasttext
+%   Comparators — mortensen2018epitran, mirzakhalov2021large,
+%     mussakhojayeva2023multilingual, nieder2024computational,
+%     savelyev2020bayesian
+%   Turkic tokenization — toraman2023impact, bayram2025tokenization
+%   MI foundation — chambers1998dialectology, tang2007role, gooskens2021mutual,
+%     lindsay2010mutual, salehi2017receptive
+% =============================================================================
+
+\section{IPA Transcription}
+\label{sec:ipa}
+
+\subsection{Motivation}
+\label{sec:ipa-motivation}
+
+Mutual-intelligibility (MI) research in Turkic faces a preliminary obstacle: the family is written in at least three distinct scripts — Cyrillic (Kazakh, Kyrgyz, and Uzbek Cyrillic), Latin (Turkish, Azerbaijani, Uzbek Latin), and Arabic-derived (Uyghur). Surface-form character distributions across these orthographies are not commensurable, and post-Soviet Latin-alphabet reforms in Kazakhstan and Uzbekistan have introduced further variability even within a single language \citep{mirzakhalov2021large}. Because our character-level LSTM measures phoneme-sequence predictability rather than orthographic-token predictability, we require a phonologically-normalized surface form that all seven languages share.
+
+The infrastructure landscape for Turkic offers partial solutions. \citet{mortensen2018epitran}'s Epitran covers three of our target languages (Turkish, Azerbaijani, Kazakh) but omits Kyrgyz, Uyghur, Uzbek Cyrillic, and Finnish, and does not tie its rule files to peer-reviewed phonological descriptions per language. Large multilingual Turkic corpora (\citealp{mirzakhalov2021large}'s 22-language machine-translation benchmark; \citealp{mussakhojayeva2023multilingual}'s 10-language ASR corpus) work in native orthographies and do not offer cross-family phonological normalization. To our knowledge, no centralized, peer-reviewed-grounded, deterministic Turkic→IPA infrastructure exists.
+
+We therefore built and released \texttt{turkic\_transliterate}, a deterministic broad-IPA transliterator for six Turkic languages (Kazakh, Kyrgyz, Turkish, Azerbaijani, Uzbek, Uyghur) plus Finnish as our Uralic typological control. Coverage is exposed through three surfaces addressing different research workflows: a Python library (published on PyPI), an interactive web demo hosted on Hugging Face Spaces, and a companion REST API service backed by an independent pure-Python reimplementation of the same rule engine. Each surface loads the same underlying rule files, and a parity test in the REST-service project asserts bit-identical output between the two engines on every shared rule file. The tool is distributed under an Apache-2.0 licence, integrates directly with the OSCAR corpus \citep{abadji-etal-2022-towards} and FastText language identification \citep{joulin2016bag}, and is exercised end-to-end by the LSTM experiments described in \S\ref{sec:model}.
+
+\subsection{Design commitments}
+\label{sec:ipa-design}
+
+Four commitments shape the tool.
+
+\textbf{Deterministic.} The transliteration is purely rule-based, with no machine-learning component. Given the same input text and rule files, the tool produces bit-identical output on every invocation. This is a reproducibility requirement for downstream MI-quantification, where variability in the input representation would confound the cross-entropy signal we interpret.
+
+\textbf{Peer-reviewed source per language.} Every rule file is grounded in a published, peer-reviewed phonological description of the target language. The file header cites the source with DOI. Table \ref{tab:ipa-sources} lists the eight rule files and their phonological grounding.
+
+\textbf{Standard rule format.} We use the Unicode Consortium's UTS \#35 LDML Transforms rule language \citep{unicode-uts35}, executed by the ICU library's transliteration engine via the PyICU Python bindings. This is a widely-deployed, W3C-track specification, not a bespoke DSL. Researchers extending our work to further Turkic languages need only add another rule file in the same format, not learn a project-specific syntax.
+
+\textbf{Broad phonemic transcription.} We opt for broad phonemic IPA — segmental representation without allophonic elaboration, stress marking, or contextual realizations beyond what the phonological source itself treats as phonemically distinctive. This commitment is symmetric across all eight rule files, and is documented explicitly in each file's header comment. The trade-off is deliberate: MI is a comparison problem, and consistent-if-simplified representation better preserves the cross-language signal than heterogeneous fine-grained representations.
+
+\begin{table}[t]
+\small
+\centering
+\begin{tabular}{@{}llll@{}}
+\toprule
+Lang.\ (ISO)  & Script          & Phon.\ source                       & Segments \\
+\midrule
+tr            & Latin           & \citet{zimmer1992turkish}           & 30      \\
+az            & Latin           & \citet{mokari2017azerbaijani}       & 32      \\
+kk            & Cyrillic        & \citet{mccollum2021kazakh}          & 34      \\
+ky            & Cyrillic        & \citet{mccollum2020vowel}           & 36      \\
+uz-lat        & Latin           & \citet{ido2025uzbek}                & 27      \\
+uz-cyr        & Cyrillic        & \citet{ido2025uzbek}                & 28      \\
+ug            & Arabic          & \citet{mccollum2021transparency}    & 30      \\
+fi            & Latin           & \citet{suomi2009finnish}            & 27      \\
+\bottomrule
+\end{tabular}
+\caption{The eight IPA rule files, their input orthography, phonological source, and approximate segment count in the output inventory. Uzbek is covered in two rule files — one per orthographic input.}
+\label{tab:ipa-sources}
+\end{table}
+
+\subsection{Rule engine and file format}
+\label{sec:ipa-engine}
+
+The UTS \#35 rule language expresses left-to-right string rewriting rules with support for character-class macros, context-sensitive matching, ordering-dependent application, and pipeline directives such as Unicode normalization \citep{unicode-uts35}. Figure \ref{fig:kk-excerpt} shows a representative excerpt from \texttt{ky\_ipa.rules} demonstrating each construct.
+
+\begin{figure}[t]
+\small
+\begin{verbatim}
+# Cyrillic vowels macro (context)
+$CV = [А а Ә ә Е е Ё ё И и О о
+       Ө ө У у Ү ү Ы ы I i Э э
+       Ю ю Я я];
+
+# /je/ only after another vowel
+$CV } Е > je ;
+$CV } е > je ;
+
+# doubled vowel -> long vowel
+АА > ɑː ;  аа > ɑː ;
+ЕЕ > eː ;  ее > eː ;
+...
+
+# one-to-one grapheme -> phone
+А > ɑ ;  а > ɑ ;
+Б > b ;  б > b ;
+...
+
+# end-of-file normalization
+:: NFC ;
+\end{verbatim}
+\caption{Excerpt from \texttt{ky\_ipa.rules}, illustrating macros, context-sensitive rules, digraph handling, one-to-one segmental mapping, and end-of-file Unicode normalization.}
+\label{fig:kk-excerpt}
+\end{figure}
+
+The library API surfaces two functions, \texttt{to\_ipa(text, lang)} and \texttt{to\_latin(text, lang)}, which load the appropriate rule file at first call and cache the compiled ICU transliterator for reuse. Language coverage is discovered dynamically from the \texttt{rules/} directory contents, so adding a new language requires only dropping a properly-named \texttt{.rules} file into the package — no code changes. The same rule files also drive the pure-Python engine used by the REST service (\S\ref{sec:ipa-deployment}); a parity test asserts byte-identical output for every language and for a fixed set of realistic inputs, so the choice of engine is a deployment concern rather than a semantic one.
+
+What the rule format cannot express — recursive lookups, dictionary-based lexicon rules, statistical smoothing — is a deliberate boundary. Loanword-conditioned realizations (e.g., the Finnish digraph \emph{ng} pronounced \textipa{[NN]} in native \emph{hengästyä} but \textipa{[Ng]} in the Swedish loan \emph{ongelma}), Kazakh /k/ $\sim$ /q/ vowel-harmony allophony, and Turkish dark-\emph{l} conditioning are outside what static string rules can capture without a lexicon layer. These are stated limitations, not bugs, and are noted uniformly in each rule file's header.
+
+\subsection{Corpus ingestion and filtering pipeline}
+\label{sec:ipa-pipeline}
+
+Beyond the rule engine, the package integrates the two upstream components required to move from a raw web corpus to an IPA-normalized training set (Figure \ref{fig:pipeline}).
+
+\textbf{Corpus download.} The \texttt{turkic-download-corpus} CLI, backed by the HuggingFace \texttt{datasets} library, fetches per-language slices of OSCAR-2301 \citep{abadji-etal-2022-towards} — the Open Super-large Crawled Aggregated coRpus. OSCAR-2301 is Common Crawl web text after language classification and deduplication; it is the largest freely-licensed general-domain source for our target languages.
+
+\textbf{Language-ID filtering.} Raw OSCAR slices contain non-trivial cross-language contamination, particularly in Central Asian Turkic sub-corpora where Russian-language content is common. We use the FastText \texttt{lid.176.bin} model \citep{joulin2016bag, joulin2017bag} to score each line's per-language probability and drop lines below a per-language threshold — by default $p \geq 0.95$ for the target language. FastText's compact 176-language model deploys cheaply at corpus scale and is the standard first-pass filter in low-resource language work.
+
+\textbf{Russian-token filtering (optional).} For Kazakh and Kyrgyz specifically, remaining Russian tokens survive the line-level filter through code-switching. The \texttt{turkic-filter-russian} CLI applies a token-level classifier that combines FastText's per-token language scores with orthographic heuristics: presence of any of the nine Kazakh-specific Cyrillic letters absent from the Russian alphabet forces retention as Kazakh, while pure-Cyrillic tokens above a length threshold whose Russian FastText score exceeds a configurable confidence margin are dropped. Threshold and margin defaults are documented in the package; \citet{raikoti2025fasttext} discuss related tuning issues for FastText-based code-mixed filtering.
+
+\textbf{Transliteration.} The library API \texttt{to\_ipa(text, lang)} converts filtered corpus lines to IPA. On-disk output is UTF-8 with Unix line endings, normalized to Unicode NFC. Every corpus file used in this study's LSTM experiments was produced through this pipeline.
+
+\begin{figure}[t]
+\centering
+\begin{small}
+\begin{verbatim}
+OSCAR-2301  ->  FastText lid.176   ->
+line filter  ->  RU-token filter   ->
+IPA rules (fi/kk/ky/tr/az/uz/ug)   ->
+NFC-normalized IPA corpus
+\end{verbatim}
+\end{small}
+\caption{Corpus-to-IPA pipeline. All four stages are exposed as command-line tools and as Python library functions.}
+\label{fig:pipeline}
+\end{figure}
+
+\subsection{Deployment surfaces}
+\label{sec:ipa-deployment}
+
+The tool is available through three surfaces, each tailored to a different research workflow.
+
+\textbf{Python library (PyPI).} \texttt{pip install turkic-transliterate} installs the package; \texttt{from turkic\_translit.core import to\_ipa} exposes the library API. Every ISO 639-1 code advertised by the rules directory is a valid \texttt{lang} argument, including the Finnish typological control. A companion \texttt{turkic-translit} console script (a Click command group) exposes seven subcommands: \texttt{translit} (file-to-file IPA/Latin transliteration for every supported language), \texttt{download-corpus}, \texttt{filter-russian}, \texttt{build-spm}, \texttt{train-spm}, \texttt{train-lm}, and \texttt{eval-lm}. The batch transliteration CLI accepts the full language set and dispatches to whichever rule file matches the \texttt{--lang} argument.
+
+\textbf{Interactive web demo (Hugging Face Spaces).} A Gradio-based demonstration is hosted at \texttt{AustinWagner/turkic-transliter\-ation-demo}. Two tabs expose the full language set: an interactive transliteration surface for typed or file-uploaded input, and a corpus-download surface that streams from OSCAR, Wikipedia, and Leipzig mirrors with optional FastText language-ID filtering. The Space wraps the PyPI package; a GitHub Actions workflow rebuilds the Space automatically whenever a new PyPI release is published, so the demo tracks the library version.
+
+\textbf{REST API service.} For non-Python callers and workflows that require a language-agnostic contract, a companion FastAPI service (\texttt{turkic-api}) reimplements the transliteration engine in pure Python, without the PyICU C dependency. The service reads the same rule files as the library, is deployed on Railway with a Redis-backed job queue for corpus-scale batches, and passes a parity test asserting byte-identical output against the library for every shared rule file. As a byproduct of the reimplementation, the REST engine transparently supports mixed-script Uzbek input by chaining the Latin and Cyrillic rule sets in a single pass — an ergonomic improvement over the library, where the caller selects an orthography explicitly.
+
+\subsection{Use in the present study}
+\label{sec:ipa-use}
+
+Every training corpus and every perception passage used in the LSTM MI experiments described in \S\ref{sec:model} was produced by this pipeline. The training corpora are OSCAR-2301 slices, language-ID-filtered at $p \geq 0.95$ and transliterated to broad IPA per Table \ref{tab:ipa-sources}. The perception passages are four CEFR B2-level texts, each divided into five sub-passages of 4--5 sentences, translated in parallel across the seven target languages and transliterated identically. The Finnish typological-control passages were added in the same pipeline using \texttt{fi\_ipa.rules}. Bit-identity of the IPA output across pipeline reruns is guaranteed by the deterministic rule engine — a property we relied on when back-filling the Finnish column of the MI matrix after the initial six-Turkic-language runs. Determinism is enforced not only across reruns but across engines: the PyICU library and the pure-Python REST engine load the same rule files and are held to byte-identical output by an automated parity test on both a fixed set of realistic inputs and a per-language ``North Wind and the Sun''-style sentence set.
+
+Symmetry of representation across languages is a load-bearing property of the interpretation offered in \S\ref{sec:results}. The pipeline design ensures that a phonemic contrast expressed in one language's rule file (e.g., Kyrgyz doubled-vowel long-vowel encoding, Finnish geminate consonants) is treated commensurably with the same contrast in another language's file, because the ICU rule engine is not a per-language artefact but a shared substrate.
+
+\subsection{Limitations and future work}
+\label{sec:ipa-limits}
+
+\textbf{Broad phonemic only.} The tool does not model allophonic realizations, stress patterns, or morpho-phonological alternations. Consequences and defence of this choice are discussed above (\S\ref{sec:ipa-design}); the alternative — dictionary-conditioned narrow transcription per language — would require substantially more source-of-truth phonological work per language and would introduce cross-language asymmetries in transcription granularity that are exactly the confound we want to avoid in MI measurement.
+
+\textbf{Language coverage roadmap.} Prioritized additions are Sakha (\texttt{sah}), Chuvash (\texttt{cv}), Bashkir (\texttt{ba}), and Tatar (\texttt{tt}) — each of these has published phonological descriptions of the calibre required for a grounded rule file, and each closes a documented MI-methodology gap in the Turkic sub-branches not yet represented (Siberian, Oghur, and additional Kipchak members respectively). Community contributions of rule files are welcomed under the same peer-reviewed-source requirement.
+
+\textbf{Loanword-aware transcription.} An extension path we have scoped but not built is a lightweight lexicon layer wrapping the ICU pipeline, permitting per-language dictionary-conditioned exceptions (e.g., Finnish \emph{ng} in Swedish loans; Kazakh Russian-origin word-final devoicing). This would be an additive layer that leaves the core rule engine unchanged.
+
+% =============================================================================
+% END OF SECTION
+% =============================================================================

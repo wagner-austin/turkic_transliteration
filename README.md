@@ -21,9 +21,10 @@ filtering. Languages are discovered dynamically from rule files in
 **Supported languages** (verified by the test suite): Azerbaijani, Finnish,
 Kazakh, Kyrgyz, Turkish, Uyghur, and Uzbek (both Cyrillic and Latin input).
 IPA output is available for all of them; Latin output covers Kazakh and Kyrgyz
-(plus embedded Arabic-script handling). The batch `turkic-translit` CLI is
-currently limited to `kk`/`ky`; the library API (`to_ipa`/`to_latin`) and the
-web demo cover the full set.
+(plus embedded Arabic-script handling). The batch `turkic-translit translit`
+CLI, the library API (`to_ipa`/`to_latin`), and the web demo all cover the
+full set — language choices are discovered dynamically from the rules
+directory.
 
 ## Install
 
@@ -101,18 +102,24 @@ Console entry points defined in `pyproject.toml`:
 | `turkic-web` | Launch the Gradio web demo |
 | `turkic-pyicu-install` | Install the correct PyICU wheel (Windows) |
 
-### `turkic-translit` usage
+### `turkic-translit translit` usage
 
 ```bash
-turkic-translit --lang kk --in text.txt --out_latin kk_lat.txt \
-    --ipa --out_ipa kk_ipa.txt --arabic --log-level debug
+turkic-translit translit --lang kk --in text.txt \
+    --out-latin kk_lat.txt --out-ipa kk_ipa.txt --arabic
 ```
 
-- `--lang` — `kk` or `ky`
-- `--ipa` — emit IPA alongside Latin
-- `--arabic` — also transliterate embedded Arabic script
-- `--benchmark` — print throughput statistics
-- `--log-level` — debug | info | warning | error | critical (default: info)
+- `--lang` — any ISO 639-1 code advertised by the rules directory
+  (`az`, `fi`, `kk`, `ky`, `tr`, `ug`, `uz`)
+- `--in` — input file, or `-` for stdin (default: `-`)
+- `--out-latin` — Latin output path, or `-` for stdout. Omit to skip.
+  Only meaningful for languages with `<lang>_lat.rules` (`kk`, `ky`).
+- `--out-ipa` — IPA output path, or `-` for stdout. Omit to skip.
+- `--arabic` — also transliterate embedded Arabic script (Latin mode only)
+- `--benchmark` — log throughput statistics on completion
+
+At least one of `--out-latin` / `--out-ipa` must be specified.
+`--log-level` is set on the parent group: `turkic-translit --log-level debug translit ...`.
 
 ### Tokenizer training
 
