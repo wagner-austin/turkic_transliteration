@@ -4670,21 +4670,22 @@ files = [
 
 [[package]]
 name = "panphon"
-version = "0.21.2"
+version = "0.22.2"
 description = "Tools for using the International Phonetic Alphabet with phonological features"
 optional = true
 python-versions = "*"
 groups = ["main"]
 markers = "extra == \"dev\""
 files = [
-    {file = "panphon-0.21.2-py2.py3-none-any.whl", hash = "sha256:53aa8375b69e78b585c4559d347d890e9953b4e06fb899b7998f1d8d56b91056"},
-    {file = "panphon-0.21.2.tar.gz", hash = "sha256:1696076e411e433c8f7dba62819d4430d9732cb15607fc0d7061d81588841369"},
+    {file = "panphon-0.22.2-py2.py3-none-any.whl", hash = "sha256:a4c65113430d0699054cb00df978c02712d3c80913a1ef67697f888d96f3a00a"},
+    {file = "panphon-0.22.2.tar.gz", hash = "sha256:383d477d587feba1ca5a82878e24fe77c1645d6fbe9e01c9e97d498d8a29ba35"},
 ]
 
 [package.dependencies]
 editdistance = "*"
 munkres = "*"
 numpy = ">=1.20.2"
+pandas = "*"
 PyYAML = "*"
 regex = "*"
 setuptools = "*"
@@ -8396,4 +8397,4 @@ winlid = []
 [metadata]
 lock-version = "2.1"
 python-versions = ">=3.9"
-content-hash = "665b352d84e70452deebc98cec03f8f9083fd9d8e932e4305d46d37dae78a098"
+content-hash = "068b9de693e418c2bcdbec0c4e50829e1b2d0a02c958c67e1617694e9a519100"
