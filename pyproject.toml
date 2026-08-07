@@ -99,6 +99,7 @@ dev = [
     "twine>=4.0",          # Package uploader
     "make>=0.1.6",         # Make command for Windows
     "types-PyYAML>=6.0",   # Type stubs for the corpus source registry loader
+    "pandas-stubs>=2.0",   # Type stubs for the web UI's token table
     # 0.21.x imports pkg_resources, which setuptools 81 removed, so the
     # module cannot be imported at all below 0.22.
     "panphon>=0.22,<0.23",  # Phonological features; only tests/test_verification.py
@@ -153,8 +154,26 @@ explicit_package_bases = true
 # anywhere in the tree; this is the config-level equivalent, narrowed to the
 # exact modules that lack type information upstream.
 [[tool.mypy.overrides]]
-module = ["icu", "icu.*", "fasttext", "fasttext.*", "sentencepiece", "datasets", "datasets.*", "sentry_sdk", "sentry_sdk.*"]
+module = [
+    "icu", "icu.*",
+    "fasttext", "fasttext.*",
+    "sentencepiece",
+    "datasets", "datasets.*",
+    "sentry_sdk", "sentry_sdk.*",
+    "panphon", "panphon.*",
+    "sklearn", "sklearn.*",
+    "evaluate",
+]
 ignore_missing_imports = true
+
+# transformers ships a py.typed marker but leaves much of its public API
+# unannotated, so strict mode rejects every call into it. Rather than
+# relax the flag globally, it is relaxed only in the two modules whose
+# job is to wrap that library; everything they hand back to the rest of
+# the project is annotated at the boundary and checked as normal.
+[[tool.mypy.overrides]]
+module = ["turkic_translit.lm.tokenizer", "turkic_translit.lm.train"]
+disallow_untyped_calls = false
 
 [tool.ruff]
 line-length = 100
@@ -165,17 +184,25 @@ exclude = [".venv", "vendor", "dist", "tmp"]
 [tool.ruff.lint]
 select = ["E", "F", "I", "B", "BLE", "UP", "N", "C4", "SIM", "RET", "C90", "RUF", "ANN", "PT", "PIE"]
 ignore = ["E501"]
-# Cyrillic and IPA transcription project: these characters are the subject
-# matter, not lookalike typos (RUF001/RUF002/RUF003). The Cyrillic block is
-# listed because a project that classifies and transliterates Russian and
-# Kazakh cannot write its own character classes without them.
+# This project transliterates between Cyrillic, Latin, Arabic and IPA, so
+# the characters below are its subject matter rather than lookalike typos
+# (RUF001/RUF002/RUF003). It cannot write its own rule tables, test
+# fixtures or character classes without them. Anything NOT listed here is
+# still flagged, which is what caught a SIX-PER-EM SPACE standing in for a
+# space in the pad-token fallback in lm/train.py.
 allowed-confusables = [
     # IPA
-    "ɑ", "ɯ", "ɪ", "ʊ", "ʔ", "ː", "’", "–", "ʋ", "ɡ", "ɣ",
+    "ɑ", "ɯ", "ɪ", "ʊ", "ʔ", "ː", "’", "–", "ʋ", "ɡ", "ɣ", "ʏ",
     # Cyrillic letters that are homoglyphs of Latin ones
     "А", "а", "В", "Е", "е", "К", "М", "Н", "О", "о",
     "Р", "р", "С", "с", "Т", "У", "у", "Х", "х", "І", "і",
-    "Ј", "Ѕ", "ѕ", "һ", "ґ", "ғ", "б", "г", "з", "п", "ч",
+    "Ј", "Ѕ", "ѕ", "һ", "ґ", "ғ", "б", "г", "з", "п", "ч", "ү",
+    # Turkish and Azerbaijani dotless i, and the Uzbek modifier apostrophe
+    "ı", "ʻ",
+    # Guillemets, the linguistic convention for citing an orthographic form
+    "‹", "›",
+    # Arabic-script letters used by the Uyghur rules
+    "ا", "ھ", "ە",
 ]
 fixable = ["ALL"]
 

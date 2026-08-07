@@ -29,7 +29,7 @@ logger = logging.getLogger(__name__)
 
 def _embed(
     model: LMModel, sentences: Iterable[str], layer: int = DEFAULT_HIDDEN_LAYER
-) -> np.ndarray[tuple[int, ...], np.dtype[np.floating]]:
+) -> np.ndarray[tuple[int, ...], np.dtype[np.float64]]:
     """Mean-pool one hidden layer over each sentence and L2-normalise.
 
     Args:
@@ -44,19 +44,18 @@ def _embed(
     network = model.model
     device = next(network.parameters()).device
 
-    vectors: list[np.ndarray[tuple[int, ...], np.dtype[np.floating]]] = []
+    vectors: list[np.ndarray[tuple[int, ...], np.dtype[np.float64]]] = []
     for sentence in tqdm(list(sentences), desc="[mutual] encoding", unit="sent"):
         encoded = tokenizer(sentence, return_tensors="pt", truncation=True).to(device)
         with torch.no_grad():
             hidden = network(**encoded, output_hidden_states=True).hidden_states[layer]
         vectors.append(hidden.mean(dim=1).cpu().numpy())
 
-    return normalize(np.vstack(vectors))
+    unit_rows: np.ndarray[tuple[int, ...], np.dtype[np.float64]] = normalize(np.vstack(vectors))
+    return unit_rows
 
 
-def centred_cosine_matrix(
-    model_a: LMModel, model_b: LMModel, sentences: Iterable[str]
-) -> float:
+def centred_cosine_matrix(model_a: LMModel, model_b: LMModel, sentences: Iterable[str]) -> float:
     """Mean cosine similarity between two models' sentence embeddings.
 
     Args:
@@ -67,6 +66,4 @@ def centred_cosine_matrix(
     Returns:
         The mean pairwise cosine similarity.
     """
-    return float(
-        cosine_similarity(_embed(model_a, sentences), _embed(model_b, sentences)).mean()
-    )
+    return float(cosine_similarity(_embed(model_a, sentences), _embed(model_b, sentences)).mean())

@@ -110,7 +110,7 @@ class LMModel:
             Returns:
                 The encoding, with ``labels`` mirroring ``input_ids``.
             """
-            out = tok(
+            out: BatchEncoding = tok(
                 batch["text"],
                 truncation=True,
                 padding="max_length",

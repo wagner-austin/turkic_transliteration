@@ -22,9 +22,9 @@ logger = logging.getLogger(__name__)
 _correlation_id: contextvars.ContextVar[str] = contextvars.ContextVar("correlation_id", default="")
 
 # Optional request context payload (e.g., route, lang, user)
-_request_ctx: contextvars.ContextVar[dict[str, str | int | float | bool | None] | None] = (
-    contextvars.ContextVar("request_ctx", default=None)
-)
+_request_ctx: contextvars.ContextVar[
+    dict[str, str | int | float | bool | None | list[str]] | None
+] = contextvars.ContextVar("request_ctx", default=None)
 
 
 def set_correlation_id(value: str | None = None) -> str:
@@ -39,14 +39,14 @@ def get_correlation_id() -> str:
     return cid or ""
 
 
-def set_request_context(**fields: str | int | float | bool | None) -> None:
+def set_request_context(**fields: str | int | float | bool | None | list[str]) -> None:
     base = _request_ctx.get(None) or {}
     ctx = base.copy()
     ctx.update(fields)
     _request_ctx.set(ctx)
 
 
-def get_request_context() -> dict[str, str | int | float | bool | None]:
+def get_request_context() -> dict[str, str | int | float | bool | None | list[str]]:
     ctx = _request_ctx.get(None) or {}
     return ctx.copy()
 
@@ -104,8 +104,17 @@ def error_response(
     *,
     status: int = 500,
     code: str = "internal_error",
-    details: dict[str, str | int | float | bool | None] | None = None,
-) -> dict[str, str | int | float | bool | None | dict[str, str | int | float | bool | None]]:
+    details: dict[str, str | int | float | bool | None | list[str]] | None = None,
+) -> dict[
+    str,
+    str
+    | int
+    | float
+    | bool
+    | None
+    | list[str]
+    | dict[str, str | int | float | bool | None | list[str]],
+]:
     """Standardised error payload for UI/HTTP-style responses."""
     return {
         "timestamp": int(time.time()),
@@ -119,7 +128,14 @@ def error_response(
 
 def error_markdown(
     payload: dict[
-        str, str | int | float | bool | None | dict[str, str | int | float | bool | None]
+        str,
+        str
+        | int
+        | float
+        | bool
+        | None
+        | list[str]
+        | dict[str, str | int | float | bool | None | list[str]],
     ],
 ) -> str:
     """Render a standard error payload as Markdown for the web UI."""

@@ -29,9 +29,12 @@ from turkic_translit.lid.locations import default_search_dirs
 _KAZAKH = [f"qazaq tili {index} salem alem birinshi" for index in range(120)]
 _KYRGYZ = [f"kyrgyz tili {index} salam dune birinchi" for index in range(120)]
 
-ANSWERS = dict.fromkeys(_KAZAKH, [("__label__kk", 0.99)]) | dict.fromkeys(
-    _KYRGYZ, [("__label__ky", 0.99)]
-)
+# Built per key rather than with dict.fromkeys, which would hand every
+# key the same list object.
+ANSWERS = {
+    **{line: [("__label__kk", 0.99)] for line in _KAZAKH},
+    **{line: [("__label__ky", 0.99)] for line in _KYRGYZ},
+}
 
 
 @pytest.fixture

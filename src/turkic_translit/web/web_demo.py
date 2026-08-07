@@ -76,7 +76,10 @@ def build_ui() -> gr.Blocks:
     footer { margin-top: 20px; text-align: center; font-size: 0.8em; color: #666; }
     """
 
-    with gr.Blocks(title="Turkic Transliteration Suite", css=css, theme=gr.themes.Soft()) as app:
+    blocks: gr.Blocks = gr.Blocks(
+        title="Turkic Transliteration Suite", css=css, theme=gr.themes.Soft()
+    )
+    with blocks:
         gr.Markdown(
             """
             # Turkic Transliteration Suite
@@ -122,7 +125,7 @@ def build_ui() -> gr.Blocks:
             </footer>
             """
         )
-    return app
+    return blocks
 
 
 def main() -> None:

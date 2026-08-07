@@ -24,13 +24,15 @@ from ..error_service import (
     set_request_context,
 )
 from ..lang_filter import is_russian_token
-from ..lid.classifier import LidClassifier
 from ..lid.errors import LidError
 from ..lid.factory import load_installed_classifier
 
 log = logging.getLogger(__name__)
 
 _ANSI = re.compile(r"\x1b\[[0-9;]*m")
+
+# How often, in lines kept, the progress bar is updated.
+_PROGRESS_EVERY = 10
 
 
 class NamedFile(Protocol):
@@ -350,6 +352,61 @@ def median_levenshtein(file_lat: NamedFile, file_ipa: NamedFile, sample: int | N
 # NEW: lightweight corpus-to-file streaming helper
 
 
+def _report_progress(progress_fn: ProgressReporter, written: int, max_lines: int | None) -> None:
+    """Update the progress bar every tenth line kept.
+
+    Args:
+        progress_fn: Where to report.
+        written: Lines written so far.
+        max_lines: The cap, which makes the fraction meaningful, or
+            ``None`` when the run is unbounded.
+    """
+    if written % _PROGRESS_EVERY != 0:
+        return
+    if max_lines is None:
+        progress_fn(None, desc=f"{written:,} lines kept")
+        return
+    progress_fn(min(1.0, written / max_lines), desc=f"{written}/{max_lines} lines kept")
+
+
+def _download_summary(
+    *,
+    source: str,
+    lang: str,
+    written: int,
+    seen: int,
+    removed: int | None,
+    prob_threshold: float,
+    path: Path,
+) -> str:
+    """Render the Markdown summary shown beside the download link.
+
+    Args:
+        source: Registry key of the corpus streamed.
+        lang: Language code requested.
+        written: Lines written to the file.
+        seen: Sentences the source yielded.
+        removed: Lines the language filter rejected, or ``None`` when no
+            filter ran, which is what omits the line entirely.
+        prob_threshold: Threshold the filter applied.
+        path: The file written.
+
+    Returns:
+        The summary, as Markdown.
+    """
+    lines = [
+        "### ✅ Download complete\n",
+        f"- **Source:** `{source}`",
+        f"- **Language:** {pretty_lang(lang)}",
+        f"- **Lines written:** {written:,}",
+        f"- **Total sentences processed:** {seen:,}",
+    ]
+    if removed is not None:
+        lines.append(f"- **Lines removed by LangID filter:** {removed:,} (p ≥ {prob_threshold})")
+    lines.append(f"- **File:** `{path.name}`")
+    return "\n".join(lines) + "\n"
+
+
 def download_corpus_to_file(
     source: str,
     lang: str,
@@ -397,15 +454,7 @@ def download_corpus_to_file(
     # Initial tick so the UI shows the bar immediately
     progress_fn(0, desc="starting stream")
 
-    model: LidClassifier | None = None
-    if filter_langid:
-        logger.info("Getting FastText language ID model from singleton...")
-        try:
-            model = _langid_singleton(LANGUAGE_MODEL_ID)
-            logger.info(f"FastText model loaded successfully: {model}")
-        except Exception:
-            logger.exception("Failed to load FastText model")
-            raise
+    model = _langid_singleton(LANGUAGE_MODEL_ID) if filter_langid else None
 
     # Counters
     i = 0  # lines written
@@ -437,10 +486,6 @@ def download_corpus_to_file(
                 prediction = model.classify(clean_sentence)
                 pred_lang = prediction["label"]
                 pred_prob = prediction["probability"]
-                if total_processed <= 5:
-                    logger.info(
-                        f"Sentence {total_processed}: '{clean_sentence[:50]}...' -> predicted: {pred_lang}, wanted: {lang}"
-                    )
                 # Skip sentence if wrong language or below probability threshold
                 if pred_lang != lang or pred_prob < prob_threshold:
                     removed += 1
@@ -448,42 +493,22 @@ def download_corpus_to_file(
             tmp.write(clean_sentence + "\n")
             i += 1
 
-            # Update progress and log
-            if i % 10 == 0 or (max_lines and i == max_lines):
-                if max_lines:
-                    progress_msg = f"{i}/{max_lines} lines kept"
-                    progress_fn(min(1.0, i / max_lines), desc=progress_msg)
-                    logger.info(f"Progress: {progress_msg}")
-                else:
-                    progress_msg = f"{i:,} lines kept"
-                    progress_fn(None, desc=progress_msg)
-                    if i % 100 == 0:  # Less frequent logging when no limit
-                        logger.info(f"Progress: {progress_msg}")
+            _report_progress(progress_fn, i, max_lines)
 
     # Capture file path after context manager closes it
     tmp_path = tmp.name
-
     progress_fn(1.0, desc="completed")
+    logger.info("download complete: %d lines written from %d seen", i, total_processed)
 
-    # Compute how many lines were skipped when language filtering is active
-    # removed counter already computed
-
-    logger.info(f"Download complete: {i} lines written from {total_processed} sentences processed")
-
-    info_md = (
-        "### ✅ Download complete\n\n"
-        f"- **Source:** `{source}`\n"
-        f"- **Language:** {pretty_lang(lang)}\n"
-        f"- **Lines written:** {i:,}\n"
-        f"- **Total sentences processed:** {total_processed:,}\n"
-        + (
-            f"- **Lines removed by LangID filter:** {removed:,} (p ≥ {prob_threshold})\n"
-            if filter_langid
-            else ""
-        )
-        + f"- **File:** `{Path(tmp_path).name}`\n"
+    return tmp_path, _download_summary(
+        source=source,
+        lang=lang,
+        written=i,
+        seen=total_processed,
+        removed=removed if filter_langid else None,
+        prob_threshold=prob_threshold,
+        path=Path(tmp_path),
     )
-    return tmp_path, info_md
 
 
 def train_sentencepiece_model(

@@ -80,7 +80,7 @@ def test_console_script_reports_its_usage(name: str, target: str) -> None:
     """
     module_name, _, attribute = target.partition(":")
     command = getattr(importlib.import_module(module_name), attribute)
-    if not isinstance(command, click.BaseCommand):
+    if not isinstance(command, click.Command):
         pytest.skip(f"{name} is not a Click command")
 
     result = CliRunner().invoke(command, ["--help"])

@@ -6,7 +6,7 @@ from collections.abc import Iterator
 from contextlib import contextmanager
 from importlib.abc import Traversable
 from pathlib import Path
-from typing import IO
+from typing import IO, Literal
 
 import icu
 import panphon
@@ -15,15 +15,10 @@ import sentencepiece as spm
 from panphon import featuretable
 
 from turkic_translit.core import to_ipa
-from turkic_translit.web.web_utils import train_sentencepiece_model
-
-# Optional dependencies - handle gracefully
-try:
-    import fasttext
-
-    HAS_FASTTEXT = True
-except ImportError:
-    HAS_FASTTEXT = False
+from turkic_translit.lid.factory import load_installed_classifier
+from turkic_translit.lid.locations import default_search_dirs
+from turkic_translit.lid.registry import find_model_path
+from turkic_translit.web.web_utils import LANGUAGE_MODEL_ID, train_sentencepiece_model
 
 
 @contextmanager
@@ -68,18 +63,18 @@ def _panphon_utf8_resources() -> Iterator[None]:
             """
             return _Utf8Traversable(self._inner.joinpath(*parts))
 
-        def open(self, mode: str = "r", **kwargs: str) -> IO[str]:
-            """Open the resource, defaulting the encoding to UTF-8.
+        def open(self, mode: Literal["r"] = "r", encoding: str = "utf-8") -> IO[str]:
+            """Open the resource as UTF-8 text.
 
             Args:
-                mode: File mode; text mode in every panphon call site.
-                kwargs: Remaining arguments, passed through.
+                mode: File mode; text mode at every panphon call site.
+                encoding: Defaulted to UTF-8, which is the whole point.
 
             Returns:
                 The opened text stream.
             """
-            kwargs.setdefault("encoding", "utf-8")
-            return self._inner.open(mode, **kwargs)
+            stream: IO[str] = self._inner.open(mode, encoding=encoding)
+            return stream
 
     real_files = featuretable.files
     featuretable.files = lambda package: _Utf8Traversable(real_files(package))
@@ -196,52 +191,23 @@ def test_sentencepiece_roundtrip() -> None:
 
 # 4. Test fastText LID logic
 def test_fasttext_lid() -> None:
+    """The registered classifier identifies Russian from real weights.
+
+    Resolution goes through the model registry rather than a ladder of
+    guessed paths, and the answer comes back as a typed prediction
+    rather than a tuple whose shape depends on which fastText build is
+    installed. Both of those were what the old version of this test
+    worked around, and both are now the library's job.
     """
-    Test fastText language identification functionality.
+    if find_model_path(LANGUAGE_MODEL_ID, default_search_dirs()) is None:
+        pytest.skip(f"{LANGUAGE_MODEL_ID} weights are not installed")
 
-    This test accommodates both fasttext and fasttext-wheel packages.
-    """
-    # Look for the model in multiple common locations (.bin files, not .ftz)
-    possible_paths = [
-        os.path.expanduser("~/lid.176.bin"),
-        "lid.176.bin",
-        os.path.join(os.getcwd(), "lid.176.bin"),
-        os.path.join(os.path.dirname(__file__), "../lid.176.bin"),
-        os.path.join(os.path.dirname(__file__), "../src/turkic_translit/lid.176.bin"),
-    ]
+    prediction = load_installed_classifier(LANGUAGE_MODEL_ID).classify(
+        "Пример текста на русском языке"
+    )
 
-    lid_path = None
-    for path in possible_paths:
-        if os.path.exists(path):
-            lid_path = path
-            break
-
-    if not lid_path:
-        pytest.skip("fastText model missing; download lid.176.bin to use LID functionality")
-
-    try:
-        # Different loading mechanisms depending on fasttext vs fasttext-wheel
-        try:
-            lid = fasttext.load_model(lid_path)
-        except AttributeError:
-            # fasttext-wheel has different API
-            lid = fasttext.FastText.load_model(lid_path)
-
-        # Test on a simple Russian word
-        prediction = lid.predict("Пример", k=1)
-
-        # Handle different return formats
-        if isinstance(prediction, tuple):
-            lbl, conf = prediction
-        else:
-            # Some versions return a different format
-            lbl = prediction[0]
-            conf = prediction[1]
-
-        assert lbl[0] == "__label__ru"
-        assert conf[0] > 0.5
-    except Exception as e:
-        pytest.skip(f"fastText test failed: {e}\nThis might be due to environment differences.")
+    assert prediction["label"] == "ru"
+    assert prediction["probability"] > 0.5
 
 
 # 5. Test SentencePiece training in web interface

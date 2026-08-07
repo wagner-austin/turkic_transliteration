@@ -33,6 +33,59 @@ _ORIGINAL_PREVIEW = "**Preview** (Original corpus - first line)"
 _IPA_PREVIEW = "**Preview** (IPA-transliterated corpus - first line)"
 
 
+@lru_cache(maxsize=1)
+def _fasttext_langs() -> set[str]:
+    """List the languages the corpus filter can be asked for.
+
+    Returns:
+        Every label the language-identification model can emit.
+    """
+    from turkic_translit.web.web_utils import LANGUAGE_MODEL_ID, _langid_singleton
+
+    return set(_langid_singleton(LANGUAGE_MODEL_ID).known_labels())
+
+
+@lru_cache(maxsize=1)
+def _ipa_supported_langs() -> set[str]:
+    """List the language codes that have an ``<lang>_ipa.rules`` file.
+
+    Returns:
+        Codes this project can transliterate to IPA.
+    """
+    from turkic_translit.core import get_supported_languages
+
+    return {code for code, fmts in get_supported_languages().items() if "ipa" in fmts}
+
+
+@cache
+def _lang_choices(src: str) -> list[str]:
+    """List the languages one source offers, for the dropdown.
+
+    Args:
+        src: Registry key of the selected source.
+
+    Returns:
+        Language codes the classifier also knows. When the source's host
+        cannot be reached, the locally available IPA languages are
+        offered instead, so the tab still works offline.
+    """
+    from turkic_translit.corpus.catalogue import available_languages
+    from turkic_translit.corpus.sources import get_source_spec
+
+    try:
+        offered = list(available_languages(get_source_spec(src)))
+    except CorpusError as exc:
+        logger.warning("could not list languages for %s: %s", src, exc)
+        offered = []
+
+    if not offered:
+        logger.warning("falling back to the local language list for %s", src)
+        offered = sorted(_ipa_supported_langs())
+
+    known = _fasttext_langs()
+    return [code for code in offered if code in known]
+
+
 def _preview_of(path: Path) -> str:
     """Return the file's first line, marked when more lines follow.
 
@@ -87,54 +140,6 @@ def register() -> None:
                     label="Corpus Source",
                     value="oscar-2301",
                 )
-
-                @lru_cache(maxsize=1)
-                def _fasttext_langs() -> set[str]:
-                    """Return the languages the corpus filter can be asked for."""
-                    from turkic_translit.web.web_utils import (
-                        LANGUAGE_MODEL_ID,
-                        _langid_singleton,
-                    )
-
-                    return set(_langid_singleton(LANGUAGE_MODEL_ID).known_labels())
-
-                @lru_cache(maxsize=1)
-                def _ipa_supported_langs() -> set[str]:
-                    """Return language codes that have an `{lang}_ipa.rules` file."""
-                    from turkic_translit.core import get_supported_languages
-
-                    return {
-                        code for code, fmts in get_supported_languages().items() if "ipa" in fmts
-                    }
-
-                @cache
-                def _lang_choices(src: str) -> list[str]:
-                    """List the languages this source offers, for the dropdown.
-
-                    Args:
-                        src: Registry key of the selected source.
-
-                    Returns:
-                        Language codes the classifier also knows. When the
-                        source's host cannot be reached the locally
-                        available IPA languages are offered instead, so
-                        the tab still works offline.
-                    """
-                    from turkic_translit.corpus.catalogue import available_languages
-                    from turkic_translit.corpus.sources import get_source_spec
-
-                    try:
-                        lst = list(available_languages(get_source_spec(src)))
-                    except CorpusError as exc:
-                        logger.warning("could not list languages for %s: %s", src, exc)
-                        lst = []
-
-                    if not lst:
-                        logger.warning("falling back to the local language list for %s", src)
-                        lst = sorted(_ipa_supported_langs())
-
-                    ft = _fasttext_langs()
-                    return [code for code in lst if code in ft]
 
                 initial_langs = _lang_choices("oscar-2301")
                 lang_dd = gr.Dropdown(

@@ -4656,6 +4656,39 @@ test = ["hypothesis (>=6.46.1)", "pytest (>=7.3.2)", "pytest-xdist (>=2.2.0)"]
 xml = ["lxml (>=4.9.2)"]
 
 [[package]]
+name = "pandas-stubs"
+version = "2.2.2.240807"
+description = "Type annotations for pandas"
+optional = true
+python-versions = ">=3.9"
+groups = ["main"]
+markers = "python_version < \"3.11\" and extra == \"dev\""
+files = [
+    {file = "pandas_stubs-2.2.2.240807-py3-none-any.whl", hash = "sha256:893919ad82be4275f0d07bb47a95d08bae580d3fdea308a7acfcb3f02e76186e"},
+    {file = "pandas_stubs-2.2.2.240807.tar.gz", hash = "sha256:64a559725a57a449f46225fbafc422520b7410bff9252b661a225b5559192a93"},
+]
+
+[package.dependencies]
+numpy = ">=1.23.5"
+types-pytz = ">=2022.1.1"
+
+[[package]]
+name = "pandas-stubs"
+version = "3.0.5.260730"
+description = "Type annotations for pandas"
+optional = true
+python-versions = ">=3.11"
+groups = ["main"]
+markers = "python_version >= \"3.11\" and extra == \"dev\""
+files = [
+    {file = "pandas_stubs-3.0.5.260730-py3-none-any.whl", hash = "sha256:60e90e3e1eda6937e337e243cbe6217e151c11137cd7eddf832af537c7310bfd"},
+    {file = "pandas_stubs-3.0.5.260730.tar.gz", hash = "sha256:f70a232c57d93a5a2c81f8a53953e10891a5374bc92652277deb325e2e4d0ff3"},
+]
+
+[package.dependencies]
+numpy = ">=1.23.5"
+
+[[package]]
 name = "pandocfilters"
 version = "1.5.1"
 description = "Utilities for writing pandoc filters in python"
@@ -7665,6 +7698,19 @@ files = [
 ]
 
 [[package]]
+name = "types-pytz"
+version = "2025.2.0.20251108"
+description = "Typing stubs for pytz"
+optional = true
+python-versions = ">=3.9"
+groups = ["main"]
+markers = "python_version < \"3.11\" and extra == \"dev\""
+files = [
+    {file = "types_pytz-2025.2.0.20251108-py3-none-any.whl", hash = "sha256:0f1c9792cab4eb0e46c52f8845c8f77cf1e313cb3d68bf826aa867fe4717d91c"},
+    {file = "types_pytz-2025.2.0.20251108.tar.gz", hash = "sha256:fca87917836ae843f07129567b74c1929f1870610681b4c92cb86a3df5817bdb"},
+]
+
+[[package]]
 name = "types-pyyaml"
 version = "6.0.12.20250915"
 description = "Typing stubs for PyYAML"
@@ -8389,7 +8435,7 @@ type = ["pytest-mypy"]
 
 [extras]
 corpus = ["datasets", "pyarrow"]
-dev = ["build", "make", "mypy", "panphon", "pytest", "pytest-cov", "pytest-timeout", "pytest-xdist", "ruff", "twine", "types-PyYAML"]
+dev = ["build", "make", "mypy", "pandas-stubs", "panphon", "pytest", "pytest-cov", "pytest-timeout", "pytest-xdist", "ruff", "twine", "types-PyYAML"]
 examples = ["flask", "jupyterlab", "streamlit"]
 sentry = ["sentry-sdk"]
 winlid = []
@@ -8397,4 +8443,4 @@ winlid = []
 [metadata]
 lock-version = "2.1"
 python-versions = ">=3.9"
-content-hash = "25c80771f1dff7735c523fbacfde743949135f8c05c4f4c5c78cf99bec772a10"
+content-hash = "26afa7f318aae7659417b9b43f857039d485e9bc1a96dfe02a234ded9376ade4"
