@@ -16,7 +16,7 @@ import sys
 import unicodedata as ud
 from functools import lru_cache
 from pathlib import Path
-from typing import Any
+from typing import Protocol
 
 _RULE_DIR = Path(__file__).with_suffix("").parent / "rules"
 
@@ -34,14 +34,50 @@ _INSTALL_INSTRUCTIONS: dict[str, str] = {
         "Then, reinstall the package."
     ),
     "darwin": (
-        "On macOS, run:\n"
-        "  brew install icu4c\n"
-        "Then, reinstall the package with CFLAGS from brew."
+        "On macOS, run:\n  brew install icu4c\nThen, reinstall the package with CFLAGS from brew."
     ),
 }
 
 
-def _require_icu() -> Any:
+class IcuTransliterator(Protocol):
+    """A compiled ICU transliterator."""
+
+    def transliterate(self, text: str) -> str:
+        """Apply the compiled rules to ``text``.
+
+        Args:
+            text: Input in the source orthography.
+
+        Returns:
+            The transliterated text.
+        """
+        ...
+
+
+class IcuTransliteratorFactory(Protocol):
+    """The ICU ``Transliterator`` class, as this project uses it."""
+
+    def createFromRules(self, name: str, rules: str, direction: int) -> IcuTransliterator:
+        """Compile a transliterator from rule text.
+
+        Args:
+            name: Identifier for the compiled instance.
+            rules: The rule file's contents.
+            direction: ICU direction constant; 0 is forward.
+
+        Returns:
+            The compiled transliterator.
+        """
+        ...
+
+
+class IcuModule(Protocol):
+    """The single PyICU attribute this project reaches for."""
+
+    Transliterator: IcuTransliteratorFactory
+
+
+def _require_icu() -> IcuModule:
     """Import and return the PyICU ``icu`` module.
 
     Deferred to call time so ``import turkic_translit`` succeeds even
@@ -50,8 +86,7 @@ def _require_icu() -> Any:
     requiring PyICU to already be installed.
 
     Returns:
-        The imported ``icu`` module (a C extension shipping without
-        type stubs — hence ``Any``).
+        The imported ``icu`` module, narrowed to the one attribute used.
 
     Raises:
         RuntimeError: When PyICU cannot be imported. The exception
@@ -60,7 +95,7 @@ def _require_icu() -> Any:
             platform.
     """
     try:
-        import icu
+        module: IcuModule = __import__("icu")
     except ImportError as e:
         py_ver = f"{sys.version_info.major}.{sys.version_info.minor}"
         platform = sys.platform
@@ -70,7 +105,7 @@ def _require_icu() -> Any:
         raise RuntimeError(
             f"PyICU missing on Python {py_ver} ({platform}).\n\n{instruction}"
         ) from e
-    return icu
+    return module
 
 
 @lru_cache
@@ -108,17 +143,14 @@ def get_supported_languages() -> dict[str, list[str]]:
 
 
 @lru_cache
-def _icu_trans(name: str) -> Any:
+def _icu_trans(name: str) -> IcuTransliterator:
     """Load ``name`` from the rules directory and compile it via PyICU.
 
     Args:
         name: The rule-file basename (e.g. ``"kk_ipa.rules"``).
 
     Returns:
-        An ``icu.Transliterator`` compiled from the rule file. The
-        return type is annotated ``Any`` because PyICU is a C
-        extension without published type stubs; the object is only
-        used via its ``transliterate(text)`` method.
+        An ``icu.Transliterator`` compiled from the rule file.
 
     Raises:
         RuntimeError: Propagated from :func:`_require_icu` when

@@ -84,9 +84,7 @@ def test_direct_transliterate_function() -> None:
         ("merhaba", "tr", "IPA", "meɾhaba"),  # Turkish
     ],
 )
-def test_multiple_language_support(
-    text: str, lang: str, fmt: str, expected: str
-) -> None:
+def test_multiple_language_support(text: str, lang: str, fmt: str, expected: str) -> None:
     """Test that all supported languages work correctly."""
     result, _ = direct_transliterate(text, lang, False, fmt.lower())
     assert result == expected
@@ -100,5 +98,7 @@ def test_file_size_threshold() -> None:
     assert len(small_text) < 50
 
     # Large result (> 50 chars) - should enable download
-    large_text = "This is a longer text that exceeds the threshold for enabling download functionality"
+    large_text = (
+        "This is a longer text that exceeds the threshold for enabling download functionality"
+    )
     assert len(large_text) > 50

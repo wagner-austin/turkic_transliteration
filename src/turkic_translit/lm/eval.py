@@ -1,4 +1,3 @@
-# mypy: ignore-errors
 """Evaluation helpers for language-model perplexity."""
 
 from __future__ import annotations

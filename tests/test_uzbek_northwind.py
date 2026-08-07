@@ -53,10 +53,7 @@ SENTS: tuple[str, ...] = (
         "oʻz plashiga oʻranib olibdi va shamol oʻz fikridan qaytishga majbur "
         "boʻlibdi."
     ),
-    (
-        "Shunda quyosh porlab chiqibdi va yoʻlovchi asta-sekin isib, tezda "
-        "plashini yechib olibdi."
-    ),
+    ("Shunda quyosh porlab chiqibdi va yoʻlovchi asta-sekin isib, tezda plashini yechib olibdi."),
     (
         "Shunday qilib, shimoliy shamol quyoshning undan kuchli ekanligini "
         "tan olishga majbur boʻlibdi."

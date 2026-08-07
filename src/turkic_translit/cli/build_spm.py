@@ -11,9 +11,7 @@ import sentencepiece as spm
     show_default=True,
     help="Prefix for output model files.",
 )
-@click.option(
-    "--vocab-size", default=12000, show_default=True, type=int, help="Vocabulary size."
-)
+@click.option("--vocab-size", default=12000, show_default=True, type=int, help="Vocabulary size.")
 @click.option(
     "--model-type",
     default="unigram",
@@ -53,7 +51,3 @@ def main(
         user_defined_symbols=user_symbols_list,
     )
     click.echo(f"SentencePiece model saved at {model_prefix}.model")
-
-
-if __name__ == "__main__":  # pragma: no cover
-    main()

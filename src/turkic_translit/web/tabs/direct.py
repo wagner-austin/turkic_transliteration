@@ -15,7 +15,7 @@ def _handle_file_upload(file_path: str | None) -> str:
         with open(file_path, encoding="utf-8") as f:
             return f.read()
     except Exception as e:  # pragma: no cover
-        return f"Error reading file: {str(e)}"
+        return f"Error reading file: {e!s}"
 
 
 def register() -> None:
@@ -76,9 +76,7 @@ def register() -> None:
             with gr.Column(scale=7):
                 output = gr.Textbox(label="Output (IPA)", lines=4, interactive=False)
                 stats = gr.Markdown()
-                download_file = gr.File(
-                    label="Download Result", elem_id="download-output"
-                )
+                download_file = gr.File(label="Download Result", elem_id="download-output")
 
         def do_direct(
             text: str,
@@ -113,7 +111,7 @@ def register() -> None:
                     stats_md += f"\n*File ready for download: {filename}*"
                 return result, stats_md, download_path
             except Exception as e:  # pragma: no cover
-                return "", f"**Error**: {str(e)}", None
+                return "", f"**Error**: {e!s}", None
 
         with gr.Row(elem_classes=["examples-row"]):
             gr.Examples(

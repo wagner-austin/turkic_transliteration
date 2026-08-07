@@ -14,18 +14,14 @@ from turkic_translit.sanity import median_lev
     help="Sample N lines (if supported by median_lev)",
 )
 def main(file_a: str, file_b: str, sample: int | None) -> None:
-    """Compute median Levenshtein distance between two files."""
-    # If median_lev supports sample, pass it; otherwise, ignore
-    try:
-        if sample is not None:
-            result = median_lev(file_a, file_b, sample=sample)
-        else:
-            result = median_lev(file_a, file_b)
-    except TypeError:
-        # Backward compatibility if sample is not supported
-        result = median_lev(file_a, file_b)
-    click.echo(result)
+    """Compute median Levenshtein distance between two files.
 
-
-if __name__ == "__main__":  # pragma: no cover
-    main()
+    Args:
+        file_a: Path to the first file.
+        file_b: Path to the second file, compared line by line.
+        sample: Number of lines to sample, or ``None`` for the default.
+    """
+    if sample is None:
+        click.echo(median_lev(file_a, file_b))
+        return
+    click.echo(median_lev(file_a, file_b, sample=sample))

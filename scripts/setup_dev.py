@@ -6,11 +6,32 @@ This script helps set up a development environment for the Turkic Transliteratio
 It installs all required development dependencies and performs basic configuration.
 """
 
+import logging
 import os
 import pathlib
 import platform
 import subprocess
 import sys
+
+logger = logging.getLogger(__name__)
+
+
+def command_runs(command: list[str]) -> bool:
+    """Report whether a command exists and exits successfully.
+
+    Args:
+        command: The command and arguments to run. Output is discarded;
+            only the exit status is consulted.
+
+    Returns:
+        True when the command ran and returned zero.
+    """
+    try:
+        subprocess.check_call(command, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+    except (subprocess.CalledProcessError, FileNotFoundError) as exc:
+        logger.debug("probe %s failed: %s", command[0], exc)
+        return False
+    return True
 
 
 def main() -> None:
@@ -40,41 +61,25 @@ def main() -> None:
     # Check for PyICU on Windows
     if platform.system() == "Windows":
         print("\n=== Checking PyICU installation on Windows ===")
-        try:
-            import icu
-
-            print(f"PyICU is already installed (version: {icu.ICU_VERSION})")
-        except ImportError:
+        if command_runs([sys.executable, "-c", "import icu"]):
+            print("PyICU is already installed")
+        else:
             print("PyICU is not installed. Running the PyICU installer...")
-            subprocess.check_call(
-                [sys.executable, "-m", "turkic_translit.pyicu_install"]
-            )
+            subprocess.check_call([sys.executable, "-m", "turkic_translit.pyicu_install"])
 
     # Run basic configuration checks
     print("\n=== Verifying development tools ===")
     tools = ["black", "ruff", "mypy", "pytest"]
     for tool in tools:
-        try:
-            subprocess.check_call([tool, "--version"], stdout=subprocess.PIPE)
-            print(f"✓ {tool} is installed")
-        except (subprocess.CalledProcessError, FileNotFoundError):
-            print(f"✗ {tool} not found or not working properly")
+        status = "✓ installed" if command_runs([tool, "--version"]) else "✗ not found"
+        print(f"{status}: {tool}")
 
     print("\n=== Setup complete! ===\n")
 
     # Provide different instructions based on the platform
     if platform.system() == "Windows":
         # Check if GNU Make is installed
-        make_installed = False
-        try:
-            subprocess.check_call(
-                ["make", "--version"], stdout=subprocess.PIPE, stderr=subprocess.PIPE
-            )
-            make_installed = True
-        except (subprocess.CalledProcessError, FileNotFoundError):
-            pass
-
-        if make_installed:
+        if command_runs(["make", "--version"]):
             print("GNU Make is installed. You can run:")
             print("  make help - Show available commands")
             print("  make lint - Run linting checks")

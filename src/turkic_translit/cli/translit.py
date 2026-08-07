@@ -107,9 +107,7 @@ def _stream_transliteration(
     return lines_consumed
 
 
-def _validate_output_selection(
-    lang: str, latin_path: str | None, ipa_path: str | None
-) -> None:
+def _validate_output_selection(lang: str, latin_path: str | None, ipa_path: str | None) -> None:
     """Reject argument combinations the language's rules cannot satisfy.
 
     Args:
@@ -125,16 +123,12 @@ def _validate_output_selection(
             rules directory contents.
     """
     if latin_path is None and ipa_path is None:
-        raise click.UsageError(
-            "at least one of --out-latin or --out-ipa must be specified"
-        )
+        raise click.UsageError("at least one of --out-latin or --out-ipa must be specified")
 
     supported = get_supported_languages()
     modes = supported.get(lang, [])
     if latin_path is not None and "latin" not in modes:
-        latin_langs = sorted(
-            code for code, fmts in supported.items() if "latin" in fmts
-        )
+        latin_langs = sorted(code for code, fmts in supported.items() if "latin" in fmts)
         raise click.UsageError(
             f"language '{lang}' has no Latin rules; "
             f"omit --out-latin or choose a language with Latin rules: "
@@ -228,8 +222,7 @@ def translit(
     encoding = "utf-8-sig" if sys.platform == "win32" else "utf-8"
 
     _logger.info(
-        "Starting transliteration: lang=%s, input=%s, "
-        "out_latin=%s, out_ipa=%s, arabic=%s",
+        "Starting transliteration: lang=%s, input=%s, out_latin=%s, out_ipa=%s, arabic=%s",
         lang,
         input_path,
         latin_path,
@@ -242,9 +235,7 @@ def translit(
         latin_stream = _open_output(stack, latin_path, encoding)
         ipa_stream = _open_output(stack, ipa_path, encoding)
         start = time.time()
-        n = _stream_transliteration(
-            input_stream, latin_stream, ipa_stream, lang, arabic
-        )
+        n = _stream_transliteration(input_stream, latin_stream, ipa_stream, lang, arabic)
         elapsed = time.time() - start
 
     if benchmark:

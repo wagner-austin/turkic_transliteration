@@ -36,10 +36,7 @@ def _strip_combining(text: str) -> str:
 
 
 SENTS: tuple[str, ...] = (
-    (
-        "Kuzey rüzgarı ile güneş, hangisinin daha güçlü olduğu konusunda "
-        "tartışıyorlardı."
-    ),
+    ("Kuzey rüzgarı ile güneş, hangisinin daha güçlü olduğu konusunda tartışıyorlardı."),
     "O sırada oradan sıcak bir paltoya bürünmüş bir yolcu geçmekteydi.",
     (
         "Yolcunun paltosunu ilk çıkartmaya kim başarırsa, onun daha "

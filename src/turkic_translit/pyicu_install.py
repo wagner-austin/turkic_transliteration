@@ -41,9 +41,7 @@ from .logging_config import setup as _log_setup
     "--version",
     "-v",
     default=None,
-    help=(
-        "PyICU version to install (default: latest available for your Python version)."
-    ),
+    help=("PyICU version to install (default: latest available for your Python version)."),
 )
 def main(version: str | None) -> None:
     """Download and install a PyICU wheel for Windows / Python >=3.10.
@@ -73,8 +71,7 @@ def main(version: str | None) -> None:
     major, minor = sys.version_info[:2]
     if platform.system() != "Windows":
         sys.exit(
-            "turkic-pyicu-install: Not needed — PyICU wheels are on PyPI for "
-            "non-Windows platforms."
+            "turkic-pyicu-install: Not needed — PyICU wheels are on PyPI for non-Windows platforms."
         )
     py_tag = f"cp{major}{minor}"
     if py_tag not in {"cp310", "cp311", "cp312", "cp313"}:
@@ -98,10 +95,7 @@ def main(version: str | None) -> None:
         url = wheel_asset["browser_download_url"]
     else:
         wheel_name = f"pyicu-{version}-{py_tag}-{py_tag}-win_amd64.whl"
-        url = (
-            f"https://github.com/cgohlke/pyicu-build/releases/download/"
-            f"v{version}/{wheel_name}"
-        )
+        url = f"https://github.com/cgohlke/pyicu-build/releases/download/v{version}/{wheel_name}"
 
     # Search order: vendored wheel, current working directory, then
     # download from cgohlke.
@@ -122,7 +116,3 @@ def main(version: str | None) -> None:
 
     subprocess.check_call([sys.executable, "-m", "pip", "install", str(wheel_path)])
     log.info("PyICU %s installed", wheel_name)
-
-
-if __name__ == "__main__":  # pragma: no cover
-    main()

@@ -11,6 +11,7 @@ from __future__ import annotations
 
 import json
 from collections.abc import Generator
+from pathlib import Path
 
 import pytest
 from click.testing import CliRunner
@@ -94,12 +95,10 @@ def test_a_kazakh_token_survives_the_filter(runner: CliRunner, installed_weights
 
 
 def test_a_stoplisted_token_is_kept(
-    runner: CliRunner, installed_weights: None, tmp_path: object
+    runner: CliRunner, installed_weights: None, tmp_path: Path
 ) -> None:
     """Words listed in the core vocabulary are never dropped."""
-    from pathlib import Path
-
-    stoplist = Path(str(tmp_path)) / "core.txt"
+    stoplist = tmp_path / "core.txt"
     stoplist.write_text("привет\n", encoding="utf-8")
 
     result = runner.invoke(

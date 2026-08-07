@@ -21,18 +21,18 @@ from turkic_translit.cli.train_lm import cli as train_lm_cli
 
 
 @pytest.fixture
-def tmp_output_dir(tmp_path: Path) -> Path:  # noqa: D401 – imperative style
+def tmp_output_dir(tmp_path: Path) -> Path:
     """Return a temporary directory path for model outputs."""
     out = tmp_path / "model_out"
     out.mkdir()
     return out
 
 
-class _DummyModel:  # noqa: D101 – minimal stub
+class _DummyModel:
     def __init__(self) -> None:
         self.config = SimpleNamespace(use_cache=True)
 
-    def gradient_checkpointing_disable(self) -> None:  # noqa: D401 – stub
+    def gradient_checkpointing_disable(self) -> None:
         pass
 
 
@@ -59,7 +59,7 @@ def test_train_lm_quick(monkeypatch: pytest.MonkeyPatch, tmp_output_dir: Path) -
         epochs: int,
         sentences: Iterable[str],
         output_dir: str,
-    ) -> _DummyLM:  # noqa: D401
+    ) -> _DummyLM:
         # Just record call args then create a dummy file in *output_dir* to
         # imitate model saving.
         calls.append(
@@ -116,9 +116,7 @@ def test_eval_lm_quick(monkeypatch: pytest.MonkeyPatch) -> None:
         "turkic_translit.cli.eval_lm.LMModel.from_pretrained",
         lambda *_a, **_kw: dummy_lm,
     )
-    monkeypatch.setattr(
-        "turkic_translit.cli.eval_lm.cross_perplexity", lambda *_a, **_kw: 2.34
-    )
+    monkeypatch.setattr("turkic_translit.cli.eval_lm.cross_perplexity", lambda *_a, **_kw: 2.34)
     monkeypatch.setattr(
         "turkic_translit.cli.eval_lm.DatasetStream", lambda *_a, **_kw: ["x", "y", "z"]
     )

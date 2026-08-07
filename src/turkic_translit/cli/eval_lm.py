@@ -1,6 +1,5 @@
 """CLI: evaluate LM cross-perplexity on a target language."""
 
-# mypy: ignore-errors
 from __future__ import annotations
 
 import logging

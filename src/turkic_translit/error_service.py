@@ -15,16 +15,13 @@ import logging
 import os
 import time
 import uuid
-from typing import Any
 
 # Per-execution/request correlation ID
-_correlation_id: contextvars.ContextVar[str] = contextvars.ContextVar(
-    "correlation_id", default=""
-)
+_correlation_id: contextvars.ContextVar[str] = contextvars.ContextVar("correlation_id", default="")
 
 # Optional request context payload (e.g., route, lang, user)
-_request_ctx: contextvars.ContextVar[dict[str, Any] | None] = contextvars.ContextVar(
-    "request_ctx", default=None
+_request_ctx: contextvars.ContextVar[dict[str, str | int | float | bool | None] | None] = (
+    contextvars.ContextVar("request_ctx", default=None)
 )
 
 
@@ -40,14 +37,14 @@ def get_correlation_id() -> str:
     return cid or ""
 
 
-def set_request_context(**fields: Any) -> None:
+def set_request_context(**fields: str | int | float | bool | None) -> None:
     base = _request_ctx.get(None) or {}
     ctx = base.copy()
     ctx.update(fields)
     _request_ctx.set(ctx)
 
 
-def get_request_context() -> dict[str, Any]:
+def get_request_context() -> dict[str, str | int | float | bool | None]:
     ctx = _request_ctx.get(None) or {}
     return ctx.copy()
 
@@ -55,18 +52,19 @@ def get_request_context() -> dict[str, Any]:
 class CorrelationFilter(logging.Filter):
     """Inject correlation ID and request context into every log record."""
 
-    def filter(self, record: logging.LogRecord) -> bool:  # noqa: D401
-        try:
-            record.correlation_id = get_correlation_id() or None
-            # flatten selected context keys for convenience
-            ctx = get_request_context()
-            for k, v in ctx.items():
-                # Avoid clobbering built-in LogRecord attributes
-                if not hasattr(record, k):
-                    setattr(record, k, v)
-        except Exception:
-            # Logging must never raise
-            pass
+    def filter(self, record: logging.LogRecord) -> bool:
+        """Attach the correlation ID and request context to ``record``.
+
+        Args:
+            record: The record being emitted.
+
+        Returns:
+            True always; this filter annotates rather than excludes.
+        """
+        record.correlation_id = get_correlation_id() or None
+        for key, value in get_request_context().items():
+            if not hasattr(record, key):
+                setattr(record, key, value)
         return True
 
 
@@ -76,17 +74,21 @@ def init_error_service() -> None:
     if not dsn:
         return
     try:
-        import sentry_sdk
-
-        sentry_sdk.init(
-            dsn=dsn,
-            environment=os.getenv("TURKIC_ENV", "local"),
-            traces_sample_rate=float(os.getenv("TURKIC_SENTRY_TRACES", "0")),
-            release=os.getenv("TURKIC_RELEASE"),
+        sentry = __import__("sentry_sdk")
+    except ImportError:
+        logging.getLogger(__name__).warning(
+            "TURKIC_SENTRY_DSN is set but sentry-sdk is not installed; "
+            "install turkic-translit[sentry] to enable error reporting"
         )
-        logging.getLogger(__name__).info("Sentry initialised")
-    except Exception as exc:  # pragma: no cover
-        logging.getLogger(__name__).warning("Sentry init failed: %s", exc)
+        return
+
+    sentry.init(
+        dsn=dsn,
+        environment=os.getenv("TURKIC_ENV", "local"),
+        traces_sample_rate=float(os.getenv("TURKIC_SENTRY_TRACES", "0")),
+        release=os.getenv("TURKIC_RELEASE"),
+    )
+    logging.getLogger(__name__).info("Sentry initialised")
 
 
 def error_response(
@@ -94,8 +96,8 @@ def error_response(
     *,
     status: int = 500,
     code: str = "internal_error",
-    details: dict[str, Any] | None = None,
-) -> dict[str, Any]:
+    details: dict[str, str | int | float | bool | None] | None = None,
+) -> dict[str, str | int | float | bool | None | dict[str, str | int | float | bool | None]]:
     """Standardised error payload for UI/HTTP-style responses."""
     return {
         "timestamp": int(time.time()),
@@ -107,7 +109,11 @@ def error_response(
     }
 
 
-def error_markdown(payload: dict[str, Any]) -> str:
+def error_markdown(
+    payload: dict[
+        str, str | int | float | bool | None | dict[str, str | int | float | bool | None]
+    ],
+) -> str:
     """Render a standard error payload as Markdown for the web UI."""
     cor = payload.get("correlationId") or ""
     det = payload.get("details") or {}

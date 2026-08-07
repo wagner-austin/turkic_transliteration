@@ -1,4 +1,3 @@
-# mypy: ignore-errors
 """Wrapper around 🤗 *AutoTokenizer* with optional shared SentencePiece override."""
 
 from __future__ import annotations
@@ -24,8 +23,6 @@ def load_tokenizer(model_name: str, spm_override: str | None = None) -> AutoToke
             raise FileNotFoundError(spm_path)
         # Ensure tokenizer supports SentencePiece override
         if not hasattr(tok, "sp_model"):
-            raise TypeError(
-                f"{tok.__class__.__name__} does not support SentencePiece override"
-            )
+            raise TypeError(f"{tok.__class__.__name__} does not support SentencePiece override")
         tok.sp_model.Load(str(spm_path))
     return tok

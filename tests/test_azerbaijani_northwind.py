@@ -47,10 +47,7 @@ SENTS: tuple[str, ...] = (
     "Amma hər nə qədər artıq əsdikcə, səyahətçi də əbasını dərəsinə bürüyürdü.",
     "Sonda Şimal yeli əsməyi buraxdı.",
     ("Sonra Günəş isti şəfəqlənməyə başladı və bilavasitə səyahətçi əbasını çıxartdı."),
-    (
-        "Və Şimal yeli məcbur oldu etiraf eliyə ki, Günəş ikisinin arasında "
-        "daha güclüdür."
-    ),
+    ("Və Şimal yeli məcbur oldu etiraf eliyə ki, Günəş ikisinin arasında daha güclüdür."),
 )
 
 

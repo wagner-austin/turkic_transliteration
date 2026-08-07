@@ -216,9 +216,7 @@ class FastTextPredictor(Protocol):
         """
         ...
 
-    def getLabels(  # noqa: N802 - name fixed by the fastText C++ binding
-        self, on_unicode_error: str
-    ) -> tuple[Sequence[str], Sequence[int]]:
+    def getLabels(self, on_unicode_error: str) -> tuple[Sequence[str], Sequence[int]]:
         """List every label and its training frequency.
 
         Args:

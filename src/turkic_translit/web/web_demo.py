@@ -37,9 +37,7 @@ def _model_check() -> tuple[str, str]:
         model_name = model_path.name
         size_mb = round(model_path.stat().st_size / (1024 * 1024), 2)
         model_type = "Full" if model_name.endswith(".bin") else "Compressed"
-        fasttext_info = (
-            f"FastText Language Model: {model_name} ({model_type}, {size_mb} MB)"
-        )
+        fasttext_info = f"FastText Language Model: {model_name} ({model_type}, {size_mb} MB)"
         logging.info("FastText language identification model found at %s", model_path)
     except Exception as exc:  # noqa: BLE001
         home = pathlib.Path.home()
@@ -56,9 +54,7 @@ def _model_check() -> tuple[str, str]:
             model_name = p.name
             size_mb = round(p.stat().st_size / (1024 * 1024), 2)
             model_type = "Full" if model_name.endswith(".bin") else "Compressed"
-            fasttext_info = (
-                f"FastText Language Model: {model_name} ({model_type}, {size_mb} MB)"
-            )
+            fasttext_info = f"FastText Language Model: {model_name} ({model_type}, {size_mb} MB)"
         else:
             msg = f"- FastText language model not found and auto-download failed: {exc}"
             logging.warning(msg)
@@ -95,9 +91,7 @@ def build_ui() -> gr.Blocks:
     footer { margin-top: 20px; text-align: center; font-size: 0.8em; color: #666; }
     """
 
-    with gr.Blocks(
-        title="Turkic Transliteration Suite", css=css, theme=gr.themes.Soft()
-    ) as app:
+    with gr.Blocks(title="Turkic Transliteration Suite", css=css, theme=gr.themes.Soft()) as app:
         gr.Markdown(
             """
             # Turkic Transliteration Suite

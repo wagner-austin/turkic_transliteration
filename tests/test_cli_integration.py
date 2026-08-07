@@ -90,15 +90,11 @@ def _run_cli(*args: str) -> subprocess.CompletedProcess[str]:
         captured as UTF-8 text.
     """
     command = [_TURKIC_TRANSLIT_BIN, "translit", *args]
-    return subprocess.run(
-        command, capture_output=True, text=True, check=False, encoding="utf-8"
-    )
+    return subprocess.run(command, capture_output=True, text=True, check=False, encoding="utf-8")
 
 
 @pytest.mark.parametrize(("lang", "sample"), _IPA_INPUTS.items())
-def test_cli_produces_ipa_for_supported_language(
-    lang: str, sample: str, tmp_path: Path
-) -> None:
+def test_cli_produces_ipa_for_supported_language(lang: str, sample: str, tmp_path: Path) -> None:
     """The CLI emits real IPA (not the input) for every supported language."""
     supported = get_supported_languages()
     assert lang in supported, f"precondition: {lang} present in rules directory"
@@ -142,14 +138,10 @@ def test_cli_produces_latin_for_kk_ky(lang: str, sample: str, tmp_path: Path) ->
         "--out-latin",
         str(output_file),
     )
-    assert result.returncode == 0, (
-        f"CLI exited {result.returncode}: stderr={result.stderr!r}"
-    )
+    assert result.returncode == 0, f"CLI exited {result.returncode}: stderr={result.stderr!r}"
     produced = output_file.read_text(encoding="utf-8")
     assert produced, f"empty output for {lang}"
-    assert produced != sample, (
-        f"{lang} Latin output matches input — Latin rules did not fire"
-    )
+    assert produced != sample, f"{lang} Latin output matches input — Latin rules did not fire"
 
 
 def test_cli_lang_choices_include_every_ipa_language() -> None:
@@ -189,8 +181,7 @@ def test_cli_rejects_out_latin_for_ipa_only_language(tmp_path: Path) -> None:
         str(output_file),
     )
     assert result.returncode == 2, (
-        f"expected Click UsageError exit 2, got {result.returncode}: "
-        f"stderr={result.stderr!r}"
+        f"expected Click UsageError exit 2, got {result.returncode}: stderr={result.stderr!r}"
     )
     assert "no Latin rules" in result.stderr
     assert not output_file.exists(), (
