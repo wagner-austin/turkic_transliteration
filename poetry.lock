@@ -8397,4 +8397,4 @@ winlid = []
 [metadata]
 lock-version = "2.1"
 python-versions = ">=3.9"
-content-hash = "068b9de693e418c2bcdbec0c4e50829e1b2d0a02c958c67e1617694e9a519100"
+content-hash = "25c80771f1dff7735c523fbacfde743949135f8c05c4f4c5c78cf99bec772a10"

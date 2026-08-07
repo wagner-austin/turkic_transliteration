@@ -1,12 +1,12 @@
 from __future__ import annotations
 
 import logging
-import pathlib
-from typing import cast
 
 import gradio as gr
 
-from turkic_translit.web.web_utils import get_ui_log_handler
+from turkic_translit.lid.locations import default_search_dirs
+from turkic_translit.lid.registry import find_model_path
+from turkic_translit.web.web_utils import LANGUAGE_MODEL_ID, get_ui_log_handler
 
 from ..error_service import init_error_service
 from ..logging_config import setup as _log_setup
@@ -28,38 +28,20 @@ def _model_check() -> tuple[str, str]:
     Returns (warning_markdown, fasttext_info_markdown).
     """
     missing: list[str] = []
-    fasttext_info = ""
 
-    try:
-        from ..model_utils import ensure_fasttext_model
-
-        model_path = ensure_fasttext_model()
-        model_name = model_path.name
-        size_mb = round(model_path.stat().st_size / (1024 * 1024), 2)
-        model_type = "Full" if model_name.endswith(".bin") else "Compressed"
-        fasttext_info = f"FastText Language Model: {model_name} ({model_type}, {size_mb} MB)"
-        logging.info("FastText language identification model found at %s", model_path)
-    except Exception as exc:  # noqa: BLE001
-        home = pathlib.Path.home()
-        pkg_dir = pathlib.Path(__file__).parent.parent
-        probe_paths = [
-            home / "lid.176.bin",
-            home / "lid.176.ftz",
-            pkg_dir / "lid.176.bin",
-            pkg_dir / "lid.176.ftz",
-        ]
-        existing = [p for p in probe_paths if p.exists()]
-        if existing:
-            p = existing[0]
-            model_name = p.name
-            size_mb = round(p.stat().st_size / (1024 * 1024), 2)
-            model_type = "Full" if model_name.endswith(".bin") else "Compressed"
-            fasttext_info = f"FastText Language Model: {model_name} ({model_type}, {size_mb} MB)"
-        else:
-            msg = f"- FastText language model not found and auto-download failed: {exc}"
-            logging.warning(msg)
-            missing.append(msg)
-            fasttext_info = "FastText Language Model: Not found"
+    weights = find_model_path(LANGUAGE_MODEL_ID, default_search_dirs())
+    if weights is None:
+        message = (
+            f"- Language-identification model {LANGUAGE_MODEL_ID!r} is not "
+            f"installed; it will be downloaded on first use"
+        )
+        _logger.warning(message)
+        missing.append(message)
+        fasttext_info = f"Language model {LANGUAGE_MODEL_ID}: not installed"
+    else:
+        size_mb = round(weights.stat().st_size / (1024 * 1024), 2)
+        fasttext_info = f"Language model {LANGUAGE_MODEL_ID}: {weights.name} ({size_mb} MB)"
+        _logger.info("Language-identification model found at %s", weights)
 
     # The web UI no longer depends on the SentencePiece tokenizer by default,
     # so we don't warn about a missing `turkic_model.model` here. Tabs that
@@ -81,7 +63,10 @@ def build_ui() -> gr.Blocks:
     # Ensure logging is configured for the web demo (honours TURKIC_LOG_LEVEL)
     _log_setup()
     init_error_service()
-    warning_message, _ = _model_check()
+    # Called for the startup log line naming which language-identification
+    # model is installed. The result is deliberately not surfaced in the UI:
+    # tabs raise their own notice when a feature actually needs the model.
+    _model_check()
 
     css = """
     .container { margin: 0 auto; }
@@ -137,7 +122,7 @@ def build_ui() -> gr.Blocks:
             </footer>
             """
         )
-    return cast(gr.Blocks, app)
+    return app
 
 
 def main() -> None:

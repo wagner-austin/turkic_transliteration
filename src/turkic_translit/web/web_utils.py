@@ -4,15 +4,18 @@ import functools
 import json
 import logging
 import os
+import re
 import tempfile
 import threading
 import time
-import typing as t
 from pathlib import Path
-from types import ModuleType
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Protocol
+
+import gradio as gr
+import pandas as pd
 
 from turkic_translit.lang_utils import pretty_lang
+from turkic_translit.tokenizer import default_model_path
 
 from ..error_service import (
     error_markdown,
@@ -20,20 +23,52 @@ from ..error_service import (
     set_correlation_id,
     set_request_context,
 )
-
-# Gradio is optional at runtime but needed for type hints
-try:
-    import gradio as gr  # type-only; not required outside web UI
-except ModuleNotFoundError:  # pragma: no cover
-    import typing as _t
-
-    gr = _t.cast(_t.Any, None)
-
 from ..lang_filter import is_russian_token
 from ..lid.classifier import LidClassifier
+from ..lid.errors import LidError
 from ..lid.factory import load_installed_classifier
 
 log = logging.getLogger(__name__)
+
+_ANSI = re.compile(r"\x1b\[[0-9;]*m")
+
+
+class NamedFile(Protocol):
+    """A Gradio file upload, which this module only reads a path from."""
+
+    name: str
+
+
+class ProgressReporter(Protocol):
+    """The Gradio progress callback, as this module calls it."""
+
+    def __call__(self, progress: float | None, desc: str = "") -> None:
+        """Report progress to the user interface.
+
+        Args:
+            progress: Completed fraction, or ``None`` when the total is
+                unknown and only the description should update.
+            desc: Text shown beside the bar.
+        """
+        ...
+
+
+class SilentProgress:
+    """The reporter used when Gradio supplies none.
+
+    A real implementation of :class:`ProgressReporter` rather than a
+    null check at every call site: outside the web UI there is nowhere
+    to report progress to, and that is not an error condition.
+    """
+
+    def __call__(self, progress: float | None, desc: str = "") -> None:
+        """Discard the report.
+
+        Args:
+            progress: Ignored.
+            desc: Ignored.
+        """
+
 
 # Directory for temporary corpus downloads – excluded from VCS via .gitignore
 
@@ -41,25 +76,49 @@ _CRON_DIR = Path(os.getenv("TURKIC_CRON_DIR", Path.cwd() / "cronjob"))
 _CRON_DIR.mkdir(parents=True, exist_ok=True)
 
 
-# Start a background janitor thread to purge files older than 10 min.
+def purge_expired_downloads(max_age_sec: int) -> int:
+    """Delete temporary downloads older than ``max_age_sec``.
+
+    A file vanishing between the listing and the delete is the normal
+    outcome of two sweeps overlapping, so ``missing_ok`` covers it and
+    nothing is caught. Any other filesystem error is a real problem and
+    propagates to the janitor, which reports it.
+
+    Args:
+        max_age_sec: Age beyond which a file is removed.
+
+    Returns:
+        The number of files deleted.
+    """
+    cutoff = time.time() - max_age_sec
+    removed = 0
+    for entry in _CRON_DIR.glob("*"):
+        if entry.is_file() and entry.stat().st_mtime < cutoff:
+            entry.unlink(missing_ok=True)
+            removed += 1
+    return removed
+
+
 def _start_janitor(max_age_sec: int = 600) -> None:
+    """Start the background thread that purges temporary downloads.
+
+    Args:
+        max_age_sec: Age beyond which a download is removed, and the
+            interval between sweeps.
+    """
+
     def _janitor() -> None:
+        """Sweep expired downloads forever, reporting and continuing."""
         while True:
             try:
-                cutoff = time.time() - max_age_sec
-                for fp in _CRON_DIR.glob("*"):
-                    try:
-                        if fp.stat().st_mtime < cutoff:
-                            fp.unlink(missing_ok=True)
-                    except FileNotFoundError:
-                        pass
-                time.sleep(max_age_sec)  # run roughly every *max_age_sec*
-            except Exception as e:  # pragma: no cover – background safety
-                log.warning(f"Janitor error: {e}")
-                time.sleep(60)
+                purge_expired_downloads(max_age_sec)
+            except OSError:
+                # The thread is a daemon serving a long-lived UI: it logs
+                # and keeps sweeping rather than dying on one bad file.
+                log.exception("janitor sweep failed")
+            time.sleep(max_age_sec)
 
-    th = threading.Thread(target=_janitor, daemon=True, name="cron-janitor")
-    th.start()
+    threading.Thread(target=_janitor, daemon=True, name="cron-janitor").start()
 
 
 _start_janitor()
@@ -150,10 +209,7 @@ def direct_transliterate(
     fmt = out_fmt.lower()
     if fmt not in {"latin", "ipa"}:
         raise ValueError(f"out_fmt must be 'latin' or 'ipa', got {out_fmt!r}")
-    if fmt == "latin":
-        result = to_latin(text, lang, include_arabic)
-    else:
-        result = to_ipa(text, lang)
+    result = to_latin(text, lang, include_arabic) if fmt == "latin" else to_ipa(text, lang)
     stats_markdown = (
         f"**Bytes** — Cyrillic : {len(text.encode('utf8'))}, "
         f"{fmt.upper()} : {len(result.encode('utf8'))}"
@@ -182,51 +238,34 @@ def pipeline_transliterate(text: str, mode: str) -> tuple[str, str]:
     return result, stats_markdown
 
 
-# Soft import pandas at module level
-
-# Soft import pandas - using TYPE_CHECKING pattern to provide type hints
-# without requiring pandas at import time
-if TYPE_CHECKING:
-    import pandas as pd
-else:
-    # Runtime pandas import with fallback
-    try:
-        import pandas as pd
-    except ModuleNotFoundError:  # pragma: no cover
-        pd: ModuleType | None = None
-
-
 def token_table_markdown(text: str) -> str:
+    """Tokenise text and tabulate each token's predicted language.
+
+    Args:
+        text: Text to tokenise.
+
+    Returns:
+        A Markdown table, or a message explaining that the SentencePiece
+        model has not been trained yet. That model is not shipped, so its
+        absence is an ordinary first-run state rather than a defect, and
+        the message says how to produce it.
     """
-    Tokenize text and return a markdown table of tokens and language predictions.
-    Usage: token_table_markdown('сәлем әлем!')
-    Returns: markdown string
-    Raises: ImportError if pandas is not installed.
-    """
-    # Correlation for this user action
     set_correlation_id()
     set_request_context(action="token_table", sample=len(text))
 
-    if pd is None:
-        raise ImportError("install turkic-transliterate[ui] to use token_table_markdown")
+    if not default_model_path().is_file():
+        return (
+            "**⚠️ Tokenizer model file missing**\n\n"
+            f"`{default_model_path().name}` is required for tokenization.\n"
+            "Train one with the `turkic-build-spm` command and place it in "
+            "the package directory."
+        )
 
-    try:
-        pipeline = _lazy_pipeline()
-        tokens = pipeline.tokenizer.tokenize(text)
-        langs = pipeline.predict_tokens(tokens)
-        df = pd.DataFrame({"Token": tokens, "Lang": langs})
-        markdown_table: str = df.to_markdown(index=False)
-        return markdown_table
-    except OSError as e:
-        if "turkic_model.model" in str(e):
-            return (
-                "**⚠️ Tokenizer model file missing**\n\n"
-                "The `turkic_model.model` file is required for tokenization.\n"
-                "Please train a model with `turkic-build-spm` command\n"
-                "and place it in the package directory."
-            )
-        # Other OSError not related to missing model
-        return f"**Error loading tokenizer:** {e}"
+    pipeline = _lazy_pipeline()
+    tokens = pipeline.tokenizer.tokenize(text)
+    languages = pipeline.predict_tokens(tokens)
+    table: str = pd.DataFrame({"Token": tokens, "Lang": languages}).to_markdown(index=False)
+    return table
 
 
 def mask_russian(
@@ -245,54 +284,44 @@ def mask_russian(
     Returns:
         Masked text with <RU> replacing Russian tokens
     """
-    import re
-
-    _ansi_re = re.compile(r"\x1b\[[0-9;]*m")
-
-    # Correlation for this user action
     set_correlation_id()
     set_request_context(action="mask_russian", thr=thr, min_len=min_len)
 
     try:
-        # Get model from singleton
         lid = _langid_singleton(LANGUAGE_MODEL_ID)
-        stoplist = None  # future hook – can come from UI later
-        masked, dbg = [], []
-
-        for tok in text.strip().split():
-            ru = is_russian_token(
-                tok, thr=thr, min_len=min_len, lid=lid, stoplist=stoplist, margin=margin
-            )
-            masked.append("<RU>" if ru else tok)
-
-            if debug:
-                # json-serialisable per-token info
-                top = lid.classify(tok.lower())
-                dbg.append(
-                    {
-                        "tok": tok,
-                        "ru": ru,
-                        "winner": top["label"],
-                        "conf": top["probability"],
-                    }
-                )
-
-        out = " ".join(masked)
-        if debug:
-            out += "\n\n<!--debug " + json.dumps(dbg, ensure_ascii=False) + " -->"
-        return _ansi_re.sub("", out)
-
-    except Exception as e:
-        log.warning(f"Failed to process text with FastText model: {e}")
+    except LidError as exc:
+        log.warning("language-identification model unavailable: %s", exc)
         return (
-            "**⚠️ Error in Russian language detection**\n\n"
-            "The Russian filter feature requires the FastText language identification model.\n"
-            "Please ensure the model is properly installed and accessible.\n\n"
-            f"Error: {e!s}"
+            "**⚠️ Language-identification model unavailable**\n\n"
+            f"The Russian filter needs the `{LANGUAGE_MODEL_ID}` model.\n\n"
+            f"Error: {exc!s}"
         )
 
+    masked: list[str] = []
+    reports: list[dict[str, str | bool | float]] = []
+    for token in text.strip().split():
+        is_russian = is_russian_token(
+            token, thr=thr, min_len=min_len, lid=lid, stoplist=None, margin=margin
+        )
+        masked.append("<RU>" if is_russian else token)
+        if debug:
+            top = lid.classify(token.lower())
+            reports.append(
+                {
+                    "tok": token,
+                    "ru": is_russian,
+                    "winner": top["label"],
+                    "conf": top["probability"],
+                }
+            )
 
-def median_levenshtein(file_lat: t.Any, file_ipa: t.Any, sample: int | None = None) -> str:
+    out = " ".join(masked)
+    if debug:
+        out += "\n\n<!--debug " + json.dumps(reports, ensure_ascii=False) + " -->"
+    return _ANSI.sub("", out)
+
+
+def median_levenshtein(file_lat: NamedFile, file_ipa: NamedFile, sample: int | None = None) -> str:
     """
     Compute median Levenshtein distance between two files (accepts any objects with .name attribute).
     Usage: median_levenshtein(NamedTuple('F', [('name', str)])('lat.txt'), NamedTuple('F', [('name', str)])('ipa.txt'))
@@ -363,15 +392,7 @@ def download_corpus_to_file(
     # applies its own threshold-aware filter below.
     base_iter = stream_source(SOURCE_REGISTRY[source], lang, os.getenv("HF_TOKEN"))
 
-    # Determine progress callback (Gradio Progress implements __call__)
-    if progress is None:
-
-        def _noop_progress(*_a: object, **_kw: object) -> None:
-            """Fallback progress function that does nothing."""
-
-        progress_fn: t.Callable[..., None] = _noop_progress
-    else:
-        progress_fn = t.cast(t.Callable[..., None], progress)
+    progress_fn: ProgressReporter = SilentProgress() if progress is None else progress
 
     # Initial tick so the UI shows the bar immediately
     progress_fn(0, desc="starting stream")
@@ -467,7 +488,7 @@ def download_corpus_to_file(
 
 def train_sentencepiece_model(
     input_text: str,
-    training_file: t.Any = None,
+    training_file: NamedFile | None = None,
     vocab_size: int = 12000,
     model_type: str = "unigram",
     character_coverage: float = 1.0,

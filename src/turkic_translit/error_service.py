@@ -16,6 +16,8 @@ import os
 import time
 import uuid
 
+logger = logging.getLogger(__name__)
+
 # Per-execution/request correlation ID
 _correlation_id: contextvars.ContextVar[str] = contextvars.ContextVar("correlation_id", default="")
 
@@ -69,14 +71,20 @@ class CorrelationFilter(logging.Filter):
 
 
 def init_error_service() -> None:
-    """Initialise external error backend (Sentry) if configured via env."""
+    """Initialise the external error backend when one is configured.
+
+    Sentry being absent is the documented optional path and is reported
+    rather than swallowed. A failure inside ``init`` is a real error and
+    propagates: silently continuing would leave the caller believing
+    errors are being reported when they are not.
+    """
     dsn = os.getenv("TURKIC_SENTRY_DSN")
     if not dsn:
         return
     try:
         sentry = __import__("sentry_sdk")
     except ImportError:
-        logging.getLogger(__name__).warning(
+        logger.warning(
             "TURKIC_SENTRY_DSN is set but sentry-sdk is not installed; "
             "install turkic-translit[sentry] to enable error reporting"
         )
@@ -88,7 +96,7 @@ def init_error_service() -> None:
         traces_sample_rate=float(os.getenv("TURKIC_SENTRY_TRACES", "0")),
         release=os.getenv("TURKIC_RELEASE"),
     )
-    logging.getLogger(__name__).info("Sentry initialised")
+    logger.info("Sentry initialised")
 
 
 def error_response(

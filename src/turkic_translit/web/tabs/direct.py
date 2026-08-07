@@ -1,21 +1,46 @@
+"""The Direct Transliteration tab.
+
+Both handlers below report failure to the user as text rather than
+raising, because a Gradio callback that raises shows the user nothing
+useful. They catch only what the operation can actually produce — an
+``OSError`` from reading an uploaded file, and a ``ValueError`` from an
+unsupported language or output format — so a genuine defect still
+surfaces as a traceback instead of being rendered as a polite message.
+"""
+
 from __future__ import annotations
 
-from typing import Any, cast
+import logging
+import time
+from pathlib import Path
 
 import gradio as gr
 
 from turkic_translit.lang_utils import pretty_lang
 from turkic_translit.web.web_utils import _CRON_DIR, direct_transliterate
 
+logger = logging.getLogger(__name__)
+
+MIN_CHARS_FOR_DOWNLOAD = 50
+
 
 def _handle_file_upload(file_path: str | None) -> str:
+    """Read an uploaded file, reporting read failures as text.
+
+    Args:
+        file_path: Path Gradio wrote the upload to, or ``None``.
+
+    Returns:
+        The file's contents, empty when nothing was uploaded, or a
+        message naming the read failure.
+    """
     if not file_path:
         return ""
     try:
-        with open(file_path, encoding="utf-8") as f:
-            return f.read()
-    except Exception as e:  # pragma: no cover
-        return f"Error reading file: {e!s}"
+        return Path(file_path).read_text(encoding="utf-8")
+    except OSError as exc:
+        logger.warning("could not read uploaded file %s: %s", file_path, exc)
+        return f"Error reading file: {exc!s}"
 
 
 def register() -> None:
@@ -83,6 +108,19 @@ def register() -> None:
             lang: str,
             file_path: str | None = None,
         ) -> tuple[str, str, str | None]:
+            """Transliterate the box or the uploaded file to IPA.
+
+            Args:
+                text: Text typed into the box.
+                lang: Language code selected in the dropdown.
+                file_path: Uploaded file, which takes precedence over the
+                    box, or ``None``.
+
+            Returns:
+                The IPA output, a Markdown status line, and the path of a
+                downloadable copy when the result is long enough to want
+                one.
+            """
             if file_path:
                 text = _handle_file_upload(file_path)
                 if text.startswith("Error reading file:"):
@@ -95,33 +133,29 @@ def register() -> None:
                 )
             try:
                 result, stats_md = direct_transliterate(text, lang, False, "ipa")
-                if file_path:
-                    stats_md += "\n*Source: Uploaded file*"
+            except ValueError as exc:
+                logger.warning("transliteration of %s failed: %s", lang, exc)
+                return "", f"**Error**: {exc!s}", None
 
-                download_path = None
-                if result and len(result) > 50:
-                    import time as _t
+            if file_path:
+                stats_md += "\n*Source: Uploaded file*"
 
-                    ts = _t.strftime("%Y%m%d_%H%M%S")
-                    filename = f"transliteration_{lang}_ipa_{ts}.txt"
-                    filepath = _CRON_DIR / filename
-                    with open(filepath, "w", encoding="utf-8") as f:
-                        f.write(result)
-                    download_path = str(filepath)
-                    stats_md += f"\n*File ready for download: {filename}*"
-                return result, stats_md, download_path
-            except Exception as e:  # pragma: no cover
-                return "", f"**Error**: {e!s}", None
+            download_path = None
+            if len(result) > MIN_CHARS_FOR_DOWNLOAD:
+                stamp = time.strftime("%Y%m%d_%H%M%S")
+                filename = f"transliteration_{lang}_ipa_{stamp}.txt"
+                target = _CRON_DIR / filename
+                target.write_text(result, encoding="utf-8")
+                download_path = str(target)
+                stats_md += f"\n*File ready for download: {filename}*"
+            return result, stats_md, download_path
 
         with gr.Row(elem_classes=["examples-row"]):
             gr.Examples(
-                examples=cast(
-                    list[list[Any]],
-                    [
-                        ["Пример текста", "kk", None],
-                        ["Merhaba dünya", "tr", None],
-                    ],
-                ),
+                examples=[
+                    ["Пример текста", "kk", None],
+                    ["Merhaba dünya", "tr", None],
+                ],
                 inputs=[
                     translit_textbox,
                     lang,

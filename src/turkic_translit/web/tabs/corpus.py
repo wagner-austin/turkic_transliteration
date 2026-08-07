@@ -1,15 +1,72 @@
+"""The Download Corpus tab.
+
+The download handler catches only what the operation can produce — a
+corpus or classifier error from the library, or an OS error from writing
+the file — so a defect in the UI itself still surfaces as a traceback
+rather than being rendered to the user as a polite failure message.
+
+Per-line IPA transliteration is likewise all-or-nothing. The previous
+version fell back to the untransliterated line whenever a single line
+failed, which produced a file silently mixing IPA and source text.
+"""
+
 from __future__ import annotations
 
+import logging
 from functools import cache, lru_cache
 from pathlib import Path
-from typing import cast
 
 import gradio as gr
 
+from turkic_translit.corpus.errors import CorpusError
+from turkic_translit.error_service import error_markdown, error_response
+from turkic_translit.lid.errors import LidError
 from turkic_translit.web.web_utils import (
+    direct_transliterate,
     download_corpus_to_file,
     labelise,
 )
+
+logger = logging.getLogger(__name__)
+
+_ORIGINAL_PREVIEW = "**Preview** (Original corpus - first line)"
+_IPA_PREVIEW = "**Preview** (IPA-transliterated corpus - first line)"
+
+
+def _preview_of(path: Path) -> str:
+    """Return the file's first line, marked when more lines follow.
+
+    Args:
+        path: File to preview.
+
+    Returns:
+        The first line, with an ellipsis when the file has more.
+    """
+    with path.open(encoding="utf-8") as handle:
+        first = handle.readline().rstrip()
+        return f"{first} ..." if handle.readline() else first
+
+
+def _write_ipa_copy(path: Path, lang: str) -> Path:
+    """Write an IPA transliteration of ``path`` beside it.
+
+    Args:
+        path: The downloaded corpus.
+        lang: Language code whose IPA rules to apply.
+
+    Returns:
+        Path of the transliterated copy.
+
+    Raises:
+        ValueError: If the language has no IPA rules. The caller checks
+            first; a failure here means the rules went missing between
+            the check and the write, which is worth surfacing.
+    """
+    target = path.with_name(f"{path.stem}_ipa{path.suffix}")
+    lines = [line.strip() for line in path.read_text(encoding="utf-8").splitlines()]
+    transliterated = [direct_transliterate(line, lang, False, "ipa")[0] for line in lines if line]
+    target.write_text("\n".join(transliterated) + "\n", encoding="utf-8")
+    return target
 
 
 def register() -> None:
@@ -52,21 +109,28 @@ def register() -> None:
 
                 @cache
                 def _lang_choices(src: str) -> list[str]:
-                    import logging
+                    """List the languages this source offers, for the dropdown.
 
+                    Args:
+                        src: Registry key of the selected source.
+
+                    Returns:
+                        Language codes the classifier also knows. When the
+                        source's host cannot be reached the locally
+                        available IPA languages are offered instead, so
+                        the tab still works offline.
+                    """
                     from turkic_translit.corpus.catalogue import available_languages
                     from turkic_translit.corpus.sources import get_source_spec
 
-                    logger = logging.getLogger(__name__)
-                    lst: list[str] = []
                     try:
                         lst = list(available_languages(get_source_spec(src)))
-                    except Exception as e:
-                        logger.error(f"Failed to fetch languages for {src}: {e}")
+                    except CorpusError as exc:
+                        logger.warning("could not list languages for %s: %s", src, exc)
                         lst = []
 
                     if not lst:
-                        logger.warning(f"Using fallback language list for {src}")
+                        logger.warning("falling back to the local language list for %s", src)
                         lst = sorted(_ipa_supported_langs())
 
                     ft = _fasttext_langs()
@@ -189,8 +253,7 @@ def register() -> None:
             transliterate_flag: bool,
             progress: gr.Progress | None = None,
         ) -> tuple[str, str | None, str | None, str, str]:
-            if progress is None:
-                progress = gr.Progress(track_tqdm=True)
+            reporter = gr.Progress(track_tqdm=True) if progress is None else progress
             try:
                 path, info = download_corpus_to_file(
                     source,
@@ -198,65 +261,25 @@ def register() -> None:
                     int(max_lines) if max_lines else None,
                     filter_flag,
                     conf_thr,
-                    progress=progress,
+                    progress=reporter,
                 )
-                preview = ""
-                preview_label_txt = "**Preview** (Original corpus - first line)"
-                if path:
-                    try:
-                        with open(path, encoding="utf-8") as f:
-                            first_line = f.readline().rstrip()
-                            preview = first_line
-                            if f.readline():
-                                preview += " ..."
-                    except Exception:
-                        preview = "Could not generate preview"
-
-                translit_path = None
-                if transliterate_flag and path:
-                    info_msg = info
-                    if lang not in _ipa_supported_langs():
-                        info_msg += f"\n\n**Warning:** No IPA rules for language '{lang}'."
-                    else:
-                        try:
-                            with open(path, encoding="utf-8") as f:
-                                lines = f.readlines()
-                            orig_path = Path(path)
-                            translit_filename = orig_path.stem + "_ipa" + orig_path.suffix
-                            translit_path = str(orig_path.parent / translit_filename)
-                            from turkic_translit.web.web_utils import (
-                                direct_transliterate as _dt,
-                            )
-
-                            translit_lines = []
-                            for line in lines:
-                                line = line.strip()
-                                if line:
-                                    try:
-                                        result, _ = _dt(line, lang, False, "ipa")
-                                        translit_lines.append(result + "\n")
-                                    except Exception:
-                                        translit_lines.append(line + "\n")
-                            with open(translit_path, "w", encoding="utf-8") as f:
-                                f.writelines(translit_lines)
-                            if translit_lines:
-                                preview = translit_lines[0].rstrip()
-                                if len(translit_lines) > 1:
-                                    preview += " ..."
-                                preview_label_txt = (
-                                    "**Preview** (IPA-transliterated corpus - first line)"
-                                )
-                            info = info_msg
-                        except Exception as e:  # pragma: no cover
-                            info = info_msg + f"\n\n**Transliteration failed:** {e!s}"
-                            translit_path = None
-
-                return info, path, translit_path, preview, preview_label_txt
-            except Exception as exc:  # pragma: no cover
-                from turkic_translit.error_service import error_markdown, error_response
-
+            except (CorpusError, LidError, OSError) as exc:
+                logger.exception("corpus download failed")
                 payload = error_response(str(exc), status=500, code="download_failed")
                 return error_markdown(payload), None, None, "", "**Preview**"
+
+            if not path:
+                return info, path, None, "", "**Preview**"
+
+            if not transliterate_flag:
+                return info, path, None, _preview_of(Path(path)), _ORIGINAL_PREVIEW
+
+            if lang not in _ipa_supported_langs():
+                info += f"\n\n**Warning:** No IPA rules for language '{lang}'."
+                return info, path, None, _preview_of(Path(path)), _ORIGINAL_PREVIEW
+
+            translit_path = _write_ipa_copy(Path(path), lang)
+            return info, path, str(translit_path), _preview_of(translit_path), _IPA_PREVIEW
 
         download_btn.click(
             _do_download,
@@ -272,10 +295,7 @@ def register() -> None:
         )
 
         gr.Examples(
-            cast(
-                list[list[object]],
-                [["oscar-2301", "kk", 100, True, 0.95, False]],
-            ),
+            [["oscar-2301", "kk", 100, True, 0.95, False]],
             inputs=[
                 source_dd,
                 lang_dd,
