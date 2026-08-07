@@ -1,15 +1,18 @@
-import builtins
+from __future__ import annotations
+
 import os
 import tempfile
 from collections.abc import Iterator
 from contextlib import contextmanager
+from importlib.abc import Traversable
 from pathlib import Path
-from typing import IO, Any
+from typing import IO
 
 import icu
 import panphon
 import pytest
 import sentencepiece as spm
+from panphon import featuretable
 
 from turkic_translit.core import to_ipa
 from turkic_translit.web.web_utils import train_sentencepiece_model
@@ -24,52 +27,66 @@ except ImportError:
 
 
 @contextmanager
-def _panphon_utf8_workaround() -> Iterator[None]:
-    """Force ``builtins.open`` to use UTF-8 for text-mode reads inside the block.
+def _panphon_utf8_resources() -> Iterator[None]:
+    """Force panphon's packaged data files to be read as UTF-8.
 
-    Works around a persistent upstream bug in ``panphon``: its
-    ``FeatureTable._read_bases`` (and related) open the packaged CSVs
-    without an ``encoding=`` argument, so on Windows Python 3.11 default
-    (cp1252) the IPA characters in the data files trip
-    ``UnicodeDecodeError``. The bug is present in 0.21.2 (our current
-    pin), 0.22.2 (latest PyPI), and ``master``.
+    Works around a persistent upstream bug: panphon opens its packaged
+    CSVs without an ``encoding=`` argument, so on Windows the default
+    cp1252 codec trips over the IPA characters in the data.
 
-    Scope of the coercion is deliberately narrow: only text-mode
-    ``open()`` calls with no explicit encoding are redirected to
-    UTF-8, and the original ``builtins.open`` is restored on exit.
-    Binary reads and encoding-explicit reads are untouched.
+    Which call has to be intercepted changed with the library. Up to
+    0.21.2 panphon used ``pkg_resources`` and plain ``open``, so patching
+    ``builtins.open`` was enough. 0.22.2 uses
+    ``importlib.resources.files(...).joinpath(...).open()``, which never
+    reaches ``builtins.open``, so the traversable is wrapped instead.
+    Staying on 0.21.2 is not an option: it imports ``pkg_resources``,
+    which setuptools 81 removed, so the whole module fails to import.
+
+    Yields:
+        None, once, with panphon's resource loader wrapped.
     """
-    real_open = builtins.open
 
-    def _open_utf8(
-        file: Any,
-        mode: str = "r",
-        buffering: int = -1,
-        encoding: str | None = None,
-        errors: str | None = None,
-        newline: str | None = None,
-        closefd: bool = True,
-        opener: Any = None,
-    ) -> IO[Any]:
-        effective_encoding = encoding
-        if "b" not in mode and encoding is None:
-            effective_encoding = "utf-8"
-        return real_open(
-            file,
-            mode,
-            buffering=buffering,
-            encoding=effective_encoding,
-            errors=errors,
-            newline=newline,
-            closefd=closefd,
-            opener=opener,
-        )
+    class _Utf8Traversable:
+        """A traversable whose ``open`` defaults to UTF-8.
 
-    builtins.open = _open_utf8
+        Args:
+            inner: The traversable being wrapped.
+        """
+
+        def __init__(self, inner: Traversable) -> None:
+            """Store the traversable this one delegates to."""
+            self._inner = inner
+
+        def joinpath(self, *parts: str) -> _Utf8Traversable:
+            """Descend, keeping the UTF-8 default.
+
+            Args:
+                parts: Path components to append.
+
+            Returns:
+                The wrapped child traversable.
+            """
+            return _Utf8Traversable(self._inner.joinpath(*parts))
+
+        def open(self, mode: str = "r", **kwargs: str) -> IO[str]:
+            """Open the resource, defaulting the encoding to UTF-8.
+
+            Args:
+                mode: File mode; text mode in every panphon call site.
+                kwargs: Remaining arguments, passed through.
+
+            Returns:
+                The opened text stream.
+            """
+            kwargs.setdefault("encoding", "utf-8")
+            return self._inner.open(mode, **kwargs)
+
+    real_files = featuretable.files
+    featuretable.files = lambda package: _Utf8Traversable(real_files(package))
     try:
         yield
     finally:
-        builtins.open = real_open
+        featuretable.files = real_files
 
 
 # 1. Test PyICU transliteration
@@ -89,9 +106,9 @@ def test_epitran_panphon_ipa() -> None:
     """
     test_word = "Ғылым"  # "Knowledge" in Kazakh
     ipa = to_ipa(test_word, "kk")
-    with _panphon_utf8_workaround():
+    with _panphon_utf8_resources():
         ft = panphon.FeatureTable()
-    vec = ft.word_to_vector_list(ipa)
+        vec = ft.word_to_vector_list(ipa)
 
     # Print for inspection during test runs
     print(f"\nTest word: {test_word}")
@@ -107,9 +124,7 @@ def test_epitran_panphon_ipa() -> None:
     assert len(ipa) >= 4, f"Expected at least 4 characters in IPA, got: {len(ipa)}"
 
     # Check feature extraction results
-    assert len(vec) >= 4, (
-        f"Expected at least 4 feature vectors (one per sound), got: {len(vec)}"
-    )
+    assert len(vec) >= 4, f"Expected at least 4 feature vectors (one per sound), got: {len(vec)}"
 
     # Check that the feature vectors have the proper structure
     # panphon returns arrays of feature values, not dictionaries
@@ -201,9 +216,7 @@ def test_fasttext_lid() -> None:
             break
 
     if not lid_path:
-        pytest.skip(
-            "fastText model missing; download lid.176.bin to use LID functionality"
-        )
+        pytest.skip("fastText model missing; download lid.176.bin to use LID functionality")
 
     try:
         # Different loading mechanisms depending on fasttext vs fasttext-wheel
@@ -227,9 +240,7 @@ def test_fasttext_lid() -> None:
         assert lbl[0] == "__label__ru"
         assert conf[0] > 0.5
     except Exception as e:
-        pytest.skip(
-            f"fastText test failed: {e}\nThis might be due to environment differences."
-        )
+        pytest.skip(f"fastText test failed: {e}\nThis might be due to environment differences.")
 
 
 # 5. Test SentencePiece training in web interface

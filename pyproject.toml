@@ -97,7 +97,9 @@ dev = [
     "twine>=4.0",          # Package uploader
     "make>=0.1.6",         # Make command for Windows
     "types-PyYAML>=6.0",   # Type stubs for the corpus source registry loader
-    "panphon>=0.20,<0.23", # Phonological features, used only by tests/test_verification.py
+    # 0.21.x imports pkg_resources, which setuptools 81 removed, so the
+    # module cannot be imported at all below 0.22.
+    "panphon>=0.22,<0.23",  # Phonological features; only tests/test_verification.py
 ]
 
 [project.scripts]
@@ -171,7 +173,7 @@ allowed-confusables = [
     # Cyrillic letters that are homoglyphs of Latin ones
     "А", "а", "В", "Е", "е", "К", "М", "Н", "О", "о",
     "Р", "р", "С", "с", "Т", "У", "у", "Х", "х", "І", "і",
-    "Ј", "Ѕ", "ѕ", "һ", "ґ", "ғ",
+    "Ј", "Ѕ", "ѕ", "һ", "ґ", "ғ", "б", "г", "з", "п", "ч",
 ]
 fixable = ["ALL"]
 
