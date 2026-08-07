@@ -87,13 +87,47 @@ def get_spec(model_id: str) -> LidModelSpec:
     return spec
 
 
-def resolve_model_path(model_id: str, search_dirs: Sequence[Path]) -> Path:
-    """Find the weights file for one model across candidate directories.
+def find_model_path(model_id: str, search_dirs: Sequence[Path]) -> Path | None:
+    """Locate a model's weights, reporting absence as ``None``.
 
-    Directories are searched in order and the first hit wins. No other
-    model's weights are ever substituted, and a present-but-empty file is
-    an error rather than a cache miss, because a truncated download that
-    silently re-downloads is how a filter changes underneath a corpus.
+    This is the single lookup both :func:`resolve_model_path` and
+    :func:`turkic_translit.lid.fetch.ensure_lid_model` are built on, so
+    neither has to drive control flow off an exception. Directories are
+    searched in order and the first hit wins. No other model's weights
+    are ever substituted.
+
+    Args:
+        model_id: Registry key naming the model to locate.
+        search_dirs: Directories to search, in priority order.
+
+    Returns:
+        Absolute path to the weights, or ``None`` if no directory holds
+        them.
+
+    Raises:
+        UnknownLidModelError: If the model id is not registered.
+        LidModelFileEmptyError: If the file is found but has zero bytes.
+            A truncated download is an error rather than a cache miss,
+            because silently re-fetching is how a filter changes
+            underneath a corpus.
+    """
+    spec = get_spec(model_id)
+    for directory in search_dirs:
+        candidate = directory / spec["filename"]
+        if not _test_hooks.probe.exists(candidate):
+            continue
+        if _test_hooks.probe.size_bytes(candidate) == 0:
+            raise LidModelFileEmptyError(model_id, candidate)
+        return candidate
+    return None
+
+
+def resolve_model_path(model_id: str, search_dirs: Sequence[Path]) -> Path:
+    """Locate a model's weights, treating absence as an error.
+
+    Never reaches the network. A caller that must not download can rely
+    on this; a caller that wants weights fetched calls
+    :func:`turkic_translit.lid.fetch.ensure_lid_model` instead.
 
     Args:
         model_id: Registry key naming the model to resolve.
@@ -107,20 +141,20 @@ def resolve_model_path(model_id: str, search_dirs: Sequence[Path]) -> Path:
         LidModelFileMissingError: If no candidate directory holds the file.
         LidModelFileEmptyError: If the file is found but has zero bytes.
     """
+    found = find_model_path(model_id, search_dirs)
+    if found is not None:
+        return found
     spec = get_spec(model_id)
-    filename = spec["filename"]
-    searched: list[Path] = []
-
-    for directory in search_dirs:
-        candidate = directory / filename
-        searched.append(candidate)
-        if not _test_hooks.probe.exists(candidate):
-            continue
-        if _test_hooks.probe.size_bytes(candidate) == 0:
-            raise LidModelFileEmptyError(model_id, candidate)
-        return candidate
-
-    raise LidModelFileMissingError(model_id, searched[-1] if searched else Path(filename))
+    searched = [directory / spec["filename"] for directory in search_dirs]
+    raise LidModelFileMissingError(
+        model_id, searched[-1] if searched else Path(spec["filename"])
+    )
 
 
-__all__ = ["REGISTRY", "get_spec", "known_model_ids", "resolve_model_path"]
+__all__ = [
+    "REGISTRY",
+    "find_model_path",
+    "get_spec",
+    "known_model_ids",
+    "resolve_model_path",
+]

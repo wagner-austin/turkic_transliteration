@@ -14,6 +14,7 @@ from __future__ import annotations
 from collections.abc import Mapping
 from pathlib import Path
 from typing import Protocol
+from urllib.request import urlopen
 
 
 class FileProbe(Protocol):
@@ -103,6 +104,91 @@ class MappingFileProbe:
         return self._sizes[path]
 
 
-probe: FileProbe = RealFileProbe()
+class Downloader(Protocol):
+    """Minimal interface for retrieving model weights over the network."""
 
-__all__ = ["FileProbe", "MappingFileProbe", "RealFileProbe", "probe"]
+    def fetch(self, url: str, destination: Path) -> int:
+        """Write the bytes at ``url`` to ``destination``.
+
+        Args:
+            url: Canonical download location taken from the model spec.
+            destination: Absolute path to write; its parent exists.
+
+        Returns:
+            Number of bytes written.
+        """
+        ...
+
+
+class UrlDownloader:
+    """Downloader streaming over HTTP with :mod:`urllib`.
+
+    Network and filesystem failures propagate unchanged. A partial
+    transfer is never promoted to a usable model: bytes land on a
+    ``.part`` sibling and are renamed only once the stream completes, so
+    an interrupted download leaves no file for the resolver to find.
+    """
+
+    def fetch(self, url: str, destination: Path) -> int:
+        """Stream ``url`` to ``destination`` via a temporary sibling.
+
+        Args:
+            url: Canonical download location.
+            destination: Absolute path to write.
+
+        Returns:
+            Number of bytes written.
+        """
+        partial = destination.with_suffix(destination.suffix + ".part")
+        written = 0
+        with urlopen(url) as response, partial.open("wb") as sink:
+            while True:
+                chunk = response.read(1 << 20)
+                if not chunk:
+                    break
+                sink.write(chunk)
+                written += len(chunk)
+        partial.replace(destination)
+        return written
+
+
+class RecordingDownloader:
+    """Downloader writing fixed bytes and recording every request.
+
+    Args:
+        payload: Bytes to write for any requested URL.
+    """
+
+    def __init__(self, payload: bytes) -> None:
+        """Store the payload and start an empty request log."""
+        self._payload = payload
+        self.requests: list[tuple[str, Path]] = []
+
+    def fetch(self, url: str, destination: Path) -> int:
+        """Record the request and write the fixed payload.
+
+        Args:
+            url: Requested download location.
+            destination: Absolute path to write.
+
+        Returns:
+            Number of bytes written.
+        """
+        self.requests.append((url, destination))
+        destination.write_bytes(self._payload)
+        return len(self._payload)
+
+
+probe: FileProbe = RealFileProbe()
+downloader: Downloader = UrlDownloader()
+
+__all__ = [
+    "Downloader",
+    "FileProbe",
+    "MappingFileProbe",
+    "RealFileProbe",
+    "RecordingDownloader",
+    "UrlDownloader",
+    "downloader",
+    "probe",
+]
