@@ -2,8 +2,19 @@
 
 Two classifiers are registered. ``lid.176`` is fastText's 176-language
 model, whose labels name a language but not a script. ``lid218e`` is
-NLLB's 218-language model, whose labels name both, which is what lets it
-separate Latin-script from Cyrillic-script Uzbek.
+NLLB's 218-language model, whose labels name both.
+
+Script-awareness is not why the choice matters, and it is worth writing
+down what was actually measured so the next reader does not assume it.
+Over a 25,676-line OSCAR Uzbek slice, filtering at ``p >= 0.95`` keeps
+14,207 lines (55.3%) under ``lid218e`` and 3,215 (12.5%) under
+``lid.176``: a 4.4x difference in surviving corpus. That gap is entirely
+a Latin-script confidence effect, 58.0% against 13.1%. On the Cyrillic
+subset (1,172 lines) neither model is usable at all, keeping 0.4% and
+0.0% respectively; both label Cyrillic Uzbek predominantly Russian, and
+``uzb_Cyrl`` never appears in ``lid218e``'s output. A pipeline that
+sources Uzbek from OSCAR through either classifier therefore feeds
+almost nothing to a Cyrillic-script rule file.
 
 Selection is explicit and total. There is no preference order and no
 fallback: a caller names the model it wants, and if those weights are not
