@@ -45,7 +45,7 @@ DEFAULT_SOURCE: str = "oscar-2301"
 DEFAULT_THRESHOLD: float = 0.95
 
 
-@click.group()
+@click.group(help="Stream text corpora from public sources.")
 @click.option(
     "--log-level",
     type=click.Choice(["debug", "info", "warning", "error", "critical"]),
@@ -70,7 +70,7 @@ def list_sources() -> None:
         click.echo(f"{source_id:12}  {spec['driver']:10}  {spec['license']}")
 
 
-@cli.command("list-langs")
+@cli.command("list-langs", help="Print the language codes a source can be asked for.")
 @click.option(
     "--source",
     type=click.Choice(known_source_ids()),
@@ -86,7 +86,7 @@ def list_langs(source: str) -> None:
     click.echo(" ".join(available_languages(get_source_spec(source))))
 
 
-@cli.command("license")
+@cli.command("license", help="Print the licence a source is published under.")
 @click.option(
     "--source",
     type=click.Choice(known_source_ids()),
@@ -148,7 +148,10 @@ def build_filter_request(
     )
 
 
-@cli.command("download")
+@cli.command(
+    "download",
+    help="Stream a corpus to a file and write its manifest beside it.",
+)
 @click.option(
     "--source",
     type=click.Choice(known_source_ids()),
@@ -221,4 +224,3 @@ def download(
         fg="green",
     )
     click.echo(f"manifest: {manifest_path}")
-

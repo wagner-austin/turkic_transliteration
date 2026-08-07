@@ -173,7 +173,7 @@ def build_manifest_document(
     }
 
 
-@click.command("train-spm")
+@click.command("train-spm", help="Stream corpora and train a SentencePiece model over them.")
 @click.option("--langs", required=True, help="Comma-separated codes, e.g. kk,ky,uz")
 @click.option(
     "--source",
@@ -294,4 +294,3 @@ def main(
                 encoding="utf-8",
             )
             click.echo(f"Manifest at {manifest_path}")
-
