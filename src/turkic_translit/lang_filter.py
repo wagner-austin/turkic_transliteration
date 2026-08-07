@@ -1,77 +1,75 @@
-"""
-Core heuristics for deciding whether a single token is Russian.
-Independent of any CLI / UI layer.  100 % unit-testable.
+"""Deciding whether a single token is Russian.
+
+Independent of any CLI or UI layer, and independent of any array
+library. The classifier this takes is a
+:class:`~turkic_translit.lid.classifier.LidClassifier`, so labels arrive
+already stripped of their model prefix and confidences arrive as plain
+floats. The previous version accepted whatever fastText's Python wrapper
+returned and normalised it with ``numpy.atleast_1d``, which is what tied
+this module — and through it the whole project — to NumPy 1.
 """
 
 from __future__ import annotations
 
 import re
-from typing import Any, Protocol
 
-import numpy as np  # For typing
+from turkic_translit.lid.classifier import LidClassifier
 
-__all__ = ["RU_ONLY", "KZ_EXTRA", "is_russian_token"]
+__all__ = ["KZ_EXTRA", "PREDICTIONS_PER_TOKEN", "RU_ONLY", "is_russian_token"]
 
-# --- public, reusable constants -------------------------------------------------
-RU_ONLY: re.Pattern[str] = re.compile(r"^[А-ЯЁа-яё]+$")  # pure Cyrillic, no Latin
-KZ_EXTRA: set[str] = set("ӘәҒғҚқҢңӨөҰұҮүҺһІі")  # absent from Russian
+RU_ONLY: re.Pattern[str] = re.compile(r"^[А-ЯЁа-яё]+$")
+KZ_EXTRA: set[str] = set("ӘәҒғҚқҢңӨөҰұҮүҺһІі")
 
-
-# --- type protocol for fastText model -------------------------------------------
-class FastTextLike(Protocol):
-    def predict(
-        self, text: str, k: int
-    ) -> tuple[list[str], np.ndarray[Any, np.dtype[np.float64]]]: ...
+PREDICTIONS_PER_TOKEN: int = 3
+_RUSSIAN = "ru"
 
 
-# --- the one public function ----------------------------------------------------
 def is_russian_token(
     token: str,
     *,
     thr: float,
     min_len: int,
-    lid: FastTextLike,  # fastText model, already loaded
+    lid: LidClassifier,
     stoplist: set[str] | None = None,
     margin: float = 0.10,
 ) -> bool:
-    """
-    Return True iff *token* should be treated as Russian, under `thr`/`margin`.
+    """Report whether ``token`` should be treated as Russian.
 
-    • `thr` – minimum confidence required when RU is best label.
-    • `margin` – max distance RU may be behind the winner (0.10 ⇒ within 10 %).
-    • Orthography fallback is applied only when `thr == 0.0`.
+    Args:
+        token: The token to judge.
+        thr: Minimum confidence required when Russian is the top label.
+        min_len: Tokens shorter than this are never Russian.
+        lid: Loaded classifier, consulted at most once.
+        stoplist: Lowercased tokens to exempt, or ``None``.
+        margin: How far behind the winner Russian may be and still count,
+            so 0.10 accepts Russian within ten points of the top label.
+
+    Returns:
+        True when the token should be treated as Russian. When ``thr`` is
+        zero the pure-Cyrillic orthography test also counts, which is the
+        documented meaning of the lowest threshold rather than a fallback
+        for a failed classification.
     """
     if len(token) < min_len:
         return False
 
-    t = token.lower()
-    if stoplist and t in stoplist:
+    lowered = token.lower()
+    if stoplist is not None and lowered in stoplist:
         return False
 
-    if any(ch in KZ_EXTRA for ch in t):
-        return False  # Kazakh-specific letter → not RU
-
-    # ── fastText inference (single call) ────────────────────────────────────────
-    # FastText can return NumPy arrays or lists, depending on build.
-    labels, confs = lid.predict(t, k=3)
-
-    # Normalise to simple Python lists so the rest of the logic is type-safe
-    labels = list(labels)
-    if not isinstance(confs, list):
-        confs = np.atleast_1d(confs).tolist()
-
-    # If for some reason we got no scores, bail out early
-    if not labels or not confs:
+    if any(character in KZ_EXTRA for character in lowered):
         return False
 
-    if labels[0] == "__label__ru" and confs[0] >= thr:
-        return True  # RU is winner
+    predictions = lid.classify_many(lowered, PREDICTIONS_PER_TOKEN)
+    labels = [prediction["label"] for prediction in predictions]
+    confidences = [prediction["probability"] for prediction in predictions]
 
-    if "__label__ru" in labels[1:]:
-        idx = labels.index("__label__ru")
-        # Extra bounds-check: some very small models may return fewer confs than labels
-        if idx < len(confs) and confs[idx] >= thr and confs[idx] >= confs[0] - margin:
-            return True  # RU close second/third
+    if labels[0] == _RUSSIAN and confidences[0] >= thr:
+        return True
 
-    # orthography fallback only when slider is at the very bottom
-    return thr == 0.0 and RU_ONLY.fullmatch(t) is not None
+    if _RUSSIAN in labels[1:]:
+        index = labels.index(_RUSSIAN)
+        if confidences[index] >= thr and confidences[index] >= confidences[0] - margin:
+            return True
+
+    return thr == 0.0 and RU_ONLY.fullmatch(lowered) is not None

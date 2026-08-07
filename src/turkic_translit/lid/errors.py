@@ -21,6 +21,7 @@ ERR_MODEL_FILE_MISSING: Final = "TURKIC_LID_002_MODEL_FILE_MISSING"
 ERR_MODEL_FILE_EMPTY: Final = "TURKIC_LID_003_MODEL_FILE_EMPTY"
 ERR_LABEL_MALFORMED: Final = "TURKIC_LID_007_LABEL_MALFORMED"
 ERR_EMPTY_TEXT: Final = "TURKIC_LID_008_EMPTY_TEXT"
+ERR_MULTILINE_TEXT: Final = "TURKIC_LID_009_MULTILINE_TEXT"
 
 
 class LidError(Exception):
@@ -127,16 +128,31 @@ class EmptyClassificationTextError(LidError):
         )
 
 
+class MultilineClassificationTextError(LidError):
+    """Raised when classification is attempted on text spanning lines."""
+
+    def __init__(self) -> None:
+        """Report that a classifier reads exactly one line."""
+        super().__init__(
+            ERR_MULTILINE_TEXT,
+            "cannot classify text containing a newline; fastText reads one "
+            "line and would silently discard the rest, so the caller must "
+            "split the text itself",
+        )
+
+
 __all__ = [
     "ERR_EMPTY_TEXT",
     "ERR_LABEL_MALFORMED",
     "ERR_MODEL_FILE_EMPTY",
     "ERR_MODEL_FILE_MISSING",
+    "ERR_MULTILINE_TEXT",
     "ERR_UNKNOWN_MODEL",
     "EmptyClassificationTextError",
     "LidError",
     "LidLabelError",
     "LidModelFileEmptyError",
     "LidModelFileMissingError",
+    "MultilineClassificationTextError",
     "UnknownLidModelError",
 ]

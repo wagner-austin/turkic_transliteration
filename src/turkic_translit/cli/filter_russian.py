@@ -2,19 +2,18 @@
 import json
 import logging
 import os
-import pathlib
-import sys
 from typing import TextIO
 
 import click
-import fasttext
 
 from ..error_service import init_error_service, set_correlation_id
-from ..lang_filter import RU_ONLY, is_russian_token
+from ..lang_filter import PREDICTIONS_PER_TOKEN, RU_ONLY, is_russian_token
+from ..lid.factory import load_installed_classifier
 from ..logging_config import setup as _log_setup
-from ..model_utils import ensure_fasttext_model
 
 logger = logging.getLogger(__name__)
+
+LANGUAGE_MODEL_ID = "lid.176"
 
 
 @click.command()
@@ -48,9 +47,7 @@ logger = logging.getLogger(__name__)
     show_default=True,
     help="Confidence threshold for Russian detection",
 )
-@click.option(
-    "--min-len", type=int, default=3, show_default=True, help="Minimum token length"
-)
+@click.option("--min-len", type=int, default=3, show_default=True, help="Minimum token length")
 @click.option(
     "--stoplist",
     type=click.Path(exists=True, dir_okay=False, readable=True),
@@ -102,30 +99,11 @@ def main(
     init_error_service()
     set_correlation_id(os.getenv("TURKIC_CORRELATION_ID"))
 
-    # Use our model_utils to find or download the model
-    try:
-        model_path = ensure_fasttext_model()
-        logger.info(f"Using FastText model at {model_path}")
-
-        # Set FastText parameter to load the full model in memory
-        # This is important for the .bin model to work correctly
-        fasttext.FastText.eprint = lambda x: None  # Suppress C++ warnings
-        lid = fasttext.load_model(str(model_path))
-        logger.info(
-            f"Loaded model of size {pathlib.Path(model_path).stat().st_size} bytes"
-        )
-
-        # Verify model works by testing a known Russian word
-        test_result = lid.predict("привет", k=1)
-        logger.info(f"Model test with 'привет': {test_result}")
-
-        if test_result[0][0] != "__label__ru":
-            logger.warning(
-                f"Model may not be working correctly! Test prediction for 'привет': {test_result}"
-            )
-    except Exception as e:
-        logger.exception("Failed to load FastText model")
-        raise click.ClickException(f"Failed to load FastText model: {e}") from e
+    # Resolution is explicit and total: a missing or truncated model
+    # raises with a code naming the model and the path, rather than being
+    # substituted by whatever else happens to be on disk.
+    lid = load_installed_classifier(LANGUAGE_MODEL_ID)
+    logger.info("Using language-identification model %s", lid.model_id)
 
     uz_core = set()
     if stoplist:
@@ -134,34 +112,31 @@ def main(
 
     # Do not override global logging configuration in web context.
 
-    # Debug output function for CLI mode
-    def debug_token(tok: str, lbl: list[str], conf: list[float]) -> None:
-        if debug and not os.environ.get("GRADIO"):
-            # Find the index of Russian label, if present
-            ru_idx = lbl.index("__label__ru") if "__label__ru" in lbl else None
-            ru_conf = conf[ru_idx] if ru_idx is not None else 0.0
+    def debug_token(tok: str) -> None:
+        """Emit one token's top predictions to stderr as JSON.
 
-            # Create debug info object
-            debug_info = {
-                "tok": tok,
-                "rank1": lbl[0].replace("__label__", ""),
-                "conf1": round(conf[0], 2),
-                "ru_conf": round(ru_conf, 2),
-            }
+        Only called when --debug is set, so the ordinary path classifies
+        each token exactly once.
 
-            # Write to stderr as JSON
-            print(json.dumps(debug_info), file=sys.stderr)
+        Args:
+            tok: The token to report on.
+        """
+        predictions = lid.classify_many(tok.lower(), PREDICTIONS_PER_TOKEN)
+        russian = [p for p in predictions if p["label"] == "ru"]
+        debug_info = {
+            "tok": tok,
+            "rank1": predictions[0]["label"],
+            "conf1": round(predictions[0]["probability"], 2),
+            "ru_conf": round(russian[0]["probability"], 2) if russian else 0.0,
+        }
+        click.echo(json.dumps(debug_info), err=True)
 
     for line in input:
         out = []
         for tok in line.strip().split():
-            # Get the token prediction once for both decision and debug
             t = tok.lower()
-            lbl, conf = lid.predict(t, k=3) if len(t) >= min_len else ([], [])
-            conf = conf.tolist() if len(conf) > 0 else []
-
-            # Debug output in CLI mode
-            debug_token(tok, lbl, conf)
+            if debug and len(t) >= min_len and not os.environ.get("GRADIO"):
+                debug_token(tok)
 
             # Make the decision using the shared language filter
             decision = is_russian_token(
@@ -176,8 +151,4 @@ def main(
                 out.append(tok)
             elif mode == "mask":
                 out.append("<RU>")
-        print(" ".join(out), file=output)
-
-
-if __name__ == "__main__":  # pragma: no cover
-    main()
+        click.echo(" ".join(out), file=output)

@@ -33,12 +33,13 @@ def register() -> None:
 
                 @lru_cache(maxsize=1)
                 def _fasttext_langs() -> set[str]:
-                    from turkic_translit.langid import FastTextLangID
+                    """Return the languages the corpus filter can be asked for."""
+                    from turkic_translit.web.web_utils import (
+                        LANGUAGE_MODEL_ID,
+                        _langid_singleton,
+                    )
 
-                    mdl = FastTextLangID()
-                    return {
-                        lab.replace("__label__", "") for lab in mdl.model.get_labels()
-                    }
+                    return set(_langid_singleton(LANGUAGE_MODEL_ID).known_labels())
 
                 @lru_cache(maxsize=1)
                 def _ipa_supported_langs() -> set[str]:
@@ -46,9 +47,7 @@ def register() -> None:
                     from turkic_translit.core import get_supported_languages
 
                     return {
-                        code
-                        for code, fmts in get_supported_languages().items()
-                        if "ipa" in fmts
+                        code for code, fmts in get_supported_languages().items() if "ipa" in fmts
                     }
 
                 @cache
@@ -102,8 +101,7 @@ def register() -> None:
                 gr.Markdown("### IPA Transliteration")
                 _initial_lang = initial_langs[0] if initial_langs else None
                 _initial_has_ipa = (
-                    _initial_lang is not None
-                    and _initial_lang in _ipa_supported_langs()
+                    _initial_lang is not None and _initial_lang in _ipa_supported_langs()
                 )
                 transliterate_cb = gr.Checkbox(
                     label="Also create IPA-transliterated version",
@@ -218,17 +216,13 @@ def register() -> None:
                 if transliterate_flag and path:
                     info_msg = info
                     if lang not in _ipa_supported_langs():
-                        info_msg += (
-                            f"\n\n**Warning:** No IPA rules for language '{lang}'."
-                        )
+                        info_msg += f"\n\n**Warning:** No IPA rules for language '{lang}'."
                     else:
                         try:
                             with open(path, encoding="utf-8") as f:
                                 lines = f.readlines()
                             orig_path = Path(path)
-                            translit_filename = (
-                                orig_path.stem + "_ipa" + orig_path.suffix
-                            )
+                            translit_filename = orig_path.stem + "_ipa" + orig_path.suffix
                             translit_path = str(orig_path.parent / translit_filename)
                             from turkic_translit.web.web_utils import (
                                 direct_transliterate as _dt,
@@ -249,12 +243,12 @@ def register() -> None:
                                 preview = translit_lines[0].rstrip()
                                 if len(translit_lines) > 1:
                                     preview += " ..."
-                                preview_label_txt = "**Preview** (IPA-transliterated corpus - first line)"
+                                preview_label_txt = (
+                                    "**Preview** (IPA-transliterated corpus - first line)"
+                                )
                             info = info_msg
                         except Exception as e:  # pragma: no cover
-                            info = (
-                                info_msg + f"\n\n**Transliteration failed:** {str(e)}"
-                            )
+                            info = info_msg + f"\n\n**Transliteration failed:** {e!s}"
                             translit_path = None
 
                 return info, path, translit_path, preview, preview_label_txt

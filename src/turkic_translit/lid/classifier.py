@@ -17,7 +17,10 @@ from __future__ import annotations
 from collections.abc import Mapping, Sequence
 from typing import Protocol, TypedDict
 
-from turkic_translit.lid.errors import EmptyClassificationTextError
+from turkic_translit.lid.errors import (
+    EmptyClassificationTextError,
+    MultilineClassificationTextError,
+)
 from turkic_translit.lid.spec import LidModelSpec, strip_label_prefix
 from turkic_translit.validation import (
     require_non_empty_str,
@@ -38,6 +41,14 @@ class FastTextModel(Protocol):
 
         Returns:
             Parallel sequences of raw labels and probabilities.
+        """
+        ...
+
+    def labels(self) -> Sequence[str]:
+        """List every label this model can emit.
+
+        Returns:
+            The raw labels, each still carrying its prefix.
         """
         ...
 
@@ -111,31 +122,73 @@ class LidClassifier:
         """
         return self._spec["model_id"]
 
-    def classify(self, text: str) -> LidPrediction:
-        """Classify one line of text.
+    def known_labels(self) -> tuple[str, ...]:
+        """List every language this classifier can report, prefix removed.
+
+        Returns:
+            The labels, e.g. ``uz`` for a script-blind model or
+            ``uzn_Latn`` for a script-aware one.
+
+        Raises:
+            LidLabelError: If any label lacks the prefix the model's
+                specification declares.
+        """
+        return tuple(strip_label_prefix(self._spec, label) for label in self._model.labels())
+
+    def classify_many(self, text: str, count: int) -> tuple[LidPrediction, ...]:
+        """Return the top ``count`` predictions for one line of text.
 
         Args:
             text: Line to classify. SentencePiece word markers are
                 removed and surrounding whitespace stripped first.
+            count: How many predictions to return, most probable first.
 
         Returns:
-            The top prediction, with the model's label prefix removed.
+            The predictions, each with the model's label prefix removed.
+            The model may return fewer than ``count``.
 
         Raises:
             EmptyClassificationTextError: If the text is empty once
                 stripped.
+            MultilineClassificationTextError: If the text spans lines. A
+                fastText model reads one line and discards the rest, so
+                accepting this would silently classify a prefix.
             LidLabelError: If the model emits a label lacking the prefix
                 its specification declares, which means the loaded
                 weights are not the declared model.
         """
         cleaned = text.replace("▁", "").strip()
-        if not cleaned:
+        if cleaned == "":
             raise EmptyClassificationTextError()
-        labels, probabilities = self._model.predict(cleaned, 1)
-        return LidPrediction(
-            label=strip_label_prefix(self._spec, labels[0]),
-            probability=float(probabilities[0]),
+        if "\n" in cleaned:
+            raise MultilineClassificationTextError()
+        labels, probabilities = self._model.predict(cleaned, count)
+        return tuple(
+            LidPrediction(
+                label=strip_label_prefix(self._spec, labels[index]),
+                probability=float(probabilities[index]),
+            )
+            for index in range(len(labels))
         )
+
+    def classify(self, text: str) -> LidPrediction:
+        """Classify one line of text.
+
+        Args:
+            text: Line to classify.
+
+        Returns:
+            The single most probable prediction, with the model's label
+            prefix removed.
+
+        Raises:
+            EmptyClassificationTextError: If the text is empty once
+                stripped.
+            MultilineClassificationTextError: If the text spans lines.
+            LidLabelError: If the model emits a label lacking the prefix
+                its specification declares.
+        """
+        return self.classify_many(text, 1)[0]
 
     def accepts(self, text: str, language: str, threshold: float) -> bool:
         """Report whether a line passes a language filter.

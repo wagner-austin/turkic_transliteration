@@ -33,10 +33,10 @@ LINES = [
 ]
 
 ANSWERS = {
-    "salom dunyo": ("__label__uzn_Latn", 0.99),
-    "privet mir": ("__label__rus_Cyrl", 0.99),
-    "ikkinchi qator": ("__label__uzn_Latn", 0.97),
-    "uchinchi qator": ("__label__uzn_Latn", 0.60),
+    "salom dunyo": [("__label__uzn_Latn", 0.99)],
+    "privet mir": [("__label__rus_Cyrl", 0.99)],
+    "ikkinchi qator": [("__label__uzn_Latn", 0.97)],
+    "uchinchi qator": [("__label__uzn_Latn", 0.60)],
 }
 
 

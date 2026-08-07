@@ -25,8 +25,8 @@ from turkic_translit.lid import _test_hooks as lid_hooks
 from turkic_translit.lid.locations import default_search_dirs
 
 ANSWERS = {
-    "salom dunyo": ("__label__uzn_Latn", 0.99),
-    "privet mir": ("__label__rus_Cyrl", 0.99),
+    "salom dunyo": [("__label__uzn_Latn", 0.99)],
+    "privet mir": [("__label__rus_Cyrl", 0.99)],
 }
 
 

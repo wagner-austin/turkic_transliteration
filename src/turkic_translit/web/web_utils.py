@@ -30,7 +30,8 @@ except ModuleNotFoundError:  # pragma: no cover
     gr = _t.cast(_t.Any, None)
 
 from ..lang_filter import is_russian_token
-from ..langid import FastTextLangID
+from ..lid.classifier import LidClassifier
+from ..lid.factory import load_installed_classifier
 
 log = logging.getLogger(__name__)
 
@@ -92,7 +93,7 @@ class UiPrettyLogFilter(logging.Filter):
         "turkic_model.model not found",
     )
 
-    def filter(self, record: logging.LogRecord) -> bool:  # noqa: D401
+    def filter(self, record: logging.LogRecord) -> bool:
         msg = record.getMessage()
         return not any(p in msg for p in self._SKIP_PHRASES)
 
@@ -125,8 +126,10 @@ def _make_pipeline() -> TurkicTransliterationPipeline:
 
 _lazy_pipeline = functools.lru_cache(maxsize=1)(_make_pipeline)
 
-# Create a singleton for the language ID model
-_langid_singleton = functools.lru_cache(maxsize=1)(FastTextLangID)
+# Create a singleton for the language ID model. The model is named
+# explicitly; there is no preference order to drift.
+LANGUAGE_MODEL_ID = "lid.176"
+_langid_singleton = functools.lru_cache(maxsize=1)(load_installed_classifier)
 
 
 def direct_transliterate(
@@ -205,14 +208,12 @@ def token_table_markdown(text: str) -> str:
     set_request_context(action="token_table", sample=len(text))
 
     if pd is None:
-        raise ImportError(
-            "install turkic-transliterate[ui] to use token_table_markdown"
-        )
+        raise ImportError("install turkic-transliterate[ui] to use token_table_markdown")
 
     try:
         pipeline = _lazy_pipeline()
         tokens = pipeline.tokenizer.tokenize(text)
-        langs = pipeline.langid.predict_tokens(tokens)
+        langs = pipeline.predict_tokens(tokens)
         df = pd.DataFrame({"Token": tokens, "Lang": langs})
         markdown_table: str = df.to_markdown(index=False)
         return markdown_table
@@ -254,7 +255,7 @@ def mask_russian(
 
     try:
         # Get model from singleton
-        lid = _langid_singleton().model
+        lid = _langid_singleton(LANGUAGE_MODEL_ID)
         stoplist = None  # future hook – can come from UI later
         masked, dbg = [], []
 
@@ -266,13 +267,13 @@ def mask_russian(
 
             if debug:
                 # json-serialisable per-token info
-                lbls, confs = lid.predict(tok.lower(), k=1)
+                top = lid.classify(tok.lower())
                 dbg.append(
                     {
                         "tok": tok,
                         "ru": ru,
-                        "winner": lbls[0][9:],
-                        "conf": float(confs[0]),
+                        "winner": top["label"],
+                        "conf": top["probability"],
                     }
                 )
 
@@ -287,13 +288,11 @@ def mask_russian(
             "**⚠️ Error in Russian language detection**\n\n"
             "The Russian filter feature requires the FastText language identification model.\n"
             "Please ensure the model is properly installed and accessible.\n\n"
-            f"Error: {str(e)}"
+            f"Error: {e!s}"
         )
 
 
-def median_levenshtein(
-    file_lat: t.Any, file_ipa: t.Any, sample: int | None = None
-) -> str:
+def median_levenshtein(file_lat: t.Any, file_ipa: t.Any, sample: int | None = None) -> str:
     """
     Compute median Levenshtein distance between two files (accepts any objects with .name attribute).
     Usage: median_levenshtein(NamedTuple('F', [('name', str)])('lat.txt'), NamedTuple('F', [('name', str)])('ipa.txt'))
@@ -377,11 +376,11 @@ def download_corpus_to_file(
     # Initial tick so the UI shows the bar immediately
     progress_fn(0, desc="starting stream")
 
-    model: FastTextLangID | None = None
+    model: LidClassifier | None = None
     if filter_langid:
         logger.info("Getting FastText language ID model from singleton...")
         try:
-            model = _langid_singleton()
+            model = _langid_singleton(LANGUAGE_MODEL_ID)
             logger.info(f"FastText model loaded successfully: {model}")
         except Exception:
             logger.exception("Failed to load FastText model")
@@ -392,9 +391,7 @@ def download_corpus_to_file(
     removed = 0
     total_processed = 0
 
-    with open(
-        _CRON_DIR / f"{source}_{lang}_{int(time.time())}.txt", "w", encoding="utf8"
-    ) as tmp:
+    with open(_CRON_DIR / f"{source}_{lang}_{int(time.time())}.txt", "w", encoding="utf8") as tmp:
         tmp_path = tmp.name  # capture early so it is available after context closes
         logger.info(f"Starting to process sentences (max_lines={max_lines})...")
         # Ensure *i* is defined even when the iterator is empty
@@ -406,11 +403,7 @@ def download_corpus_to_file(
 
             total_processed += 1
             # Safety-net: stop early if we've processed far more lines than requested
-            if (
-                max_lines is not None
-                and filter_langid
-                and total_processed >= max_lines * 50
-            ):
+            if max_lines is not None and filter_langid and total_processed >= max_lines * 50:
                 logger.warning(
                     "Processing limit reached without enough lines kept; breaking early to avoid long hang."
                 )
@@ -420,7 +413,9 @@ def download_corpus_to_file(
                 continue  # skip blank lines
             # Apply LangID filter if requested - USE PREDICT() LIKE THE CLI DOES
             if model is not None:
-                pred_lang, pred_prob = model.predict_with_prob(clean_sentence)
+                prediction = model.classify(clean_sentence)
+                pred_lang = prediction["label"]
+                pred_prob = prediction["probability"]
                 if total_processed <= 5:
                     logger.info(
                         f"Sentence {total_processed}: '{clean_sentence[:50]}...' -> predicted: {pred_lang}, wanted: {lang}"
@@ -452,9 +447,7 @@ def download_corpus_to_file(
     # Compute how many lines were skipped when language filtering is active
     # removed counter already computed
 
-    logger.info(
-        f"Download complete: {i} lines written from {total_processed} sentences processed"
-    )
+    logger.info(f"Download complete: {i} lines written from {total_processed} sentences processed")
 
     info_md = (
         "### ✅ Download complete\n\n"
@@ -535,9 +528,7 @@ def train_sentencepiece_model(
         # Train the model with all input files
         # This approach is more memory-efficient for large files
         spm.SentencePieceTrainer.train(
-            input=",".join(
-                input_files
-            ),  # SentencePiece accepts comma-separated file paths
+            input=",".join(input_files),  # SentencePiece accepts comma-separated file paths
             model_prefix=str(model_prefix),
             vocab_size=vocab_size,
             model_type=model_type,
@@ -547,8 +538,7 @@ def train_sentencepiece_model(
             # Additional parameters that help with large corpus files
             input_sentence_size=10000000,  # Process up to 10M sentences (plenty for most use cases)
             shuffle_input_sentence=True,  # Shuffle for better training outcome
-            num_threads=os.cpu_count()
-            or 4,  # Use multiple threads for faster processing
+            num_threads=os.cpu_count() or 4,  # Use multiple threads for faster processing
         )
 
         # Path to the output model file
@@ -567,8 +557,7 @@ def train_sentencepiece_model(
 
         # Copy model to a more permanent location for download
         output_model_path = (
-            Path(tempfile.gettempdir())
-            / f"turkic_sp_model_{vocab_size}_{model_type}.model"
+            Path(tempfile.gettempdir()) / f"turkic_sp_model_{vocab_size}_{model_type}.model"
         )
         with open(model_file_path, "rb") as src, open(output_model_path, "wb") as dst:
             dst.write(src.read())
@@ -594,12 +583,12 @@ same directory as the `tokenizer.py` file.
 
 __all__ = [
     "direct_transliterate",
-    "pipeline_transliterate",
-    "token_table_markdown",
+    "download_corpus_to_file",
+    "get_ui_log_handler",
+    "labelise",
     "mask_russian",
     "median_levenshtein",
-    "download_corpus_to_file",
+    "pipeline_transliterate",
+    "token_table_markdown",
     "train_sentencepiece_model",
-    "labelise",
-    "get_ui_log_handler",
 ]

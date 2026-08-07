@@ -20,6 +20,10 @@ from typing import TypedDict
 from turkic_translit.lid import _test_hooks
 from turkic_translit.lid.classifier import LidClassifier
 from turkic_translit.lid.fetch import ensure_lid_model
+from turkic_translit.lid.locations import (
+    default_destination_dir,
+    default_search_dirs,
+)
 from turkic_translit.lid.registry import get_spec
 from turkic_translit.validation import (
     require_bool,
@@ -96,6 +100,52 @@ def decode_lid_run_record(
     )
 
 
+def load_classifier(
+    model_id: str, search_dirs: Sequence[Path], destination_dir: Path
+) -> tuple[LidClassifier, Path]:
+    """Load a classifier and report which weights are behind it.
+
+    Args:
+        model_id: Registry key naming the model to use.
+        search_dirs: Directories to consult for existing weights.
+        destination_dir: Directory to download into when absent.
+
+    Returns:
+        The ready classifier and the path of the weights it loaded.
+
+    Raises:
+        UnknownLidModelError: If the model id is not registered.
+        LidModelFileEmptyError: If the weights are or download as empty.
+    """
+    spec = get_spec(model_id)
+    weights = ensure_lid_model(model_id, search_dirs, destination_dir)
+    return LidClassifier(spec, _test_hooks.model_loader.load(weights)), weights
+
+
+def load_installed_classifier(model_id: str) -> LidClassifier:
+    """Load a classifier from this project's standard weight locations.
+
+    For callers that classify text but do not produce a corpus, and so
+    have no run to record. A caller that is producing a corpus wants
+    :func:`build_classifier` instead, because its output must name the
+    filter that made it.
+
+    Args:
+        model_id: Registry key naming the model to use.
+
+    Returns:
+        The ready classifier.
+
+    Raises:
+        UnknownLidModelError: If the model id is not registered.
+        LidModelFileEmptyError: If the weights are or download as empty.
+    """
+    classifier, _weights = load_classifier(
+        model_id, default_search_dirs(), default_destination_dir()
+    )
+    return classifier
+
+
 def build_classifier(
     model_id: str,
     search_dirs: Sequence[Path],
@@ -122,8 +172,7 @@ def build_classifier(
     """
     checked_threshold = require_probability("threshold", threshold)
     spec = get_spec(model_id)
-    weights = ensure_lid_model(model_id, search_dirs, destination_dir)
-    model = _test_hooks.model_loader.load(weights)
+    classifier, weights = load_classifier(model_id, search_dirs, destination_dir)
     record = LidRunRecord(
         model_id=spec["model_id"],
         weights_path=str(weights),
@@ -131,7 +180,7 @@ def build_classifier(
         threshold=checked_threshold,
         script_aware=spec["script_aware"],
     )
-    return LidClassifier(spec, model), record
+    return classifier, record
 
 
 __all__ = [
@@ -139,4 +188,6 @@ __all__ = [
     "build_classifier",
     "decode_lid_run_record",
     "encode_lid_run_record",
+    "load_classifier",
+    "load_installed_classifier",
 ]

@@ -196,13 +196,93 @@ class ModelLoader(Protocol):
         ...
 
 
+class FastTextPredictor(Protocol):
+    """The native predictor fastText exposes beneath its Python wrapper."""
+
+    def predict(
+        self, text: str, k: int, threshold: float, on_unicode_error: str
+    ) -> Sequence[tuple[float, str]]:
+        """Classify one newline-terminated line.
+
+        Args:
+            text: A single line, terminated by a newline.
+            k: Number of predictions to return.
+            threshold: Minimum probability to report; 0.0 returns the top
+                ``k`` unconditionally.
+            on_unicode_error: How to handle undecodable bytes.
+
+        Returns:
+            Probability and label pairs, most probable first.
+        """
+        ...
+
+    def getLabels(  # noqa: N802 - name fixed by the fastText C++ binding
+        self, on_unicode_error: str
+    ) -> tuple[Sequence[str], Sequence[int]]:
+        """List every label and its training frequency.
+
+        Args:
+            on_unicode_error: How to handle undecodable bytes.
+
+        Returns:
+            Parallel sequences of raw labels and their frequencies.
+        """
+        ...
+
+
+class FastTextPybindModel:
+    """Adapter presenting fastText's native predictor as a model.
+
+    fastText's own Python wrapper ends ``predict`` with
+    ``np.array(probs, copy=False)``, which NumPy 2 rejects outright, and
+    that single line of convenience is the whole reason this project
+    pinned ``numpy<2``. The native predictor underneath returns plain
+    ``(probability, label)`` tuples and touches no array library, so
+    going straight to it removes the constraint rather than working
+    around it.
+
+    Args:
+        predictor: The native predictor to classify with.
+    """
+
+    def __init__(self, predictor: FastTextPredictor) -> None:
+        """Bind the native predictor this adapter delegates to."""
+        self._predictor = predictor
+
+    def predict(self, text: str, k: int) -> tuple[Sequence[str], Sequence[float]]:
+        """Classify ``text`` and split the result into parallel sequences.
+
+        Args:
+            text: A single line, without a trailing newline.
+            k: Number of predictions to return.
+
+        Returns:
+            Parallel sequences of raw labels and probabilities, ordered
+            most probable first.
+        """
+        predictions = self._predictor.predict(f"{text}\n", k, 0.0, "strict")
+        return (
+            [label for _probability, label in predictions],
+            [probability for probability, _label in predictions],
+        )
+
+    def labels(self) -> Sequence[str]:
+        """List every label the loaded model can emit.
+
+        Returns:
+            The raw labels, each still carrying its prefix.
+        """
+        labels, _frequencies = self._predictor.getLabels("strict")
+        return labels
+
+
 class FastTextLoader:
     """Loader backed by the ``fasttext`` package.
 
-    The import is deferred to call time and its result is assigned
-    directly to the :class:`FastTextModel` protocol, so the untyped
-    third-party surface is narrowed to the one method this package uses
-    rather than propagating outward.
+    The import is deferred to call time and its result is narrowed
+    immediately to :class:`FastTextPredictor`, so the untyped
+    third-party surface stops at this method rather than propagating
+    outward.
     """
 
     def load(self, path: Path) -> FastTextModel:
@@ -212,42 +292,52 @@ class FastTextLoader:
             path: Absolute path to a fastText ``.bin`` file.
 
         Returns:
-            The loaded model, narrowed to :class:`FastTextModel`.
+            The loaded model, adapted to :class:`FastTextModel`.
         """
         module = __import__("fasttext")
-        loaded: FastTextModel = module.load_model(str(path))
-        return loaded
+        predictor: FastTextPredictor = module.load_model(str(path)).f
+        return FastTextPybindModel(predictor)
 
 
 class TableFastTextModel:
-    """Model answering from a fixed text-to-(label, probability) table.
+    """Model answering from a fixed table of ranked predictions.
 
     A real implementation of :class:`FastTextModel`, not a mock: it
     records nothing and offers no assertion helpers, so a test using it
     can only check the value that came back.
 
     Args:
-        answers: Mapping of exact input text to raw label and
-            probability, where the label still carries its prefix.
+        answers: Mapping of exact input text to that text's predictions,
+            most probable first, each label still carrying its prefix.
     """
 
-    def __init__(self, answers: Mapping[str, tuple[str, float]]) -> None:
-        """Store the answer table backing this model."""
-        self._answers = dict(answers)
+    def __init__(self, answers: Mapping[str, Sequence[tuple[str, float]]]) -> None:
+        """Store the ranked answer table backing this model."""
+        self._answers = {text: list(ranked) for text, ranked in answers.items()}
 
     def predict(self, text: str, k: int) -> tuple[Sequence[str], Sequence[float]]:
-        """Return the scripted answer for ``text``.
+        """Return the top ``k`` scripted answers for ``text``.
 
         Args:
             text: Cleaned input line, which must be in the table.
             k: Number of predictions requested.
 
         Returns:
-            Parallel sequences of raw label and probability, each of
-            length ``k``.
+            Parallel sequences of raw label and probability, truncated to
+            ``k`` exactly as a real model truncates.
         """
-        label, probability = self._answers[text]
-        return ([label] * k, [probability] * k)
+        ranked = self._answers[text][:k]
+        return ([label for label, _p in ranked], [p for _label, p in ranked])
+
+    def labels(self) -> Sequence[str]:
+        """List every label present anywhere in the answer table.
+
+        Returns:
+            The raw labels, in first-appearance order, without duplicates.
+        """
+        return list(
+            dict.fromkeys(label for ranked in self._answers.values() for label, _p in ranked)
+        )
 
 
 class FixedModelLoader:
@@ -280,6 +370,8 @@ model_loader: ModelLoader = FastTextLoader()
 __all__ = [
     "Downloader",
     "FastTextLoader",
+    "FastTextPredictor",
+    "FastTextPybindModel",
     "FileProbe",
     "FixedModelLoader",
     "MappingFileProbe",

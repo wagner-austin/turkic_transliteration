@@ -1,263 +1,152 @@
-import json
-from typing import Any
+"""Tests for the Russian-token decision and its web integration.
 
-import numpy as np
+The classifier is a real :class:`LidClassifier` over a table-backed
+model, so labels arrive stripped and confidences arrive as plain floats
+exactly as they do in production. The previous version of these tests
+built a mock returning NumPy arrays, which is precisely the coupling that
+pinned the project to NumPy 1.
+
+This file replaces the near-identical ``test_lang_filter_new.py``, which
+duplicated every case here and added only the web integration test at the
+end.
+"""
+
+from __future__ import annotations
+
+import json
+from collections.abc import Mapping, Sequence
+
 import pytest
 
-from turkic_translit.lang_filter import is_russian_token
-from turkic_translit.web.web_utils import mask_russian
+from turkic_translit.lang_filter import KZ_EXTRA, RU_ONLY, is_russian_token
+from turkic_translit.lid import _test_hooks
+from turkic_translit.lid.classifier import LidClassifier
+from turkic_translit.lid.registry import get_spec
 
 
-class MockFastText:
-    """Simple mock for FastText that returns predefined results"""
+def classifier_for(
+    answers: Mapping[str, Sequence[tuple[str, float]]],
+) -> LidClassifier:
+    """Build a classifier answering from a ranked table.
 
-    def __init__(self) -> None:
-        self.responses: dict[str, tuple[list[str], list[float]]] = {}
+    Args:
+        answers: Mapping of token to its ranked predictions, labels still
+            carrying the ``__label__`` prefix.
 
-    def set_response(
-        self, text: str, labels: list[str], confidences: list[float]
-    ) -> None:
-        """Set the response for a specific input text"""
-        self.responses[text] = (labels, confidences)
-
-    def predict(
-        self, text: str, k: int = 3
-    ) -> tuple[list[str], np.ndarray[Any, np.dtype[np.float64]]]:
-        """Predict method that returns our predefined responses"""
-        if text in self.responses:
-            labels, confs = self.responses[text]
-            return labels[:k], np.array(confs[:k], dtype=np.float64)
-        return ["__label__en"], np.array([0.25], dtype=np.float64)  # Default response
+    Returns:
+        A classifier over that table.
+    """
+    return LidClassifier(get_spec("lid.176"), _test_hooks.TableFastTextModel(answers))
 
 
-@pytest.fixture
-def fasttext_mock() -> MockFastText:
-    """Fixture providing a fresh MockFastText instance for each test"""
-    return MockFastText()
+def test_a_token_shorter_than_the_minimum_is_never_russian() -> None:
+    """Length is checked before the classifier is consulted."""
+    lid = classifier_for({"пр": [("__label__ru", 0.9)]})
+    assert is_russian_token("пр", thr=0.5, min_len=3, lid=lid) is False
 
 
-def test_short_token_rejection(fasttext_mock: MockFastText) -> None:
-    """Test that tokens shorter than min_len are rejected"""
-    # Short token should be rejected regardless of language
-    assert not is_russian_token(
-        "пр",  # 2-char Russian word
-        thr=0.5,
-        min_len=3,
-        lid=fasttext_mock,
+def test_the_same_token_passes_once_the_minimum_allows_it() -> None:
+    """Only the length rule was rejecting it."""
+    lid = classifier_for({"пр": [("__label__ru", 0.9)]})
+    assert is_russian_token("пр", thr=0.5, min_len=2, lid=lid) is True
+
+
+def test_a_stoplisted_token_is_exempt_even_when_classified_russian() -> None:
+    """The stoplist overrides a confident Russian prediction."""
+    lid = classifier_for(
+        {
+            "привет": [("__label__ru", 0.9)],
+            "здравствуйте": [("__label__ru", 0.9)],
+        }
     )
-
-    # When min_len is lower and token is Russian, it should be accepted
-    fasttext_mock.set_response("пр", ["__label__ru"], [0.9])
-    assert is_russian_token(
-        "пр",
-        thr=0.5,
-        min_len=2,
-        lid=fasttext_mock,
-    )
-
-
-def test_stoplist_rejection(fasttext_mock: MockFastText) -> None:
-    """Test that tokens in stoplist are rejected"""
     stoplist = {"привет", "мир"}
+    assert is_russian_token("привет", thr=0.5, min_len=3, lid=lid, stoplist=stoplist) is False
+    assert is_russian_token("здравствуйте", thr=0.5, min_len=3, lid=lid, stoplist=stoplist) is True
 
-    # Set up Russian responses for both tokens
-    fasttext_mock.set_response("привет", ["__label__ru"], [0.9])
-    fasttext_mock.set_response("здравствуйте", ["__label__ru"], [0.9])
 
-    # Word in stoplist should be rejected even if detected as Russian
-    assert not is_russian_token(
-        "привет",
-        thr=0.5,
-        min_len=3,
-        lid=fasttext_mock,
-        stoplist=stoplist,
+def test_a_kazakh_specific_letter_rules_the_token_out() -> None:
+    """``ә`` cannot occur in Russian, whatever the classifier says."""
+    lid = classifier_for({"сәлем": [("__label__ru", 0.9)]})
+    assert "ә" in KZ_EXTRA
+    assert is_russian_token("сәлем", thr=0.5, min_len=3, lid=lid) is False
+
+
+def test_russian_wins_outright_above_the_threshold() -> None:
+    """A confident top-ranked Russian label is accepted."""
+    lid = classifier_for(
+        {"привет": [("__label__ru", 0.8), ("__label__uk", 0.1), ("__label__bg", 0.05)]}
     )
+    assert is_russian_token("привет", thr=0.5, min_len=3, lid=lid) is True
 
-    # Word not in stoplist should pass
-    assert is_russian_token(
-        "здравствуйте",
-        thr=0.5,
-        min_len=3,
-        lid=fasttext_mock,
-        stoplist=stoplist,
+
+def test_russian_wins_but_below_the_threshold_is_refused() -> None:
+    """Winning is not enough; the confidence bar still applies."""
+    lid = classifier_for(
+        {"привет": [("__label__ru", 0.4), ("__label__uk", 0.3), ("__label__bg", 0.2)]}
     )
+    assert is_russian_token("привет", thr=0.5, min_len=3, lid=lid) is False
 
 
-def test_kazakh_letter_rejection(fasttext_mock: MockFastText) -> None:
-    """Test that tokens with Kazakh-specific letters are rejected"""
-    # Even though we'll say it's Russian, the Kazakh letter should trigger rejection
-    fasttext_mock.set_response("сәлем", ["__label__ru"], [0.9])
-
-    assert not is_russian_token(
-        "сәлем",  # Contains ә which is Kazakh-specific
-        thr=0.5,
-        min_len=3,
-        lid=fasttext_mock,
+def test_russian_as_a_close_second_is_accepted_within_the_margin() -> None:
+    """A near-miss counts when it is inside the margin."""
+    lid = classifier_for(
+        {"привет": [("__label__uk", 0.55), ("__label__ru", 0.5), ("__label__bg", 0.2)]}
     )
+    assert is_russian_token("привет", thr=0.5, min_len=3, lid=lid, margin=0.1) is True
+    assert is_russian_token("привет", thr=0.5, min_len=3, lid=lid, margin=0.01) is False
 
 
-def test_russian_rank1_acceptance(fasttext_mock: MockFastText) -> None:
-    """Test that Russian is accepted when it's the top label"""
-    # Russian as top label with high confidence
-    fasttext_mock.set_response(
-        "привет", ["__label__ru", "__label__uk", "__label__bg"], [0.8, 0.1, 0.05]
+def test_russian_as_a_distant_second_is_refused() -> None:
+    """Below the threshold, rank two does not rescue it."""
+    lid = classifier_for(
+        {"привет": [("__label__uk", 0.6), ("__label__ru", 0.4), ("__label__bg", 0.2)]}
     )
+    assert is_russian_token("привет", thr=0.5, min_len=3, lid=lid) is False
 
-    assert is_russian_token(
-        "привет",
-        thr=0.5,
-        min_len=3,
-        lid=fasttext_mock,
+
+def test_the_lowest_threshold_accepts_pure_cyrillic_orthography() -> None:
+    """At ``thr`` zero the orthography test is the documented behaviour."""
+    lid = classifier_for(
+        {"привет": [("__label__uk", 0.5), ("__label__bg", 0.3), ("__label__ru", 0.2)]}
     )
+    assert RU_ONLY.findall("привет") == ["привет"]
+    assert is_russian_token("привет", thr=0.0, min_len=3, lid=lid) is True
+    assert is_russian_token("привет", thr=0.1, min_len=3, lid=lid) is False
 
-    # Russian as top label but low confidence
-    fasttext_mock.set_response(
-        "привет", ["__label__ru", "__label__uk", "__label__bg"], [0.4, 0.3, 0.2]
+
+def test_mixed_script_defeats_the_orthography_test() -> None:
+    """A token with Latin letters is not pure Cyrillic."""
+    lid = classifier_for(
+        {
+            "приветworld": [
+                ("__label__uk", 0.5),
+                ("__label__bg", 0.3),
+                ("__label__ru", 0.2),
+            ]
+        }
     )
-
-    assert not is_russian_token(
-        "привет",
-        thr=0.5,
-        min_len=3,
-        lid=fasttext_mock,
-    )
+    assert is_russian_token("приветworld", thr=0.0, min_len=3, lid=lid) is False
 
 
-def test_russian_close_second(fasttext_mock: MockFastText) -> None:
-    """Test Russian is accepted when it's a close second place"""
-    # Russian as second place but within margin
-    fasttext_mock.set_response(
-        "привет", ["__label__uk", "__label__ru", "__label__bg"], [0.55, 0.5, 0.2]
-    )
-
-    # Should pass with 0.1 margin (0.55 - 0.5 = 0.05 < 0.1)
-    assert is_russian_token(
-        "привет",
-        thr=0.5,
-        min_len=3,
-        lid=fasttext_mock,
-        margin=0.1,
-    )
-
-    # Should fail with tight margin
-    assert not is_russian_token(
-        "привет",
-        thr=0.5,
-        min_len=3,
-        lid=fasttext_mock,
-        margin=0.01,
-    )
-
-    # Russian with low confidence should fail
-    fasttext_mock.set_response(
-        "привет", ["__label__uk", "__label__ru", "__label__bg"], [0.6, 0.4, 0.2]
-    )
-
-    assert not is_russian_token(
-        "привет",
-        thr=0.5,
-        min_len=3,
-        lid=fasttext_mock,
-    )
-
-
-def test_orthography_fallback(fasttext_mock: MockFastText) -> None:
-    """Test orthography fallback with thr=0.0"""
-    # Set up a case where Russian is not the top prediction
-    fasttext_mock.set_response(
-        "привет", ["__label__uk", "__label__bg", "__label__ru"], [0.5, 0.3, 0.2]
-    )
-
-    # Should pass when pure Cyrillic and thr=0.0
-    assert is_russian_token(
-        "привет",
-        thr=0.0,
-        min_len=3,
-        lid=fasttext_mock,
-    )
-
-    # Should fail when thr>0.0
-    assert not is_russian_token(
-        "привет",
-        thr=0.1,
-        min_len=3,
-        lid=fasttext_mock,
-    )
-
-    # Set up for mixed Cyrillic/Latin
-    fasttext_mock.set_response(
-        "приветworld", ["__label__uk", "__label__bg", "__label__ru"], [0.5, 0.3, 0.2]
-    )
-
-    # Should fail with mixed script even with thr=0.0
-    assert not is_russian_token(
-        "приветworld",
-        thr=0.0,
-        min_len=3,
-        lid=fasttext_mock,
-    )
-
-
-def test_slider_equivalence(fasttext_mock: MockFastText) -> None:
-    """Test slider sensitivity by checking threshold effect"""
-    # Set up a token with exactly 0.4 confidence
-    fasttext_mock.set_response("тест", ["__label__ru"], [0.4])
-
-    # Test at various thresholds from 0.0 to 1.0
-    results = [
-        is_russian_token(
-            "тест",
-            thr=thr,
-            min_len=3,
-            lid=fasttext_mock,
-        )
-        for thr in [0.0, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1.0]
-    ]
-
-    # Results should start True and switch to False exactly once
-    changes = sum(1 for i in range(1, len(results)) if results[i] != results[i - 1])
-    assert changes == 1, (
-        f"Expected exactly one change in results but got {changes}: {results}"
-    )
-
-    # The change should happen after threshold 0.4
-    assert results[4]  # At threshold 0.4
-    assert not results[5]  # At threshold 0.5
-
-
-def test_web_integration(
-    fasttext_mock: MockFastText, monkeypatch: pytest.MonkeyPatch
+def test_masking_replaces_russian_tokens_and_reports_each_decision(
+    monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    """Test integration with mask_russian function"""
-    # Mock the language ID singleton in web_utils
+    """The web helper masks Russian and explains itself when asked."""
     from turkic_translit.web import web_utils
 
-    monkeypatch.setattr(
-        web_utils,
-        "_langid_singleton",
-        lambda: type("obj", (object,), {"model": fasttext_mock}),
+    lid = classifier_for(
+        {
+            "привет": [("__label__ru", 0.9)],
+            "мир": [("__label__ru", 0.8)],
+            "hello": [("__label__en", 0.95)],
+        }
     )
+    monkeypatch.setattr(web_utils, "_langid_singleton", lambda _model_id: lid)
 
-    # Set up responses for tokens
-    fasttext_mock.set_response("привет", ["__label__ru"], [0.9])
-    fasttext_mock.set_response("мир", ["__label__ru"], [0.8])
-    fasttext_mock.set_response("hello", ["__label__en"], [0.95])
+    result = web_utils.mask_russian(text="привет мир hello", thr=0.5, min_len=3, debug=True)
 
-    # Test with debug=True to check JSON output
-    result = mask_russian(text="привет мир hello", thr=0.5, min_len=3, debug=True)
-
-    # Basic output check
     assert "<RU> <RU> hello" in result
-
-    # Debug output parsing
-    debug_start = result.find("<!--debug ") + 10
-    debug_end = result.find(" -->", debug_start)
-    debug_json = result[debug_start:debug_end]
-    debug_data = json.loads(debug_json)
-
-    # Check debug structure
-    assert len(debug_data) == 3
-    assert debug_data[0]["tok"] == "привет"
-    assert debug_data[0]["ru"] is True
-    assert debug_data[2]["tok"] == "hello"
-    assert debug_data[2]["ru"] is False
+    debug_start = result.find("<!--debug ") + len("<!--debug ")
+    debug_data = json.loads(result[debug_start : result.find(" -->", debug_start)])
+    assert [entry["tok"] for entry in debug_data] == ["привет", "мир", "hello"]
+    assert [entry["ru"] for entry in debug_data] == [True, True, False]

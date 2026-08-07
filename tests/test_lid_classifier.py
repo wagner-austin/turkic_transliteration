@@ -23,8 +23,10 @@ from turkic_translit.lid.classifier import (
 from turkic_translit.lid.errors import (
     ERR_EMPTY_TEXT,
     ERR_LABEL_MALFORMED,
+    ERR_MULTILINE_TEXT,
     EmptyClassificationTextError,
     LidLabelError,
+    MultilineClassificationTextError,
 )
 from turkic_translit.lid.factory import (
     build_classifier,
@@ -55,14 +57,14 @@ def restore_hooks() -> Generator[None, None, None]:
 
 def test_classify_strips_the_prefix_and_keeps_the_script() -> None:
     """A script-aware label survives prefix removal intact."""
-    model = _test_hooks.TableFastTextModel({"salom": ("__label__uzn_Latn", 0.99)})
+    model = _test_hooks.TableFastTextModel({"salom": [("__label__uzn_Latn", 0.99)]})
     result = LidClassifier(get_spec("lid218e"), model).classify("salom")
     assert result == LidPrediction(label="uzn_Latn", probability=0.99)
 
 
 def test_classify_removes_sentencepiece_markers() -> None:
     """Word markers are stripped before the model sees the text."""
-    model = _test_hooks.TableFastTextModel({"salom dunyo": ("__label__uzn_Latn", 0.97)})
+    model = _test_hooks.TableFastTextModel({"salom dunyo": [("__label__uzn_Latn", 0.97)]})
     result = LidClassifier(get_spec("lid218e"), model).classify("▁salom ▁dunyo")
     assert result["label"] == "uzn_Latn"
 
@@ -77,7 +79,7 @@ def test_classify_rejects_empty_text() -> None:
 
 def test_classify_rejects_a_label_without_the_declared_prefix() -> None:
     """A bare label means the loaded weights are not the declared model."""
-    model = _test_hooks.TableFastTextModel({"salom": ("uzn_Latn", 0.99)})
+    model = _test_hooks.TableFastTextModel({"salom": [("uzn_Latn", 0.99)]})
     with pytest.raises(LidLabelError) as excinfo:
         LidClassifier(get_spec("lid218e"), model).classify("salom")
     assert excinfo.value.code == ERR_LABEL_MALFORMED
@@ -87,9 +89,9 @@ def test_accepts_applies_both_language_and_threshold() -> None:
     """A line passes only when the label matches and confidence suffices."""
     model = _test_hooks.TableFastTextModel(
         {
-            "keep": ("__label__uzn_Latn", 0.99),
-            "low": ("__label__uzn_Latn", 0.80),
-            "other": ("__label__rus_Cyrl", 0.99),
+            "keep": [("__label__uzn_Latn", 0.99)],
+            "low": [("__label__uzn_Latn", 0.80)],
+            "other": [("__label__rus_Cyrl", 0.99)],
         }
     )
     classifier = LidClassifier(get_spec("lid218e"), model)
@@ -109,7 +111,7 @@ def test_build_classifier_records_what_backed_the_run(restore_hooks: None, tmp_p
     weights = tmp_path / "lid218e.bin"
     weights.write_bytes(b"x" * 512)
     _test_hooks.model_loader = _test_hooks.FixedModelLoader(
-        _test_hooks.TableFastTextModel({"salom": ("__label__uzn_Latn", 0.99)})
+        _test_hooks.TableFastTextModel({"salom": [("__label__uzn_Latn", 0.99)]})
     )
 
     classifier, record = build_classifier("lid218e", [tmp_path], tmp_path, 0.95)
@@ -214,3 +216,97 @@ def test_building_a_classifier_rejects_an_impossible_threshold(
     with pytest.raises(FieldError) as excinfo:
         build_classifier("lid218e", [tmp_path], tmp_path, 1.5)
     assert excinfo.value.code == ERR_FIELD_RANGE
+
+
+def test_classify_rejects_text_spanning_lines() -> None:
+    """A newline would make fastText read a prefix and discard the rest."""
+    classifier = LidClassifier(get_spec("lid.176"), _test_hooks.TableFastTextModel({}))
+    with pytest.raises(MultilineClassificationTextError) as excinfo:
+        classifier.classify("salom\ndunyo")
+    assert excinfo.value.code == ERR_MULTILINE_TEXT
+
+
+def test_known_labels_strips_the_prefix_from_every_label() -> None:
+    """The vocabulary is reported in the same shape as a prediction."""
+    model = _test_hooks.TableFastTextModel(
+        {
+            "a": [("__label__uzn_Latn", 0.9), ("__label__rus_Cyrl", 0.1)],
+            "b": [("__label__uzn_Latn", 0.8)],
+        }
+    )
+    classifier = LidClassifier(get_spec("lid218e"), model)
+    assert classifier.known_labels() == ("uzn_Latn", "rus_Cyrl")
+
+
+def test_classify_many_truncates_to_the_requested_count() -> None:
+    """Asking for fewer predictions returns fewer, in rank order."""
+    model = _test_hooks.TableFastTextModel(
+        {
+            "salom": [
+                ("__label__uzn_Latn", 0.7),
+                ("__label__tur_Latn", 0.2),
+                ("__label__aze_Latn", 0.1),
+            ]
+        }
+    )
+    classifier = LidClassifier(get_spec("lid218e"), model)
+    assert [p["label"] for p in classifier.classify_many("salom", 2)] == [
+        "uzn_Latn",
+        "tur_Latn",
+    ]
+
+
+def test_installed_classifier_loads_from_the_standard_locations(
+    restore_hooks: None,
+) -> None:
+    """The convenience loader searches the project's own weight directories."""
+    from turkic_translit.lid.factory import load_installed_classifier
+    from turkic_translit.lid.locations import default_search_dirs
+
+    _test_hooks.probe = _test_hooks.MappingFileProbe(
+        {default_search_dirs()[0] / "lid.176.bin": 131266198}
+    )
+    _test_hooks.model_loader = _test_hooks.FixedModelLoader(
+        _test_hooks.TableFastTextModel({"salom": [("__label__uz", 0.99)]})
+    )
+
+    classifier = load_installed_classifier("lid.176")
+
+    assert classifier.model_id == "lid.176"
+    assert classifier.classify("salom")["label"] == "uz"
+
+
+def test_the_production_adapter_reports_a_real_model_vocabulary(
+    tmp_path: Path,
+) -> None:
+    """The pybind adapter lists labels without touching an array library.
+
+    Trained and read for real, so the native ``getLabels`` call and the
+    prefix stripping above it are exercised by running them. This is the
+    path that replaced fastText's own wrapper, whose ``predict`` ends in
+    a NumPy call that NumPy 2 rejects.
+    """
+    corpus = tmp_path / "train.txt"
+    corpus.write_text(
+        "\n".join(
+            ["__label__uz salom dunyo qalaysiz"] * 20 + ["__label__tr merhaba dunya nasilsin"] * 20
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+    trainer = __import__("fasttext")
+    model = trainer.train_supervised(input=str(corpus), epoch=5, minCount=1, thread=1, dim=10)
+    weights = tmp_path / "tiny.bin"
+    model.save_model(str(weights))
+
+    loaded = _test_hooks.FastTextLoader().load(weights)
+
+    assert sorted(loaded.labels()) == ["__label__tr", "__label__uz"]
+
+
+def test_the_table_model_reports_every_label_it_can_emit() -> None:
+    """The in-memory model answers the vocabulary question too."""
+    model = _test_hooks.TableFastTextModel(
+        {"a": [("__label__uz", 0.9), ("__label__tr", 0.1)], "b": [("__label__uz", 0.8)]}
+    )
+    assert model.labels() == ["__label__uz", "__label__tr"]

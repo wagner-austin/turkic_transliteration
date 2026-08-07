@@ -33,9 +33,9 @@ from turkic_translit.validation import (
 )
 
 ANSWERS = {
-    "salom dunyo": ("__label__uzn_Latn", 0.99),
-    "marginal": ("__label__uzn_Latn", 0.80),
-    "privet mir": ("__label__rus_Cyrl", 0.99),
+    "salom dunyo": [("__label__uzn_Latn", 0.99)],
+    "marginal": [("__label__uzn_Latn", 0.80)],
+    "privet mir": [("__label__rus_Cyrl", 0.99)],
 }
 
 
