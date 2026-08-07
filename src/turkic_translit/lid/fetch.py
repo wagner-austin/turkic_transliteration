@@ -21,9 +21,7 @@ from turkic_translit.lid.errors import LidModelFileEmptyError
 from turkic_translit.lid.registry import find_model_path, get_spec
 
 
-def ensure_lid_model(
-    model_id: str, search_dirs: Sequence[Path], destination_dir: Path
-) -> Path:
+def ensure_lid_model(model_id: str, search_dirs: Sequence[Path], destination_dir: Path) -> Path:
     """Return a path to the model's weights, downloading them if absent.
 
     The search directories are consulted first. Only when none of them

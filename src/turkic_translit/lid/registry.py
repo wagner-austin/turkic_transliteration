@@ -146,9 +146,7 @@ def resolve_model_path(model_id: str, search_dirs: Sequence[Path]) -> Path:
         return found
     spec = get_spec(model_id)
     searched = [directory / spec["filename"] for directory in search_dirs]
-    raise LidModelFileMissingError(
-        model_id, searched[-1] if searched else Path(spec["filename"])
-    )
+    raise LidModelFileMissingError(model_id, searched[-1] if searched else Path(spec["filename"]))
 
 
 __all__ = [

@@ -16,6 +16,8 @@ from pathlib import Path
 from typing import Protocol
 from urllib.request import urlopen
 
+from turkic_translit.lid.classifier import FastTextModel
+
 
 class FileProbe(Protocol):
     """Minimal filesystem interface needed to resolve model weights."""
@@ -179,16 +181,58 @@ class RecordingDownloader:
         return len(self._payload)
 
 
+class ModelLoader(Protocol):
+    """Loader turning a weights path into a usable fastText model."""
+
+    def load(self, path: Path) -> FastTextModel:
+        """Load the model stored at ``path``.
+
+        Args:
+            path: Absolute path to a fastText ``.bin`` file.
+
+        Returns:
+            The loaded model.
+        """
+        ...
+
+
+class FastTextLoader:
+    """Loader backed by the ``fasttext`` package.
+
+    The import is deferred to call time and its result is assigned
+    directly to the :class:`FastTextModel` protocol, so the untyped
+    third-party surface is narrowed to the one method this package uses
+    rather than propagating outward.
+    """
+
+    def load(self, path: Path) -> FastTextModel:
+        """Load a fastText model from disk.
+
+        Args:
+            path: Absolute path to a fastText ``.bin`` file.
+
+        Returns:
+            The loaded model, narrowed to :class:`FastTextModel`.
+        """
+        module = __import__("fasttext")
+        loaded: FastTextModel = module.load_model(str(path))
+        return loaded
+
+
 probe: FileProbe = RealFileProbe()
 downloader: Downloader = UrlDownloader()
+model_loader: ModelLoader = FastTextLoader()
 
 __all__ = [
     "Downloader",
+    "FastTextLoader",
     "FileProbe",
     "MappingFileProbe",
+    "ModelLoader",
     "RealFileProbe",
     "RecordingDownloader",
     "UrlDownloader",
     "downloader",
+    "model_loader",
     "probe",
 ]

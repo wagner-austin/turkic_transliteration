@@ -18,6 +18,7 @@ ERR_SPEC_FIELD_MISSING: Final = "TURKIC_LID_004_SPEC_FIELD_MISSING"
 ERR_SPEC_FIELD_TYPE: Final = "TURKIC_LID_005_SPEC_FIELD_TYPE"
 ERR_SPEC_FIELD_EMPTY: Final = "TURKIC_LID_006_SPEC_FIELD_EMPTY"
 ERR_LABEL_MALFORMED: Final = "TURKIC_LID_007_LABEL_MALFORMED"
+ERR_EMPTY_TEXT: Final = "TURKIC_LID_008_EMPTY_TEXT"
 
 
 class LidError(Exception):
@@ -126,7 +127,21 @@ class LidLabelError(LidError):
         self.expected_prefix = expected_prefix
 
 
+class EmptyClassificationTextError(LidError):
+    """Raised when classification is attempted on text with no content."""
+
+    def __init__(self) -> None:
+        """Report that the caller must filter empty lines itself."""
+        super().__init__(
+            ERR_EMPTY_TEXT,
+            "cannot classify text that is empty after stripping; the caller "
+            "decides what an empty line means, so this is not defaulted to a "
+            "sentinel language",
+        )
+
+
 __all__ = [
+    "ERR_EMPTY_TEXT",
     "ERR_LABEL_MALFORMED",
     "ERR_MODEL_FILE_EMPTY",
     "ERR_MODEL_FILE_MISSING",
@@ -134,6 +149,7 @@ __all__ = [
     "ERR_SPEC_FIELD_MISSING",
     "ERR_SPEC_FIELD_TYPE",
     "ERR_UNKNOWN_MODEL",
+    "EmptyClassificationTextError",
     "LidError",
     "LidLabelError",
     "LidModelFileEmptyError",
