@@ -11,7 +11,7 @@ to this package and is not part of the published API.
 
 from __future__ import annotations
 
-from collections.abc import Mapping
+from collections.abc import Mapping, Sequence
 from pathlib import Path
 from typing import Protocol
 from urllib.request import urlopen
@@ -219,6 +219,60 @@ class FastTextLoader:
         return loaded
 
 
+class TableFastTextModel:
+    """Model answering from a fixed text-to-(label, probability) table.
+
+    A real implementation of :class:`FastTextModel`, not a mock: it
+    records nothing and offers no assertion helpers, so a test using it
+    can only check the value that came back.
+
+    Args:
+        answers: Mapping of exact input text to raw label and
+            probability, where the label still carries its prefix.
+    """
+
+    def __init__(self, answers: Mapping[str, tuple[str, float]]) -> None:
+        """Store the answer table backing this model."""
+        self._answers = dict(answers)
+
+    def predict(self, text: str, k: int) -> tuple[Sequence[str], Sequence[float]]:
+        """Return the scripted answer for ``text``.
+
+        Args:
+            text: Cleaned input line, which must be in the table.
+            k: Number of predictions requested.
+
+        Returns:
+            Parallel sequences of raw label and probability, each of
+            length ``k``.
+        """
+        label, probability = self._answers[text]
+        return ([label] * k, [probability] * k)
+
+
+class FixedModelLoader:
+    """Loader returning one prepared model regardless of path.
+
+    Args:
+        model: The model to return from every load.
+    """
+
+    def __init__(self, model: FastTextModel) -> None:
+        """Store the model this loader hands out."""
+        self._model = model
+
+    def load(self, path: Path) -> FastTextModel:
+        """Return the prepared model.
+
+        Args:
+            path: Ignored; present to satisfy the protocol.
+
+        Returns:
+            The prepared model.
+        """
+        return self._model
+
+
 probe: FileProbe = RealFileProbe()
 downloader: Downloader = UrlDownloader()
 model_loader: ModelLoader = FastTextLoader()
@@ -227,10 +281,12 @@ __all__ = [
     "Downloader",
     "FastTextLoader",
     "FileProbe",
+    "FixedModelLoader",
     "MappingFileProbe",
     "ModelLoader",
     "RealFileProbe",
     "RecordingDownloader",
+    "TableFastTextModel",
     "UrlDownloader",
     "downloader",
     "model_loader",

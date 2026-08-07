@@ -1,101 +1,68 @@
-"""Tests for :mod:`turkic_translit.cli._net_utils`.
+"""Tests for the project's outbound HTTP identity.
 
-Two categories:
-
-* module-level constant checks — the User-Agent must actually identify
-  the package (empty or generic ``python-requests`` UAs would violate
-  Wikimedia's policy);
-* live network probes — real HTTP requests against ``dumps.wikimedia.org``
-  confirming that the shipped User-Agent is not on Wikimedia's blocklist.
-  These are marked ``@pytest.mark.network`` so ``pytest -m "not network"``
-  skips them when the test host is offline.
+Wikimedia answers HTTP 403 to the default ``python-urllib`` agent, so the
+User-Agent is not cosmetic: without it the Wikipedia driver cannot fetch
+a dump at all. The offline tests pin the header onto every request; the
+network-marked test confirms the live policy still accepts it.
 """
 
 from __future__ import annotations
 
 import re
+from urllib.error import HTTPError
+from urllib.request import urlopen
 
 import pytest
-import requests
 
-from turkic_translit.cli._net_utils import DEFAULT_HEADERS, USER_AGENT, url_ok
+from turkic_translit.net import DEFAULT_HEADERS, USER_AGENT, build_request
 
-_WIKIMEDIA_DUMPS_URL = "https://dumps.wikimedia.org/"
-
-
-def test_user_agent_identifies_the_package() -> None:
-    """The User-Agent must contain the project name and contact info.
-
-    Wikimedia's User-Agent policy requires an identifying string. A UA
-    that merely says ``python-requests/2.x`` is on their blocklist and
-    returns HTTP 403. The regex below asserts both a project label and
-    a contact hint (URL or email) are present.
-    """
-    assert re.match(r"^turkic-translit/", USER_AGENT), (
-        f"User-Agent does not begin with the project name: {USER_AGENT!r}"
-    )
-    assert "@" in USER_AGENT or "github.com" in USER_AGENT, (
-        f"User-Agent lacks a contact hint (email or URL): {USER_AGENT!r}"
-    )
+WIKIMEDIA_DUMPS_URL = "https://dumps.wikimedia.org/"
 
 
-def test_default_headers_contain_the_user_agent() -> None:
-    """``DEFAULT_HEADERS`` is the single-source dict callers must pass on."""
-    assert DEFAULT_HEADERS.get("User-Agent") == USER_AGENT
+def test_user_agent_names_the_project_and_a_contact() -> None:
+    """The agent identifies the project and how to reach its author."""
+    assert re.match(r"^turkic-translit/", USER_AGENT)
+    assert "github.com" in USER_AGENT
 
 
-@pytest.mark.network
-def test_url_ok_true_for_wikimedia_dumps_with_ua() -> None:
-    """``url_ok`` returns True for a Wikimedia URL because of the new UA.
+def test_default_headers_are_the_single_source_of_the_agent() -> None:
+    """Callers pass one dict rather than each spelling the agent out."""
+    assert DEFAULT_HEADERS == {"User-Agent": USER_AGENT}
 
-    Regression guard: before this fix, ``url_ok`` used the default
-    ``python-requests`` UA and Wikimedia returned HTTP 403, so this
-    assertion would have failed.
-    """
-    assert url_ok(_WIKIMEDIA_DUMPS_URL) is True
+
+def test_build_request_applies_the_agent_and_the_method() -> None:
+    """Every request built here carries the agent and the method asked for."""
+    request = build_request("https://example.invalid/dump.bz2", "HEAD")
+    assert request.get_header("User-agent") == USER_AGENT
+    assert request.get_method() == "HEAD"
+
+
+def test_build_request_preserves_the_url_unchanged() -> None:
+    """The URL is passed through so query strings survive intact."""
+    url = "https://meta.wikimedia.org/w/api.php?action=sitematrix&format=json"
+    assert build_request(url, "GET").full_url == url
 
 
 @pytest.mark.network
-def test_wikimedia_returns_200_when_ua_is_set() -> None:
-    """Concretely: a HEAD request with ``DEFAULT_HEADERS`` gets HTTP 200.
+def test_wikimedia_accepts_the_project_agent() -> None:
+    """The live dump host answers a request carrying this agent.
 
-    Distinct from the ``url_ok`` test above: this one exercises the
-    ``requests`` call directly so a future refactor of ``url_ok``
-    cannot mask a broken UA by short-circuiting on some other code
-    path.
+    Regression guard: with the default urllib agent this host answers
+    403, which surfaced as an empty corpus rather than as an error.
     """
-    response = requests.head(
-        _WIKIMEDIA_DUMPS_URL,
-        allow_redirects=True,
-        timeout=10.0,
-        headers=DEFAULT_HEADERS,
-    )
-    assert response.status_code == 200, (
-        f"Wikimedia rejected the request even with UA {USER_AGENT!r}; "
-        f"status={response.status_code}"
-    )
+    with urlopen(build_request(WIKIMEDIA_DUMPS_URL, "HEAD"), timeout=30) as response:
+        assert response.status == 200
 
 
 @pytest.mark.network
-def test_wikimedia_blocks_default_python_requests_ua() -> None:
-    """Companion negative test: bare ``python-requests`` UA is still blocked.
+def test_wikimedia_still_rejects_an_unidentified_agent() -> None:
+    """The policy that motivated the agent is still being enforced.
 
-    Documents the invariant that motivated ``DEFAULT_HEADERS`` in the
-    first place. If Wikimedia ever removes the block this test will
-    fail and remind us to reconsider whether the UA header is still
-    load-bearing.
+    If this ever stops raising, the User-Agent requirement has been
+    relaxed upstream and the header is no longer load-bearing.
     """
-    response = requests.head(_WIKIMEDIA_DUMPS_URL, allow_redirects=True, timeout=10.0)
-    assert response.status_code == 403, (
-        "Wikimedia no longer blocks the default python-requests UA; "
-        "DEFAULT_HEADERS may no longer be required."
-    )
+    from urllib.request import Request
 
-
-def test_url_ok_false_for_unresolvable_host() -> None:
-    """``url_ok`` returns False when the host cannot be resolved.
-
-    Exercises the ``RequestException`` branch without depending on the
-    network — an invalid TLD returns immediately from the DNS layer.
-    """
-    assert url_ok("https://this-host-must-not-exist.invalid/") is False
+    with pytest.raises(HTTPError) as excinfo:
+        urlopen(Request(WIKIMEDIA_DUMPS_URL, method="HEAD"), timeout=30)
+    assert excinfo.value.code == 403

@@ -1,0 +1,278 @@
+{
+ "sitematrix": {
+  "0": {
+   "code": "aa",
+   "dir": "ltr",
+   "localname": "Afar",
+   "name": "Qafár af",
+   "site": [
+    {
+     "closed": "",
+     "code": "wiki"
+    },
+    {
+     "closed": "",
+     "code": "wiktionary"
+    },
+    {
+     "closed": "",
+     "code": "wikibooks"
+    }
+   ]
+  },
+  "1": {
+   "code": "ab",
+   "dir": "ltr",
+   "localname": "Abkhazian",
+   "name": "аԥсшәа",
+   "site": [
+    {
+     "code": "wiki"
+    },
+    {
+     "closed": "",
+     "code": "wiktionary"
+    }
+   ]
+  },
+  "167": {
+   "code": "kk",
+   "dir": "ltr",
+   "localname": "Kazakh",
+   "name": "қазақша",
+   "site": [
+    {
+     "code": "wiki"
+    },
+    {
+     "code": "wiktionary"
+    },
+    {
+     "code": "wikibooks"
+    },
+    {
+     "closed": "",
+     "code": "wikiquote"
+    }
+   ]
+  },
+  "182": {
+   "code": "ky",
+   "dir": "ltr",
+   "localname": "Kyrgyz",
+   "name": "кыргызча",
+   "site": [
+    {
+     "code": "wiki"
+    },
+    {
+     "code": "wiktionary"
+    },
+    {
+     "closed": "",
+     "code": "wikibooks"
+    },
+    {
+     "code": "wikiquote"
+    }
+   ]
+  },
+  "25": {
+   "code": "az",
+   "dir": "ltr",
+   "localname": "Azerbaijani",
+   "name": "azərbaycanca",
+   "site": [
+    {
+     "code": "wiki"
+    },
+    {
+     "code": "wiktionary"
+    },
+    {
+     "code": "wikibooks"
+    },
+    {
+     "code": "wikiquote"
+    },
+    {
+     "code": "wikisource"
+    }
+   ]
+  },
+  "280": {
+   "code": "ru",
+   "dir": "ltr",
+   "localname": "Russian",
+   "name": "русский",
+   "site": [
+    {
+     "code": "wiki"
+    },
+    {
+     "code": "wiktionary"
+    },
+    {
+     "code": "wikibooks"
+    },
+    {
+     "closed": "",
+     "code": "wikinews"
+    },
+    {
+     "code": "wikiquote"
+    },
+    {
+     "code": "wikisource"
+    },
+    {
+     "code": "wikiversity"
+    },
+    {
+     "code": "wikivoyage"
+    }
+   ]
+  },
+  "336": {
+   "code": "tr",
+   "dir": "ltr",
+   "localname": "Turkish",
+   "name": "Türkçe",
+   "site": [
+    {
+     "code": "wiki"
+    },
+    {
+     "code": "wiktionary"
+    },
+    {
+     "code": "wikibooks"
+    },
+    {
+     "closed": "",
+     "code": "wikinews"
+    },
+    {
+     "code": "wikiquote"
+    },
+    {
+     "code": "wikisource"
+    },
+    {
+     "code": "wikivoyage"
+    }
+   ]
+  },
+  "345": {
+   "code": "ug",
+   "dir": "rtl",
+   "localname": "Uyghur",
+   "name": "ئۇيغۇرچە / Uyghurche",
+   "site": [
+    {
+     "code": "wiki"
+    },
+    {
+     "code": "wiktionary"
+    },
+    {
+     "closed": "",
+     "code": "wikibooks"
+    },
+    {
+     "closed": "",
+     "code": "wikiquote"
+    }
+   ]
+  },
+  "348": {
+   "code": "uz",
+   "dir": "ltr",
+   "localname": "Uzbek",
+   "name": "oʻzbekcha / ўзбекча",
+   "site": [
+    {
+     "code": "wiki"
+    },
+    {
+     "code": "wiktionary"
+    },
+    {
+     "closed": "",
+     "code": "wikibooks"
+    },
+    {
+     "code": "wikiquote"
+    }
+   ]
+  },
+  "85": {
+   "code": "en",
+   "dir": "ltr",
+   "localname": "English",
+   "name": "English",
+   "site": [
+    {
+     "code": "wiki"
+    },
+    {
+     "code": "wiktionary"
+    },
+    {
+     "code": "wikibooks"
+    },
+    {
+     "closed": "",
+     "code": "wikinews"
+    },
+    {
+     "code": "wikiquote"
+    },
+    {
+     "code": "wikisource"
+    },
+    {
+     "code": "wikiversity"
+    },
+    {
+     "code": "wikivoyage"
+    }
+   ]
+  },
+  "94": {
+   "code": "fi",
+   "dir": "ltr",
+   "localname": "Finnish",
+   "name": "suomi",
+   "site": [
+    {
+     "code": "wiki"
+    },
+    {
+     "code": "wiktionary"
+    },
+    {
+     "code": "wikibooks"
+    },
+    {
+     "closed": "",
+     "code": "wikinews"
+    },
+    {
+     "code": "wikiquote"
+    },
+    {
+     "code": "wikisource"
+    },
+    {
+     "code": "wikiversity"
+    },
+    {
+     "code": "wikivoyage"
+    }
+   ]
+  },
+  "count": 1072,
+  "specials": []
+ }
+}

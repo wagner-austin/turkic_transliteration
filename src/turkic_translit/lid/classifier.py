@@ -14,11 +14,16 @@ caller.
 
 from __future__ import annotations
 
-from collections.abc import Sequence
+from collections.abc import Mapping, Sequence
 from typing import Protocol, TypedDict
 
 from turkic_translit.lid.errors import EmptyClassificationTextError
 from turkic_translit.lid.spec import LidModelSpec, strip_label_prefix
+from turkic_translit.validation import (
+    require_non_empty_str,
+    require_present,
+    require_probability,
+)
 
 
 class FastTextModel(Protocol):
@@ -60,6 +65,28 @@ def encode_lid_prediction(prediction: LidPrediction) -> dict[str, str | float]:
         A mapping carrying the label and probability.
     """
     return {"label": prediction["label"], "probability": prediction["probability"]}
+
+
+def decode_lid_prediction(source: Mapping[str, str | float]) -> LidPrediction:
+    """Validate a loosely-typed mapping into a :class:`LidPrediction`.
+
+    The inverse of :func:`encode_lid_prediction`, used when reading back
+    predictions that were written out alongside a filtered corpus.
+
+    Args:
+        source: Mapping holding the label and probability.
+
+    Returns:
+        A fully validated prediction.
+
+    Raises:
+        FieldError: If either field is missing, of the wrong type, empty,
+            or outside the unit interval.
+    """
+    return LidPrediction(
+        label=require_non_empty_str("label", require_present("label", source)),
+        probability=require_probability("probability", require_present("probability", source)),
+    )
 
 
 class LidClassifier:
@@ -135,5 +162,6 @@ __all__ = [
     "FastTextModel",
     "LidClassifier",
     "LidPrediction",
+    "decode_lid_prediction",
     "encode_lid_prediction",
 ]

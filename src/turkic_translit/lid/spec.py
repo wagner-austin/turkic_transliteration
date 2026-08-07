@@ -7,9 +7,10 @@ mapping is treated as immutable; nothing in this package mutates a spec
 after construction.
 
 Decoding is total and strict. :func:`decode_lid_model_spec` accepts an
-untyped mapping only after every field has cleared a ``require_*`` check,
-so a malformed registry entry fails at the boundary rather than surfacing
-later as a confusing classification result.
+untyped mapping only after every field has cleared a check from
+:mod:`turkic_translit.validation`, so a malformed registry entry fails at
+the boundary rather than surfacing later as a confusing classification
+result.
 """
 
 from __future__ import annotations
@@ -17,12 +18,11 @@ from __future__ import annotations
 from collections.abc import Mapping
 from typing import TypedDict
 
-from turkic_translit.lid.errors import (
-    ERR_SPEC_FIELD_EMPTY,
-    ERR_SPEC_FIELD_MISSING,
-    ERR_SPEC_FIELD_TYPE,
-    LidLabelError,
-    LidSpecFieldError,
+from turkic_translit.lid.errors import LidLabelError
+from turkic_translit.validation import (
+    require_bool,
+    require_non_empty_str,
+    require_present,
 )
 
 
@@ -46,67 +46,6 @@ class LidModelSpec(TypedDict):
     script_aware: bool
 
 
-def require_non_empty_str(field: str, value: str | bool) -> str:
-    """Return ``value`` as a non-empty ``str`` or raise.
-
-    Args:
-        field: Field name, used in the error message.
-        value: Candidate value taken from a loosely-typed mapping.
-
-    Returns:
-        The validated string.
-
-    Raises:
-        LidSpecFieldError: If the value is not a string, or is empty or
-            whitespace-only.
-    """
-    if not isinstance(value, str):
-        raise LidSpecFieldError(
-            ERR_SPEC_FIELD_TYPE, field, f"expected str, got {type(value).__name__}"
-        )
-    if value.strip() == "":
-        raise LidSpecFieldError(ERR_SPEC_FIELD_EMPTY, field, "must not be empty")
-    return value
-
-
-def require_bool(field: str, value: str | bool) -> bool:
-    """Return ``value`` as a ``bool`` or raise.
-
-    Args:
-        field: Field name, used in the error message.
-        value: Candidate value taken from a loosely-typed mapping.
-
-    Returns:
-        The validated boolean.
-
-    Raises:
-        LidSpecFieldError: If the value is not a ``bool``.
-    """
-    if not isinstance(value, bool):
-        raise LidSpecFieldError(
-            ERR_SPEC_FIELD_TYPE, field, f"expected bool, got {type(value).__name__}"
-        )
-    return value
-
-
-def require_present(field: str, source: Mapping[str, str | bool]) -> str | bool:
-    """Return ``source[field]`` or raise when the key is absent.
-
-    Args:
-        field: Field name to look up.
-        source: Loosely-typed mapping being decoded.
-
-    Returns:
-        The raw value stored under ``field``.
-
-    Raises:
-        LidSpecFieldError: If the key is not present.
-    """
-    if field not in source:
-        raise LidSpecFieldError(ERR_SPEC_FIELD_MISSING, field, "is required")
-    return source[field]
-
-
 def decode_lid_model_spec(source: Mapping[str, str | bool]) -> LidModelSpec:
     """Validate a loosely-typed mapping into a :class:`LidModelSpec`.
 
@@ -117,8 +56,7 @@ def decode_lid_model_spec(source: Mapping[str, str | bool]) -> LidModelSpec:
         A fully validated specification.
 
     Raises:
-        LidSpecFieldError: If any field is missing, of the wrong type, or
-            empty.
+        FieldError: If any field is missing, of the wrong type, or empty.
     """
     return LidModelSpec(
         model_id=require_non_empty_str("model_id", require_present("model_id", source)),
@@ -174,8 +112,5 @@ __all__ = [
     "LidModelSpec",
     "decode_lid_model_spec",
     "encode_lid_model_spec",
-    "require_bool",
-    "require_non_empty_str",
-    "require_present",
     "strip_label_prefix",
 ]

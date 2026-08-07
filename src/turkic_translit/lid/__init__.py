@@ -14,6 +14,7 @@ from turkic_translit.lid.classifier import (
     FastTextModel,
     LidClassifier,
     LidPrediction,
+    decode_lid_prediction,
     encode_lid_prediction,
 )
 from turkic_translit.lid.errors import (
@@ -22,15 +23,16 @@ from turkic_translit.lid.errors import (
     LidLabelError,
     LidModelFileEmptyError,
     LidModelFileMissingError,
-    LidSpecFieldError,
     UnknownLidModelError,
 )
 from turkic_translit.lid.factory import (
     LidRunRecord,
     build_classifier,
+    decode_lid_run_record,
     encode_lid_run_record,
 )
 from turkic_translit.lid.fetch import ensure_lid_model
+from turkic_translit.lid.locations import default_destination_dir, default_search_dirs
 from turkic_translit.lid.registry import (
     REGISTRY,
     find_model_path,
@@ -57,10 +59,13 @@ __all__ = [
     "LidModelSpec",
     "LidPrediction",
     "LidRunRecord",
-    "LidSpecFieldError",
     "UnknownLidModelError",
     "build_classifier",
     "decode_lid_model_spec",
+    "decode_lid_prediction",
+    "decode_lid_run_record",
+    "default_destination_dir",
+    "default_search_dirs",
     "encode_lid_model_spec",
     "encode_lid_prediction",
     "encode_lid_run_record",

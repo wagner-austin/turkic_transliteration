@@ -32,9 +32,7 @@ def restore_hooks() -> Generator[None, None, None]:
     _test_hooks.probe, _test_hooks.downloader = probe, downloader
 
 
-def test_present_weights_are_used_without_downloading(
-    restore_hooks: None, tmp_path: Path
-) -> None:
+def test_present_weights_are_used_without_downloading(restore_hooks: None, tmp_path: Path) -> None:
     """A model already on disk is returned and no request is made."""
     weights = tmp_path / "lid218e.bin"
     weights.write_bytes(b"weights")
@@ -72,9 +70,7 @@ def test_zero_byte_download_is_an_error(restore_hooks: None, tmp_path: Path) -> 
     assert excinfo.value.code == ERR_MODEL_FILE_EMPTY
 
 
-def test_existing_zero_byte_weights_are_an_error(
-    restore_hooks: None, tmp_path: Path
-) -> None:
+def test_existing_zero_byte_weights_are_an_error(restore_hooks: None, tmp_path: Path) -> None:
     """A truncated file on disk is rejected rather than re-downloaded."""
     (tmp_path / "lid.176.bin").write_bytes(b"")
     recorder = _test_hooks.RecordingDownloader(b"replacement")

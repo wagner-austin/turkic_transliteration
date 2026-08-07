@@ -20,14 +20,10 @@ from turkic_translit.lid.errors import (
     ERR_LABEL_MALFORMED,
     ERR_MODEL_FILE_EMPTY,
     ERR_MODEL_FILE_MISSING,
-    ERR_SPEC_FIELD_EMPTY,
-    ERR_SPEC_FIELD_MISSING,
-    ERR_SPEC_FIELD_TYPE,
     ERR_UNKNOWN_MODEL,
     LidLabelError,
     LidModelFileEmptyError,
     LidModelFileMissingError,
-    LidSpecFieldError,
     UnknownLidModelError,
 )
 from turkic_translit.lid.registry import (
@@ -39,6 +35,12 @@ from turkic_translit.lid.spec import (
     decode_lid_model_spec,
     encode_lid_model_spec,
     strip_label_prefix,
+)
+from turkic_translit.validation import (
+    ERR_FIELD_EMPTY,
+    ERR_FIELD_MISSING,
+    ERR_FIELD_TYPE,
+    FieldError,
 )
 
 
@@ -89,15 +91,15 @@ def test_spec_round_trips_through_encode_decode() -> None:
 
 def test_decode_rejects_missing_field() -> None:
     """A specification missing a required key fails with a field code."""
-    with pytest.raises(LidSpecFieldError) as excinfo:
+    with pytest.raises(FieldError) as excinfo:
         decode_lid_model_spec({"model_id": "x", "filename": "x.bin", "url": "u"})
-    assert excinfo.value.code == ERR_SPEC_FIELD_MISSING
+    assert excinfo.value.code == ERR_FIELD_MISSING
     assert excinfo.value.field == "label_prefix"
 
 
 def test_decode_rejects_wrong_type() -> None:
     """A non-boolean ``script_aware`` fails with a type code."""
-    with pytest.raises(LidSpecFieldError) as excinfo:
+    with pytest.raises(FieldError) as excinfo:
         decode_lid_model_spec(
             {
                 "model_id": "x",
@@ -107,13 +109,13 @@ def test_decode_rejects_wrong_type() -> None:
                 "script_aware": "yes",
             }
         )
-    assert excinfo.value.code == ERR_SPEC_FIELD_TYPE
+    assert excinfo.value.code == ERR_FIELD_TYPE
     assert excinfo.value.field == "script_aware"
 
 
 def test_decode_rejects_empty_string() -> None:
     """A whitespace-only field fails with an empty-value code."""
-    with pytest.raises(LidSpecFieldError) as excinfo:
+    with pytest.raises(FieldError) as excinfo:
         decode_lid_model_spec(
             {
                 "model_id": "  ",
@@ -123,7 +125,7 @@ def test_decode_rejects_empty_string() -> None:
                 "script_aware": True,
             }
         )
-    assert excinfo.value.code == ERR_SPEC_FIELD_EMPTY
+    assert excinfo.value.code == ERR_FIELD_EMPTY
     assert excinfo.value.field == "model_id"
 
 
@@ -205,7 +207,7 @@ def test_real_probe_reports_absence(tmp_path: Path) -> None:
 
 def test_decode_rejects_non_string_where_string_required() -> None:
     """A boolean supplied for a string field fails with a type code."""
-    with pytest.raises(LidSpecFieldError) as excinfo:
+    with pytest.raises(FieldError) as excinfo:
         decode_lid_model_spec(
             {
                 "model_id": True,
@@ -215,5 +217,5 @@ def test_decode_rejects_non_string_where_string_required() -> None:
                 "script_aware": True,
             }
         )
-    assert excinfo.value.code == ERR_SPEC_FIELD_TYPE
+    assert excinfo.value.code == ERR_FIELD_TYPE
     assert excinfo.value.field == "model_id"

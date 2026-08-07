@@ -1,14 +1,14 @@
 """Tests for classification and classifier construction.
 
-``ScriptedModel`` is a real implementation of the :class:`FastTextModel`
-protocol that answers from a table, not a mock: it has no assertion
-helpers and records nothing. Every test checks a returned value or a
-raised error code.
+:class:`~turkic_translit.lid._test_hooks.TableFastTextModel` is a real
+implementation of the :class:`FastTextModel` protocol that answers from a
+table, not a mock: it has no assertion helpers and records nothing. Every
+test checks a returned value or a raised error code.
 """
 
 from __future__ import annotations
 
-from collections.abc import Generator, Mapping, Sequence
+from collections.abc import Generator
 from pathlib import Path
 
 import pytest
@@ -17,6 +17,7 @@ from turkic_translit.lid import _test_hooks
 from turkic_translit.lid.classifier import (
     LidClassifier,
     LidPrediction,
+    decode_lid_prediction,
     encode_lid_prediction,
 )
 from turkic_translit.lid.errors import (
@@ -25,56 +26,13 @@ from turkic_translit.lid.errors import (
     EmptyClassificationTextError,
     LidLabelError,
 )
-from turkic_translit.lid.factory import build_classifier, encode_lid_run_record
+from turkic_translit.lid.factory import (
+    build_classifier,
+    decode_lid_run_record,
+    encode_lid_run_record,
+)
 from turkic_translit.lid.registry import get_spec
-
-
-class ScriptedModel:
-    """Model answering from a fixed text-to-(label, probability) table.
-
-    Args:
-        answers: Mapping of exact input text to raw label and probability.
-    """
-
-    def __init__(self, answers: Mapping[str, tuple[str, float]]) -> None:
-        """Store the answer table backing this model."""
-        self._answers = dict(answers)
-
-    def predict(self, text: str, k: int) -> tuple[Sequence[str], Sequence[float]]:
-        """Return the scripted answer for ``text``.
-
-        Args:
-            text: Cleaned input line.
-            k: Number of predictions requested; always 1 here.
-
-        Returns:
-            Parallel one-element sequences of label and probability.
-        """
-        label, probability = self._answers[text]
-        return ([label] * k, [probability] * k)
-
-
-class ScriptedLoader:
-    """Loader returning one prepared model regardless of path.
-
-    Args:
-        model: The model to return from every load.
-    """
-
-    def __init__(self, model: ScriptedModel) -> None:
-        """Store the model this loader hands out."""
-        self._model = model
-
-    def load(self, path: Path) -> ScriptedModel:
-        """Return the prepared model.
-
-        Args:
-            path: Ignored; present to satisfy the protocol.
-
-        Returns:
-            The prepared model.
-        """
-        return self._model
+from turkic_translit.validation import ERR_FIELD_RANGE, FieldError
 
 
 @pytest.fixture
@@ -97,21 +55,21 @@ def restore_hooks() -> Generator[None, None, None]:
 
 def test_classify_strips_the_prefix_and_keeps_the_script() -> None:
     """A script-aware label survives prefix removal intact."""
-    model = ScriptedModel({"salom": ("__label__uzn_Latn", 0.99)})
+    model = _test_hooks.TableFastTextModel({"salom": ("__label__uzn_Latn", 0.99)})
     result = LidClassifier(get_spec("lid218e"), model).classify("salom")
     assert result == LidPrediction(label="uzn_Latn", probability=0.99)
 
 
 def test_classify_removes_sentencepiece_markers() -> None:
     """Word markers are stripped before the model sees the text."""
-    model = ScriptedModel({"salom dunyo": ("__label__uzn_Latn", 0.97)})
+    model = _test_hooks.TableFastTextModel({"salom dunyo": ("__label__uzn_Latn", 0.97)})
     result = LidClassifier(get_spec("lid218e"), model).classify("▁salom ▁dunyo")
     assert result["label"] == "uzn_Latn"
 
 
 def test_classify_rejects_empty_text() -> None:
     """Whitespace-only input raises rather than returning a sentinel."""
-    classifier = LidClassifier(get_spec("lid.176"), ScriptedModel({}))
+    classifier = LidClassifier(get_spec("lid.176"), _test_hooks.TableFastTextModel({}))
     with pytest.raises(EmptyClassificationTextError) as excinfo:
         classifier.classify("   ▁  ")
     assert excinfo.value.code == ERR_EMPTY_TEXT
@@ -119,7 +77,7 @@ def test_classify_rejects_empty_text() -> None:
 
 def test_classify_rejects_a_label_without_the_declared_prefix() -> None:
     """A bare label means the loaded weights are not the declared model."""
-    model = ScriptedModel({"salom": ("uzn_Latn", 0.99)})
+    model = _test_hooks.TableFastTextModel({"salom": ("uzn_Latn", 0.99)})
     with pytest.raises(LidLabelError) as excinfo:
         LidClassifier(get_spec("lid218e"), model).classify("salom")
     assert excinfo.value.code == ERR_LABEL_MALFORMED
@@ -127,7 +85,7 @@ def test_classify_rejects_a_label_without_the_declared_prefix() -> None:
 
 def test_accepts_applies_both_language_and_threshold() -> None:
     """A line passes only when the label matches and confidence suffices."""
-    model = ScriptedModel(
+    model = _test_hooks.TableFastTextModel(
         {
             "keep": ("__label__uzn_Latn", 0.99),
             "low": ("__label__uzn_Latn", 0.80),
@@ -146,14 +104,12 @@ def test_encode_prediction_round_trips_the_fields() -> None:
     assert encoded == {"label": "uz", "probability": 0.5}
 
 
-def test_build_classifier_records_what_backed_the_run(
-    restore_hooks: None, tmp_path: Path
-) -> None:
+def test_build_classifier_records_what_backed_the_run(restore_hooks: None, tmp_path: Path) -> None:
     """The run record names the model, path, size and threshold used."""
     weights = tmp_path / "lid218e.bin"
     weights.write_bytes(b"x" * 512)
-    _test_hooks.model_loader = ScriptedLoader(
-        ScriptedModel({"salom": ("__label__uzn_Latn", 0.99)})
+    _test_hooks.model_loader = _test_hooks.FixedModelLoader(
+        _test_hooks.TableFastTextModel({"salom": ("__label__uzn_Latn", 0.99)})
     )
 
     classifier, record = build_classifier("lid218e", [tmp_path], tmp_path, 0.95)
@@ -166,13 +122,11 @@ def test_build_classifier_records_what_backed_the_run(
     assert record["script_aware"] is True
 
 
-def test_run_record_encodes_to_a_manifest_mapping(
-    restore_hooks: None, tmp_path: Path
-) -> None:
+def test_run_record_encodes_to_a_manifest_mapping(restore_hooks: None, tmp_path: Path) -> None:
     """The record encodes to exactly the fields a manifest should carry."""
     weights = tmp_path / "lid.176.bin"
     weights.write_bytes(b"y" * 16)
-    _test_hooks.model_loader = ScriptedLoader(ScriptedModel({}))
+    _test_hooks.model_loader = _test_hooks.FixedModelLoader(_test_hooks.TableFastTextModel({}))
 
     _classifier, record = build_classifier("lid.176", [tmp_path], tmp_path, 0.9)
 
@@ -196,16 +150,13 @@ def test_fasttext_loader_loads_a_real_model(tmp_path: Path) -> None:
     corpus = tmp_path / "train.txt"
     corpus.write_text(
         "\n".join(
-            ["__label__uz salom dunyo qalaysiz"] * 20
-            + ["__label__tr merhaba dunya nasilsin"] * 20
+            ["__label__uz salom dunyo qalaysiz"] * 20 + ["__label__tr merhaba dunya nasilsin"] * 20
         )
         + "\n",
         encoding="utf-8",
     )
     trainer = __import__("fasttext")
-    model = trainer.train_supervised(
-        input=str(corpus), epoch=5, minCount=1, thread=1, dim=10
-    )
+    model = trainer.train_supervised(input=str(corpus), epoch=5, minCount=1, thread=1, dim=10)
     weights = tmp_path / "tiny.bin"
     model.save_model(str(weights))
 
@@ -214,3 +165,52 @@ def test_fasttext_loader_loads_a_real_model(tmp_path: Path) -> None:
 
     assert labels[0] == "__label__uz"
     assert probabilities[0] > 0.5
+
+
+def test_prediction_round_trips_through_encode_decode() -> None:
+    """Decoding an encoded prediction yields an equal prediction."""
+    original = LidPrediction(label="uzn_Latn", probability=0.99)
+    assert decode_lid_prediction(encode_lid_prediction(original)) == original
+
+
+def test_decoding_a_prediction_rejects_an_out_of_range_probability() -> None:
+    """A probability above one means the document is not a prediction."""
+    with pytest.raises(FieldError) as excinfo:
+        decode_lid_prediction({"label": "uzn_Latn", "probability": 1.5})
+    assert excinfo.value.code == ERR_FIELD_RANGE
+
+
+def test_run_record_round_trips_through_encode_decode(restore_hooks: None, tmp_path: Path) -> None:
+    """A record written to a manifest decodes back to an equal record."""
+    weights = tmp_path / "lid218e.bin"
+    weights.write_bytes(b"z" * 64)
+    _test_hooks.model_loader = _test_hooks.FixedModelLoader(_test_hooks.TableFastTextModel({}))
+
+    _classifier, record = build_classifier("lid218e", [tmp_path], tmp_path, 0.95)
+
+    assert decode_lid_run_record(encode_lid_run_record(record)) == record
+
+
+def test_decoding_a_run_record_rejects_a_negative_size() -> None:
+    """Weights cannot occupy a negative number of bytes."""
+    with pytest.raises(FieldError) as excinfo:
+        decode_lid_run_record(
+            {
+                "model_id": "lid218e",
+                "weights_path": "/models/lid218e.bin",
+                "weights_bytes": -1,
+                "threshold": 0.95,
+                "script_aware": True,
+            }
+        )
+    assert excinfo.value.field == "weights_bytes"
+
+
+def test_building_a_classifier_rejects_an_impossible_threshold(
+    restore_hooks: None, tmp_path: Path
+) -> None:
+    """A threshold above one is refused before any weights are read."""
+    _test_hooks.model_loader = _test_hooks.FixedModelLoader(_test_hooks.TableFastTextModel({}))
+    with pytest.raises(FieldError) as excinfo:
+        build_classifier("lid218e", [tmp_path], tmp_path, 1.5)
+    assert excinfo.value.code == ERR_FIELD_RANGE

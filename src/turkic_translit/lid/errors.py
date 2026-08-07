@@ -4,6 +4,11 @@ Every failure in this package carries a stable, greppable code so that a
 caller can distinguish "you named a model that does not exist" from "the
 model you named is not on disk" without parsing prose. Codes are never
 reused or renumbered.
+
+Codes 004 through 006 covered field validation while this package
+validated its own specifications. That job now belongs to
+:mod:`turkic_translit.validation`, which reports ``TURKIC_FIELD_*``
+codes, so the three numbers are retired rather than reassigned.
 """
 
 from __future__ import annotations
@@ -14,9 +19,6 @@ from typing import Final
 ERR_UNKNOWN_MODEL: Final = "TURKIC_LID_001_UNKNOWN_MODEL"
 ERR_MODEL_FILE_MISSING: Final = "TURKIC_LID_002_MODEL_FILE_MISSING"
 ERR_MODEL_FILE_EMPTY: Final = "TURKIC_LID_003_MODEL_FILE_EMPTY"
-ERR_SPEC_FIELD_MISSING: Final = "TURKIC_LID_004_SPEC_FIELD_MISSING"
-ERR_SPEC_FIELD_TYPE: Final = "TURKIC_LID_005_SPEC_FIELD_TYPE"
-ERR_SPEC_FIELD_EMPTY: Final = "TURKIC_LID_006_SPEC_FIELD_EMPTY"
 ERR_LABEL_MALFORMED: Final = "TURKIC_LID_007_LABEL_MALFORMED"
 ERR_EMPTY_TEXT: Final = "TURKIC_LID_008_EMPTY_TEXT"
 
@@ -91,21 +93,6 @@ class LidModelFileEmptyError(LidError):
         self.path = path
 
 
-class LidSpecFieldError(LidError):
-    """Raised when a decoded specification field fails validation."""
-
-    def __init__(self, code: str, field: str, detail: str) -> None:
-        """Name the field and why it was rejected.
-
-        Args:
-            code: One of the ``ERR_SPEC_FIELD_*`` codes.
-            field: Field name within the specification mapping.
-            detail: Why the value was rejected.
-        """
-        super().__init__(code, f"specification field {field!r}: {detail}")
-        self.field = field
-
-
 class LidLabelError(LidError):
     """Raised when a classifier emits a label the model spec cannot parse."""
 
@@ -145,15 +132,11 @@ __all__ = [
     "ERR_LABEL_MALFORMED",
     "ERR_MODEL_FILE_EMPTY",
     "ERR_MODEL_FILE_MISSING",
-    "ERR_SPEC_FIELD_EMPTY",
-    "ERR_SPEC_FIELD_MISSING",
-    "ERR_SPEC_FIELD_TYPE",
     "ERR_UNKNOWN_MODEL",
     "EmptyClassificationTextError",
     "LidError",
     "LidLabelError",
     "LidModelFileEmptyError",
     "LidModelFileMissingError",
-    "LidSpecFieldError",
     "UnknownLidModelError",
 ]

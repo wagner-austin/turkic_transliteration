@@ -340,7 +340,8 @@ def download_corpus_to_file(
     import logging
     from pathlib import Path
 
-    from turkic_translit.cli import download_corpus as dl
+    from turkic_translit.corpus.drivers import stream_source
+    from turkic_translit.corpus.sources import SOURCE_REGISTRY, known_source_ids
 
     logger = logging.getLogger(__name__)
     # Correlation for this user action
@@ -350,18 +351,18 @@ def download_corpus_to_file(
         f"Web UI corpus download: source={source}, lang={lang}, max_lines={max_lines}, filter_langid={filter_langid}"
     )
 
-    if source not in dl._REG:
+    if source not in SOURCE_REGISTRY:
         payload = error_response(
             f"Unknown corpus source {source!r}.",
             status=400,
             code="invalid_source",
-            details={"available": list(dl._REG.keys())},
+            details={"available": list(known_source_ids())},
         )
         return "", error_markdown(payload)
 
-    driver = dl._DRIVERS[dl._REG[source]["driver"]]
-    # We fetch *unfiltered* iterator and apply our own threshold-aware filter
-    base_iter = driver(lang, dl._REG[source], None)
+    # Drivers no longer filter; they yield raw fragments and this function
+    # applies its own threshold-aware filter below.
+    base_iter = stream_source(SOURCE_REGISTRY[source], lang, os.getenv("HF_TOKEN"))
 
     # Determine progress callback (Gradio Progress implements __call__)
     if progress is None:

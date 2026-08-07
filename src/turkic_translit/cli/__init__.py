@@ -5,7 +5,7 @@ seven subcommands:
 
 * ``translit`` — file-to-file IPA/Latin transliteration
 * ``build-spm`` — assemble a SentencePiece training corpus
-* ``download-corpus`` — stream text from OSCAR / Wikipedia / Leipzig
+* ``download-corpus`` — stream text from OSCAR or Wikipedia
 * ``filter-russian`` — drop code-switched Russian tokens
 * ``train-spm`` — train a SentencePiece model
 * ``train-lm`` — fine-tune a causal LM on a Turkic corpus

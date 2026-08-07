@@ -1,28 +1,38 @@
-"""Streaming dataset helpers for language-model training & evaluation."""
+"""Streaming sentence source for language-model training and evaluation.
+
+Sentences come from the same drivers the corpus commands use, and are
+normalised by the same function, so a language model and a downloaded
+corpus see identical text for identical inputs.
+
+No language filtering happens here. A stream that needs filtered text
+should be built from a corpus that was downloaded with a named
+classifier, whose manifest records which one; filtering again at read
+time would produce training data whose filter is written down nowhere.
+"""
 
 from __future__ import annotations
 
 import itertools
-import unicodedata as ud
+import os
 from collections.abc import Iterable, Iterator
 
-# Third-party lightweight progress bar. Turbo wheels only ~40 KB, declared in deps.
 from tqdm import tqdm
+
+from turkic_translit.corpus.drivers import stream_source
+from turkic_translit.corpus.run import normalize_line
+from turkic_translit.corpus.sources import get_source_spec
 
 __all__ = ["DatasetStream"]
 
 
 class DatasetStream(Iterable[str]):
-    """Memory-frugal sentence iterator backed by *datasets* streaming mode.
+    """Memory-frugal sentence iterator over a registered corpus source.
 
-    Parameters
-    ----------
-    source:
-        Name of the corpus source as registered in ``turkic_translit.cli.download_corpus``.
-    lang:
-        ISO-639-1/3 language identifier.
-    max_sentences:
-        Optional hard cap on yielded sentences – handy for tests.
+    Args:
+        source: Registry key of the corpus to stream, e.g. ``oscar-2301``.
+        lang: Language code within that source.
+        max_sentences: Hard cap on sentences yielded, or ``None`` to read
+            the source to exhaustion.
     """
 
     def __init__(
@@ -31,43 +41,36 @@ class DatasetStream(Iterable[str]):
         lang: str,
         max_sentences: int | None = None,
     ) -> None:
+        """Store the source, language and cap this stream will read with."""
         self.source = source
         self.lang = lang
         self.max_sent = max_sentences
 
-    # ---------------------------------------------------------------------
-    # Public helpers
-    # ---------------------------------------------------------------------
     def __iter__(self) -> Iterator[str]:
-        """Yield one NFC-normalised sentence per iteration."""
-        # Import inside to avoid heavy deps for users that never touch LMs.
-        from ..cli import download_corpus as dl  # local import to dodge cycles
+        """Yield one normalised, non-empty sentence per iteration.
 
-        if self.source not in dl._REG:
-            raise KeyError(
-                f"Unknown source '{self.source}'. Registered: {list(dl._REG)}"
-            )
+        Yields:
+            Each sentence, whitespace-collapsed and NFC-normalised.
 
-        cfg = dl._REG[self.source]
-        driver = dl._DRIVERS[cfg["driver"]]
-
-        # Obtain the base sentence iterator from the corpus driver
-        base_itr: Iterator[str] = driver(self.lang, cfg, None)
-
-        # Apply max sentence cap via itertools.islice for memory efficiency
-        if self.max_sent is not None:
-            itr: Iterator[str] = itertools.islice(base_itr, self.max_sent)
-        else:
-            itr = base_itr
-
-        for line in tqdm(
-            itr,
+        Raises:
+            UnknownCorpusSourceError: If the source is not registered.
+            CorpusStreamError: If the source's host cannot be read.
+        """
+        spec = get_source_spec(self.source)
+        fragments = stream_source(spec, self.lang, os.getenv("HF_TOKEN"))
+        lines = (line for line in map(normalize_line, fragments) if line != "")
+        capped = lines if self.max_sent is None else itertools.islice(lines, self.max_sent)
+        yield from tqdm(
+            capped,
             total=self.max_sent,
             desc=f"[data] {self.lang}",
             unit="sent",
-        ):
-            yield ud.normalize("NFC", line)
+        )
 
-    # Small helper used by *evaluate* metrics which expect list[str]
     def to_list(self) -> list[str]:
-        return list(itertools.islice(iter(self), self.max_sent))
+        """Read the stream into a list, honouring the sentence cap.
+
+        Returns:
+            Every sentence the stream yields, up to the cap.
+        """
+        return list(iter(self))

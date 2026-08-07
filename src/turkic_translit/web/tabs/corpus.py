@@ -23,12 +23,10 @@ def register() -> None:
 
         with gr.Row():
             with gr.Column(scale=1):
-                from turkic_translit.cli.download_corpus import (
-                    _REG,  # dynamic registry
-                )
+                from turkic_translit.corpus.sources import known_source_ids
 
                 source_dd = gr.Dropdown(
-                    choices=sorted(k for k in _REG if _REG[k]["driver"] != "leipzig"),
+                    choices=sorted(known_source_ids()),
                     label="Corpus Source",
                     value="oscar-2301",
                 )
@@ -57,35 +55,13 @@ def register() -> None:
                 def _lang_choices(src: str) -> list[str]:
                     import logging
 
-                    from turkic_translit.cli import download_corpus as _dl
+                    from turkic_translit.corpus.catalogue import available_languages
+                    from turkic_translit.corpus.sources import get_source_spec
 
                     logger = logging.getLogger(__name__)
-                    cfg = _dl._REG[src]
                     lst: list[str] = []
                     try:
-                        if cfg["driver"] == "oscar":
-                            import os
-
-                            from datasets import get_dataset_config_names
-
-                            token = os.getenv("HF_TOKEN")
-                            lst = sorted(
-                                get_dataset_config_names(
-                                    cfg["hf_name"], token=token, trust_remote_code=True
-                                )
-                            )
-                        elif cfg["driver"] == "wikipedia":
-                            try:
-                                from turkic_translit.cli.download_corpus import (
-                                    _wikipedia_lang_codes_from_sitematrix as _site,
-                                )
-
-                                lst = _site()
-                            except Exception as e:
-                                logger.error(
-                                    f"Failed to fetch Wikipedia languages: {e}"
-                                )
-                                lst = []
+                        lst = list(available_languages(get_source_spec(src)))
                     except Exception as e:
                         logger.error(f"Failed to fetch languages for {src}: {e}")
                         lst = []

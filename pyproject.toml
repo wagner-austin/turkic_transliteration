@@ -38,12 +38,12 @@ dependencies = [
 
     "PyICU>=2.13,<2.16; sys_platform != 'win32'",
     "pytest>=8.0",                  # Test runner
+    "PyYAML>=6.0",                  # Reads the corpus source registry at import
     "rapidfuzz>=3.5",
     "rich>=13.7",                   # Color-aware logging and console output
     "python-json-logger>=2.0.4",    # Structured JSON logging
     "sentencepiece>=0.2.0",
     "click>=8.1",
-    "types-requests>=2.31",
     "datasets (>=3.6.0,<4.0.0)",
     "evaluate>=0.4",             # PPL metric
     "accelerate>=0.28",          # HF Trainer device dispatch
@@ -70,8 +70,6 @@ winlid = []
 corpus = [
     "datasets>=3.0",
     "pyarrow>=14.0",
-    "requests>=2.0",
-
 ]
 sentry = [
     "sentry-sdk>=2.0",
@@ -88,7 +86,7 @@ dev = [
     "build>=1.0",          # Package builder
     "twine>=4.0",          # Package uploader
     "make>=0.1.6",         # Make command for Windows
-    "types-requests>=2.31", # Type stubs for requests
+    "types-PyYAML>=6.0",   # Type stubs for the corpus source registry loader
 ]
 
 [project.scripts]
@@ -113,7 +111,7 @@ package-dir = {"" = "src"}
 
 [tool.setuptools.package-data]
 "turkic_translit" = ["py.typed", "rules/*.rules"]
-"turkic_translit.cli" = ["corpora.yaml"]
+"turkic_translit.corpus" = ["corpora.yaml"]
 
 [tool.mypy]
 python_version = "3.11"

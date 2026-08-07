@@ -1,20 +1,22 @@
-from typing import Any
+"""Network-marked check that every registered corpus source is being served.
+
+This is the only test that reaches the real hosts. It uses the same
+health-check URL and the same probe the ``doctor`` command uses, so a
+failure here and a red ``doctor`` mean the same thing.
+"""
+
+from __future__ import annotations
 
 import pytest
 
-from turkic_translit.cli import download_corpus as dl
-from turkic_translit.cli._net_utils import url_ok
+from turkic_translit.corpus._test_hooks import UrlReachabilityProbe
+from turkic_translit.corpus.catalogue import health_check_url
+from turkic_translit.corpus.sources import SOURCE_REGISTRY
 
 
 @pytest.mark.network
-@pytest.mark.parametrize(("source", "cfg"), dl._REG.items())
-def test_head_ok(source: str, cfg: dict[str, Any]) -> None:
-    if cfg["driver"] == "oscar":
-        url = f"https://huggingface.co/api/datasets/{cfg['hf_name']}"
-    elif cfg["driver"] == "wikipedia":
-        url = "https://dumps.wikimedia.org/"
-    elif cfg["driver"] == "leipzig":
-        url = f"{cfg['base_url']}/deu_news_2012_1M.tar.gz"
-    else:
-        url = cfg["base_url"]
-    assert url_ok(url), f"{source} site unreachable"
+@pytest.mark.parametrize("source_id", list(SOURCE_REGISTRY))
+def test_registered_source_is_reachable(source_id: str) -> None:
+    """The host behind each registered source answers a HEAD request."""
+    url = health_check_url(SOURCE_REGISTRY[source_id])
+    assert UrlReachabilityProbe().reachable(url) is True, f"{source_id} at {url}"

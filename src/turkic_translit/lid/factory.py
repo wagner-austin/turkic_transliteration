@@ -13,7 +13,7 @@ tool. A run that writes its own filter identity cannot develop that gap.
 
 from __future__ import annotations
 
-from collections.abc import Sequence
+from collections.abc import Mapping, Sequence
 from pathlib import Path
 from typing import TypedDict
 
@@ -21,6 +21,13 @@ from turkic_translit.lid import _test_hooks
 from turkic_translit.lid.classifier import LidClassifier
 from turkic_translit.lid.fetch import ensure_lid_model
 from turkic_translit.lid.registry import get_spec
+from turkic_translit.validation import (
+    require_bool,
+    require_non_empty_str,
+    require_non_negative_int,
+    require_present,
+    require_probability,
+)
 
 
 class LidRunRecord(TypedDict):
@@ -60,6 +67,35 @@ def encode_lid_run_record(record: LidRunRecord) -> dict[str, str | int | float |
     }
 
 
+def decode_lid_run_record(
+    source: Mapping[str, str | int | float | bool],
+) -> LidRunRecord:
+    """Validate a loosely-typed mapping into a :class:`LidRunRecord`.
+
+    The inverse of :func:`encode_lid_run_record`, used when reading a
+    manifest back to learn how an existing corpus was filtered.
+
+    Args:
+        source: Mapping holding the five record fields.
+
+    Returns:
+        A fully validated run record.
+
+    Raises:
+        FieldError: If any field is missing, of the wrong type, empty, or
+            outside its permitted range.
+    """
+    return LidRunRecord(
+        model_id=require_non_empty_str("model_id", require_present("model_id", source)),
+        weights_path=require_non_empty_str("weights_path", require_present("weights_path", source)),
+        weights_bytes=require_non_negative_int(
+            "weights_bytes", require_present("weights_bytes", source)
+        ),
+        threshold=require_probability("threshold", require_present("threshold", source)),
+        script_aware=require_bool("script_aware", require_present("script_aware", source)),
+    )
+
+
 def build_classifier(
     model_id: str,
     search_dirs: Sequence[Path],
@@ -81,7 +117,10 @@ def build_classifier(
     Raises:
         UnknownLidModelError: If the model id is not registered.
         LidModelFileEmptyError: If the weights are or download as empty.
+        FieldError: If the threshold is outside the unit interval, which
+            would record a filter no probability can satisfy.
     """
+    checked_threshold = require_probability("threshold", threshold)
     spec = get_spec(model_id)
     weights = ensure_lid_model(model_id, search_dirs, destination_dir)
     model = _test_hooks.model_loader.load(weights)
@@ -89,10 +128,15 @@ def build_classifier(
         model_id=spec["model_id"],
         weights_path=str(weights),
         weights_bytes=_test_hooks.probe.size_bytes(weights),
-        threshold=threshold,
+        threshold=checked_threshold,
         script_aware=spec["script_aware"],
     )
     return LidClassifier(spec, model), record
 
 
-__all__ = ["LidRunRecord", "build_classifier", "encode_lid_run_record"]
+__all__ = [
+    "LidRunRecord",
+    "build_classifier",
+    "decode_lid_run_record",
+    "encode_lid_run_record",
+]
