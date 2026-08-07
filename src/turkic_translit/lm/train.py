@@ -14,17 +14,20 @@ from itertools import islice
 from pathlib import Path
 
 import torch
-from transformers import (
-    AutoModelForCausalLM,
-    DataCollatorForLanguageModeling,
-    PreTrainedModel,
-    PreTrainedTokenizerBase,
-    Trainer,
-    TrainingArguments,
-)
-from transformers.tokenization_utils_base import BatchEncoding
 
-from .tokenizer import load_tokenizer
+# Imported from the concrete submodules rather than the package root.
+# transformers' root __init__ is a lazy module whose re-exports vary by
+# version, so `from transformers import Trainer` resolves to a placeholder
+# under some releases and to the real class under others. The submodule
+# paths are stable and give the real classes on every version.
+from transformers.data.data_collator import DataCollatorForLanguageModeling
+from transformers.modeling_utils import PreTrainedModel
+from transformers.models.auto.modeling_auto import AutoModelForCausalLM
+from transformers.tokenization_utils_base import BatchEncoding, PreTrainedTokenizerBase
+from transformers.trainer import Trainer
+from transformers.training_args import TrainingArguments
+
+from turkic_translit.lm.tokenizer import load_tokenizer
 
 __all__ = ["LMModel"]
 

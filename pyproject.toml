@@ -163,6 +163,7 @@ module = [
     "panphon", "panphon.*",
     "sklearn", "sklearn.*",
     "evaluate",
+    "tqdm", "tqdm.*",
 ]
 ignore_missing_imports = true
 

@@ -10,7 +10,7 @@ real implementations of the production protocols.
 from __future__ import annotations
 
 import json
-from collections.abc import Generator
+from collections.abc import Callable, Generator
 from pathlib import Path
 
 import pytest
@@ -58,6 +58,32 @@ def runner() -> CliRunner:
     return CliRunner(env={"PYTHONIOENCODING": "utf8", "GRADIO": "", "TURKIC_LOG_LEVEL": "ERROR"})
 
 
+@pytest.fixture
+def corpus(tmp_path: Path) -> Callable[[str], list[str]]:
+    """Return a helper that writes input to a file and names it to the CLI.
+
+    Reading a real file rather than piping through the runner's stdin
+    keeps the test independent of how a given Click version signals end
+    of input: 8.2's CliRunner raises EOFError where 8.3 returns "", which
+    made a correct run abort. Passing --input also exercises the option
+    the command actually documents.
+
+    Args:
+        tmp_path: Directory to write the input file into.
+
+    Returns:
+        A function taking the input text and returning the ``--input``
+        arguments for it.
+    """
+
+    def make(text: str) -> list[str]:
+        path = tmp_path / "input.txt"
+        path.write_text(text, encoding="utf-8")
+        return ["--input", str(path)]
+
+    return make
+
+
 def first_line(output: str) -> str:
     """Return the command's first output line.
 
@@ -73,29 +99,38 @@ def first_line(output: str) -> str:
     return output.splitlines()[0].strip()
 
 
-def test_drop_mode_removes_russian_tokens(runner: CliRunner, installed_weights: None) -> None:
+def test_drop_mode_removes_russian_tokens(
+    runner: CliRunner, installed_weights: None, corpus: Callable[[str], list[str]]
+) -> None:
     """The default mode deletes Russian tokens from the output."""
-    result = runner.invoke(main, ["--thr", "0.5"], input="привет мир hello\n")
+    result = runner.invoke(main, ["--thr", "0.5", *corpus("привет мир hello\n")])
     assert result.exit_code == 0
     assert first_line(result.output) == "hello"
 
 
-def test_mask_mode_replaces_russian_tokens(runner: CliRunner, installed_weights: None) -> None:
+def test_mask_mode_replaces_russian_tokens(
+    runner: CliRunner, installed_weights: None, corpus: Callable[[str], list[str]]
+) -> None:
     """Mask mode preserves position by substituting a marker."""
-    result = runner.invoke(main, ["--mode", "mask", "--thr", "0.5"], input="привет мир hello\n")
+    result = runner.invoke(main, ["--mode", "mask", "--thr", "0.5", *corpus("привет мир hello\n")])
     assert result.exit_code == 0
     assert first_line(result.output) == "<RU> <RU> hello"
 
 
-def test_a_kazakh_token_survives_the_filter(runner: CliRunner, installed_weights: None) -> None:
+def test_a_kazakh_token_survives_the_filter(
+    runner: CliRunner, installed_weights: None, corpus: Callable[[str], list[str]]
+) -> None:
     """A Kazakh-specific letter keeps the token out of the Russian bucket."""
-    result = runner.invoke(main, ["--thr", "0.5"], input="әлем hello\n")
+    result = runner.invoke(main, ["--thr", "0.5", *corpus("әлем hello\n")])
     assert result.exit_code == 0
     assert first_line(result.output) == "әлем hello"
 
 
 def test_a_stoplisted_token_is_kept(
-    runner: CliRunner, installed_weights: None, tmp_path: Path
+    runner: CliRunner,
+    installed_weights: None,
+    corpus: Callable[[str], list[str]],
+    tmp_path: Path,
 ) -> None:
     """Words listed in the core vocabulary are never dropped."""
     stoplist = tmp_path / "core.txt"
@@ -103,18 +138,19 @@ def test_a_stoplisted_token_is_kept(
 
     result = runner.invoke(
         main,
-        ["--thr", "0.5", "--stoplist", str(stoplist)],
-        input="привет мир hello\n",
+        ["--thr", "0.5", "--stoplist", str(stoplist), *corpus("привет мир hello\n")],
     )
 
     assert result.exit_code == 0
     assert first_line(result.output) == "привет hello"
 
 
-def test_debug_reports_each_token_as_json(runner: CliRunner, installed_weights: None) -> None:
+def test_debug_reports_each_token_as_json(
+    runner: CliRunner, installed_weights: None, corpus: Callable[[str], list[str]]
+) -> None:
     """Debug mode emits one JSON object per token, naming the winner."""
     result = runner.invoke(
-        main, ["--thr", "0.5", "--debug"], input="привет hello\n", catch_exceptions=False
+        main, ["--thr", "0.5", "--debug", *corpus("привет hello\n")], catch_exceptions=False
     )
     assert result.exit_code == 0
     reports = [json.loads(line) for line in result.output.splitlines() if line.startswith("{")]
@@ -124,13 +160,12 @@ def test_debug_reports_each_token_as_json(runner: CliRunner, installed_weights: 
 
 
 def test_the_orthography_flag_catches_pure_cyrillic_below_the_threshold(
-    runner: CliRunner, installed_weights: None
+    runner: CliRunner, installed_weights: None, corpus: Callable[[str], list[str]]
 ) -> None:
     """``--fallback-orth`` applies the script test at any threshold."""
     result = runner.invoke(
         main,
-        ["--thr", "0.99", "--mode", "mask", "--fallback-orth"],
-        input="мир hello\n",
+        ["--thr", "0.99", "--mode", "mask", "--fallback-orth", *corpus("мир hello\n")],
     )
     assert result.exit_code == 0
     assert first_line(result.output) == "<RU> hello"

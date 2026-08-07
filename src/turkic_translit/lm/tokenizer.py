@@ -10,7 +10,9 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from transformers import AutoTokenizer, PreTrainedTokenizerBase
+# Concrete submodules, not the lazy package root: see the note in train.py.
+from transformers.models.auto.tokenization_auto import AutoTokenizer
+from transformers.tokenization_utils_base import PreTrainedTokenizerBase
 
 __all__ = ["load_tokenizer"]
 
