@@ -44,12 +44,6 @@ def run_web_ui() -> int:
     except KeyboardInterrupt:
         print("\nWeb UI shutdown requested. Cleaning up...")
         return 0
-    except Exception as e:
-        print(f"Error launching web UI: {e}")
-        import traceback
-
-        traceback.print_exc()
-        return 1
 
 
 def run_simple_demo() -> int:
