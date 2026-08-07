@@ -3,9 +3,9 @@
 from __future__ import annotations
 
 from collections.abc import Iterable
+from dataclasses import dataclass
 from pathlib import Path
 from types import SimpleNamespace
-from typing import Any
 
 import pytest
 from click.testing import CliRunner
@@ -45,13 +45,31 @@ class _DummyLM(SimpleNamespace):
 
 # ---------------------------------------------------------------------------
 # test: turkic-train-lm ------------------------------------------------------
+@dataclass(frozen=True)
+class _FreshCall:
+    """One recorded call to ``LMModel.fresh``.
+
+    Attributes:
+        base_model: The model the CLI asked to start from.
+        epochs: Number of epochs requested.
+        sentences: Training text, materialised so it can be inspected
+            after the CLI has consumed the iterator.
+        output_dir: Where the CLI asked for the result to be saved.
+    """
+
+    base_model: str
+    epochs: int
+    sentences: tuple[str, ...]
+    output_dir: str
+
+
 # ---------------------------------------------------------------------------
 
 
 def test_train_lm_quick(monkeypatch: pytest.MonkeyPatch, tmp_output_dir: Path) -> None:
     """CLI should call *LMModel.fresh* with expected arguments."""
 
-    calls: list[dict[str, Any]] = []
+    calls: list[_FreshCall] = []
 
     def _fake_fresh(
         base_model: str,
@@ -60,15 +78,15 @@ def test_train_lm_quick(monkeypatch: pytest.MonkeyPatch, tmp_output_dir: Path) -
         sentences: Iterable[str],
         output_dir: str,
     ) -> _DummyLM:
-        # Just record call args then create a dummy file in *output_dir* to
-        # imitate model saving.
+        # Record the call, then create a file in output_dir to imitate
+        # the model being saved.
         calls.append(
-            {
-                "base_model": base_model,
-                "epochs": epochs,
-                "sentences": sentences,
-                "output_dir": output_dir,
-            }
+            _FreshCall(
+                base_model=base_model,
+                epochs=epochs,
+                sentences=tuple(sentences),
+                output_dir=output_dir,
+            )
         )
         Path(output_dir).mkdir(exist_ok=True, parents=True)
         (Path(output_dir) / "config.json").write_text("{}")
@@ -98,7 +116,9 @@ def test_train_lm_quick(monkeypatch: pytest.MonkeyPatch, tmp_output_dir: Path) -
 
     assert result.exit_code == 0, result.output
     assert calls, "LMModel.fresh was not called"
-    assert calls[0]["base_model"] == "hf/test"
+    assert calls[0].base_model == "hf/test"
+    assert calls[0].sentences == ("foo", "bar")
+    assert calls[0].epochs == 1
     assert (tmp_output_dir / "config.json").exists()
 
 

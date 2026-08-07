@@ -16,6 +16,7 @@ They deliberately exercise:
 
 from __future__ import annotations
 
+import re
 import shutil
 import subprocess
 from pathlib import Path
@@ -23,6 +24,49 @@ from pathlib import Path
 import pytest
 
 from turkic_translit.core import get_supported_languages
+
+_LANG_CHOICES = re.compile(r"--lang \[([^\]]+)\]")
+_CLICK_ERROR = re.compile(r"^Error: (?P<message>.+)$", re.MULTILINE)
+
+
+def _advertised_languages(help_text: str) -> set[str]:
+    """Extract the language codes the ``--lang`` option offers.
+
+    Args:
+        help_text: The command's ``--help`` output.
+
+    Returns:
+        Every code listed in the option's choices.
+
+    Raises:
+        AssertionError: If the choices list is not present, which means
+            the option was renamed or removed.
+    """
+    match = _LANG_CHOICES.search(help_text)
+    if match is None:
+        raise AssertionError(f"--lang choices not found in help output: {help_text!r}")
+    return set(match.group(1).split("|"))
+
+
+def _click_error(stderr: str) -> str:
+    """Extract the message from a Click usage error.
+
+    Pinning the error line specifically is stronger than searching all
+    of stderr, where the phrase could appear in the usage banner.
+
+    Args:
+        stderr: The command's captured standard error.
+
+    Returns:
+        The text following ``Error: ``.
+
+    Raises:
+        AssertionError: If stderr carries no Click error line.
+    """
+    match = _CLICK_ERROR.search(stderr)
+    if match is None:
+        raise AssertionError(f"no Click error line in stderr: {stderr!r}")
+    return match.group("message")
 
 
 def _resolve_console_script() -> str:
@@ -153,13 +197,11 @@ def test_cli_lang_choices_include_every_ipa_language() -> None:
     """
     result = _run_cli("--help")
     assert result.returncode == 0, result.stderr
-    supported = get_supported_languages()
-    ipa_langs = sorted(k for k, v in supported.items() if "ipa" in v)
-    for code in ipa_langs:
-        assert code in result.stdout, (
-            f"language code {code!r} missing from --help output; "
-            f"choices list may have been hardcoded again"
-        )
+
+    # Comparing the whole advertised set is stronger than searching the
+    # help text for each code: it also fails when a code is offered that
+    # no rule file supports.
+    assert _advertised_languages(result.stdout) == set(get_supported_languages())
 
 
 def test_cli_rejects_out_latin_for_ipa_only_language(tmp_path: Path) -> None:
@@ -183,7 +225,7 @@ def test_cli_rejects_out_latin_for_ipa_only_language(tmp_path: Path) -> None:
     assert result.returncode == 2, (
         f"expected Click UsageError exit 2, got {result.returncode}: stderr={result.stderr!r}"
     )
-    assert "no Latin rules" in result.stderr
+    assert "no Latin rules" in _click_error(result.stderr)
     assert not output_file.exists(), (
         "usage error was raised but the Latin output file was still created"
     )
@@ -195,4 +237,4 @@ def test_cli_requires_at_least_one_output(tmp_path: Path) -> None:
     input_file.write_text("kiitos\n", encoding="utf-8")
     result = _run_cli("--lang", "fi", "--in", str(input_file))
     assert result.returncode == 2, result.stderr
-    assert "at least one of --out-latin or --out-ipa" in result.stderr
+    assert "at least one of --out-latin or --out-ipa" in _click_error(result.stderr)

@@ -91,11 +91,16 @@ def _panphon_utf8_resources() -> Iterator[None]:
 
 # 1. Test PyICU transliteration
 def test_icu_transliteration() -> None:
-    t = icu.Transliterator.createInstance("Any-Latin; NFC")
-    result = t.transliterate("Ғылым")
-    assert isinstance(result, str)
-    # Accept any reasonable G variant (G, Ğ, Ġ)
-    assert any(g in result for g in ("G", "Ğ", "Ġ")), f"ICU result: {result}"
+    """ICU's generic Any-Latin romanises Kazakh Cyrillic.
+
+    The exact romanisation of Ғ varies by ICU version (G, Ğ or Ġ), so
+    that letter is checked as a set while the rest of the word is
+    pinned exactly.
+    """
+    result = icu.Transliterator.createInstance("Any-Latin; NFC").transliterate("Ғылым")
+
+    assert result[1:] == "ylym"
+    assert result[0] in {"G", "Ğ", "Ġ"}, f"ICU result: {result}"
 
 
 # 2. Test epitran + panphon IPA for Kazakh
@@ -114,10 +119,6 @@ def test_epitran_panphon_ipa() -> None:
     print(f"\nTest word: {test_word}")
     print(f"IPA transcription: {ipa}")
     print(f"Phonological features count: {len(vec)}")
-
-    # Basic type checks
-    assert isinstance(ipa, str)
-    assert isinstance(vec, list)
 
     # Check actual content - Ғ should be ʁ in IPA
     assert "ʁ" in ipa, f"Expected 'ʁ' in IPA transcription, got: {ipa}"
@@ -179,8 +180,8 @@ def test_sentencepiece_roundtrip() -> None:
         ids = proc.encode(sample, out_type=int)
         decoded = proc.decode(ids)
 
-        # Verify results
-        assert isinstance(ids, list)
+        # The round trip is the assertion: it can only hold if encode
+        # produced a usable id sequence.
         assert decoded == sample
 
     finally:
@@ -285,10 +286,8 @@ def test_web_sentencepiece_training() -> None:
             user_symbols="<test>,<kk>,<ky>",
         )
 
-        # Verify the result format
-        assert isinstance(model_path, str)
-        assert isinstance(info, str)
-        assert Path(model_path).exists()
+        # A path that resolves to a real file is a stronger claim than
+        # the string type it necessarily has.
         assert Path(model_path).is_file()
 
         # Check if the info contains expected details
@@ -305,7 +304,6 @@ def test_web_sentencepiece_training() -> None:
         ids = proc.encode(test_phrase, out_type=int)
         decoded = proc.decode(ids)
 
-        assert isinstance(ids, list)
         assert decoded == test_phrase
 
         # Test using only text content, no file
