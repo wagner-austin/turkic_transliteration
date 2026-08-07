@@ -7973,19 +7973,30 @@ files = [
 ]
 
 [[package]]
-name = "types-requests"
-version = "2.32.4.20250611"
-description = "Typing stubs for requests"
-optional = false
+name = "types-pyyaml"
+version = "6.0.12.20250915"
+description = "Typing stubs for PyYAML"
+optional = true
 python-versions = ">=3.9"
 groups = ["main"]
+markers = "python_version < \"3.11\" and extra == \"dev\""
 files = [
-    {file = "types_requests-2.32.4.20250611-py3-none-any.whl", hash = "sha256:ad2fe5d3b0cb3c2c902c8815a70e7fb2302c4b8c1f77bdcd738192cdb3878072"},
-    {file = "types_requests-2.32.4.20250611.tar.gz", hash = "sha256:741c8777ed6425830bf51e54d6abe245f79b4dcb9019f1622b773463946bf826"},
+    {file = "types_pyyaml-6.0.12.20250915-py3-none-any.whl", hash = "sha256:e7d4d9e064e89a3b3cae120b4990cd370874d2bf12fa5f46c97018dd5d3c9ab6"},
+    {file = "types_pyyaml-6.0.12.20250915.tar.gz", hash = "sha256:0f8b54a528c303f0e6f7165687dd33fafa81c807fcac23f632b63aa624ced1d3"},
 ]
 
-[package.dependencies]
-urllib3 = ">=2"
+[[package]]
+name = "types-pyyaml"
+version = "6.0.12.20260724"
+description = "Typing stubs for PyYAML"
+optional = true
+python-versions = ">=3.10"
+groups = ["main"]
+markers = "python_version >= \"3.11\" and extra == \"dev\""
+files = [
+    {file = "types_pyyaml-6.0.12.20260724-py3-none-any.whl", hash = "sha256:d57db930a4b2efbc57cf430ec8882765d246929432fa253092f383902329a453"},
+    {file = "types_pyyaml-6.0.12.20260724.tar.gz", hash = "sha256:3c1ce1bb73cd5ec02e90390c2b1f00e810d241d8825fd73ff359696839271b6b"},
+]
 
 [[package]]
 name = "typing-extensions"
@@ -8812,8 +8823,8 @@ cffi = {version = ">=1.11", markers = "platform_python_implementation == \"PyPy\
 cffi = ["cffi (>=1.11)"]
 
 [extras]
-corpus = ["datasets", "pyarrow", "requests"]
-dev = ["build", "make", "mypy", "pytest", "pytest-cov", "pytest-timeout", "pytest-xdist", "ruff", "twine", "types-requests"]
+corpus = ["datasets", "pyarrow"]
+dev = ["build", "make", "mypy", "pytest", "pytest-cov", "pytest-timeout", "pytest-xdist", "ruff", "twine", "types-PyYAML"]
 examples = ["flask", "jupyterlab", "streamlit"]
 sentry = ["sentry-sdk"]
 winlid = []
@@ -8821,4 +8832,4 @@ winlid = []
 [metadata]
 lock-version = "2.1"
 python-versions = ">=3.9"
-content-hash = "46c1012917ce6a017d10990720dfd3fd85a56f6896321a886b8eef4dcebdbd17"
+content-hash = "368618c4535e14ad2d541fcbbb97ac89fb22470e28a510c4a4122fcf43693735"
