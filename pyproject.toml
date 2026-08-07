@@ -26,8 +26,13 @@ classifiers = [
 ]
 
 dependencies = [
-    # Core dependencies (alphabetized)
-    "epitran>=1.0,<1.27",           # 1.26.0 is the latest on PyPI
+    # Every entry below is either imported by src/ or required at runtime by
+    # something that is. Anything else belongs in [dev] or nowhere: an
+    # undeclared import and an unused declaration are the same bug seen from
+    # opposite sides, and both were present here.
+    "click>=8.1",
+    "datasets (>=3.6.0,<4.0.0)",
+    "evaluate>=0.4",                # perplexity metric in lm/eval.py
     # Universal fasttext-wheel for all platforms and Python 3.10-3.13. It is
     # the only build with Windows wheels; the numpy-2 forks publish none, so
     # swapping the dependency would cost every Windows user a C++ toolchain.
@@ -36,34 +41,33 @@ dependencies = [
     # numpy<2. Nothing here calls that wrapper any more: the LID adapter goes
     # straight to the native predictor, which returns plain tuples.
     "fasttext-wheel==0.9.2",
-    "numpy>=1.26",
-    "packaging>=23.0",              # Used in tests/test_fasttext.py
-    "panphon>=0.20,<0.22",          # 0.21.2 is the newest published wheel
-    # PyICU is required, but Windows users must install the correct wheel manually. See README and turkic-pyicu-install for help.
-    # PyICU wheels: pre-built for Windows versions, fallback to PyPI elsewhere
-
-    "PyICU>=2.13,<2.16; sys_platform != 'win32'",
-    "pytest>=8.0",                  # Test runner
-    "PyYAML>=6.0",                  # Reads the corpus source registry at import
-    "rapidfuzz>=3.5",
-    "rich>=13.7",                   # Color-aware logging and console output
-    "python-json-logger>=2.0.4",    # Structured JSON logging
-    "sentencepiece>=0.2.0",
-    "click>=8.1",
-    "datasets (>=3.6.0,<4.0.0)",
-    "evaluate>=0.4",             # PPL metric
-    "accelerate>=0.28",          # HF Trainer device dispatch
-    "transformers>=4.41,<5",        # mGPT / BLOOM causal LM
-    "tqdm>=4.66",                # progress bars for LM utilities
-    "scikit-learn>=1.4",        # cosine similarity utilities
-    "typing_extensions>=4.12",    # for Never on Python ≤3.11
-    "wikipedia (>=1.4.0,<2.0.0)",
-    # UI dependencies
     "gradio>=4.0",
+    "numpy>=1.26",
     "pandas",
-    "matplotlib>=3.9",           # cosine-similarity heat-map
-    "pycountry>=23.12",          # ISO language names for pretty dropdown labels
-    "zstandard>=0.23",
+    # PyICU produces every transliteration and every IPA string: to_ipa and
+    # to_latin compile rules/<lang>_ipa.rules through it. Windows users must
+    # install the wheel manually; see README and turkic-pyicu-install.
+    "PyICU>=2.13,<2.16; sys_platform != 'win32'",
+    "pycountry>=23.12",             # ISO language names for dropdown labels
+    "python-json-logger>=2.0.4",    # structured JSON logging
+    "PyYAML>=6.0",                  # reads the corpus source registry at import
+    "rapidfuzz>=3.5",
+    "rich>=13.7",                   # colour-aware logging and console output
+    "scikit-learn>=1.4",            # cosine similarity in lm/similarity.py
+    "sentencepiece>=0.2.0",
+    # pandas ships tabulate only under its output-formatting extra, and
+    # web_utils.token_table_markdown calls DataFrame.to_markdown directly.
+    "tabulate>=0.9",
+    # Imported unconditionally by lm/similarity.py and lm/train.py, which
+    # turkic_translit.cli imports at startup, so the console script does
+    # not run without it. transformers declares torch only under an
+    # extra, so it was reaching this project by luck.
+    "torch>=2.2",
+    "tqdm>=4.66",
+    "transformers>=4.41,<5",        # mGPT / BLOOM causal LM
+    # Not imported anywhere, and required anyway: transformers.Trainer, used
+    # by lm/train.py, raises at construction without it.
+    "accelerate>=0.28",
 ]
 
 [project.optional-dependencies]
@@ -93,6 +97,7 @@ dev = [
     "twine>=4.0",          # Package uploader
     "make>=0.1.6",         # Make command for Windows
     "types-PyYAML>=6.0",   # Type stubs for the corpus source registry loader
+    "panphon>=0.20,<0.23", # Phonological features, used only by tests/test_verification.py
 ]
 
 [project.scripts]

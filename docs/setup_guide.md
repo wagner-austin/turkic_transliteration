@@ -57,15 +57,15 @@ pip install -e .[sentry]
 The core dependencies will be installed automatically with the package, but you can install them manually if needed:
 
 ```bash
-pip install typing-extensions
-pip install epitran
 pip install sentencepiece rapidfuzz
-pip install numpy scipy pybind11 wheel
+pip install numpy pybind11 wheel
 pip install fasttext-wheel
-
-# Optional structured logging format (installed by default)
 pip install python-json-logger
 ```
+
+`epitran` and `typing-extensions` were listed here but are not imported by this
+project and have been removed from its dependencies. IPA is produced by the ICU
+rule files in `rules/`, through PyICU.
 
 ## Cleaning Up
 

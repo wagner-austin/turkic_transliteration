@@ -49,10 +49,22 @@ ERROR: Compiler cl cannot compile programs.
 
 **Root Cause**: NumPy 1.26.4 doesn't have pre-built wheels for Python 3.13 on Windows and requires a C compiler. Python 3.13 is very new (released October 2024) and many packages haven't released wheels yet.
 
-**Why we can't just update to NumPy 2.x**:
-- fasttext-wheel is incompatible with NumPy 2.0 (C++ API breaking changes)
-- The test suite explicitly checks and skips tests if NumPy 2.x is detected
-- Other dependencies (epitran, panphon) haven't been tested with NumPy 2.0
+**Resolved: the project now runs on NumPy 2.** The reasoning that kept the
+`numpy<2` pin in place was wrong on every point, and is recorded here so it
+is not reinstated:
+
+- It was never a C++ API problem. `fasttext-wheel`'s extension module does
+  not use the NumPy C API at all, and imports and trains fine under NumPy 2.
+- The incompatibility was one line of Python in fastText's own wrapper:
+  `predict()` ends with `np.array(probs, copy=False)`, which NumPy 2 rejects.
+  The native predictor underneath returns plain `(probability, label)` tuples,
+  so `turkic_translit.lid` calls that instead and no array library is involved.
+- Swapping to a NumPy-2 fork is not an option on Windows: `fasttext-numpy2-wheel`
+  publishes no Windows wheels, against `fasttext-wheel`'s 16, and upstream
+  `fasttext` 0.9.3 still contains the offending line and ships sdist-only.
+- `epitran` was never imported by this project and has been removed; IPA comes
+  from the ICU rule files in `rules/`. `panphon` is used only by
+  `tests/test_verification.py` and is now a development dependency.
 
 ### 4. Windows Encoding Issues
 **Problem**: Various libraries (panphon, transformers, datasets, evaluate) fail with encoding errors on Windows.
@@ -94,7 +106,8 @@ Users with pyenv installed will automatically use the correct Python version.
 Include NumPy 1.26.4 wheels for Python 3.13 in the vendor directory (like PyICU approach).
 
 ### Option 5: Wait for ecosystem to catch up
-Monitor fasttext-wheel for NumPy 2.0 support, then update all dependencies together.
+No longer necessary. The pin is gone; see the NumPy section above for why the
+wait was never required in the first place.
 
 ## Current Status
 
@@ -116,9 +129,11 @@ Monitor fasttext-wheel for NumPy 2.0 support, then update all dependencies toget
    - Automatically applies UTF-8 encoding for file operations
    - Patches are loaded early in the import process
 
-4. **NumPy on Python 3.13**: ❌ NOT SOLVED
-   - NumPy 1.26.4 has no wheels for Python 3.13
-   - Requires updating to NumPy 2.x or using Python 3.12
+4. **NumPy on Python 3.13**: ✅ SOLVED
+   - The `numpy<2` pin is gone, so Python 3.13 resolves to a NumPy 2 wheel
+   - Nothing in this project reaches the fastText wrapper call NumPy 2 rejects
+   - Verified against the live uz.wikipedia dump with both real LID models,
+     reproducing the NumPy 1 keep rates exactly (51.0% and 7.5%)
 
 ### Changes Made:
 1. **Makefile updates**:
