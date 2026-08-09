@@ -7,6 +7,7 @@ ROOT = pathlib.Path(__file__).parent
 
 
 def test_roundtrip_and_nfc() -> None:
+    """The sample corpus transliterates to composed Latin text."""
     with open(ROOT / "sample_cy.txt", encoding="utf8") as f:
         src = f.read()
     out = "\n".join(to_latin(line, "kk") for line in src.splitlines())

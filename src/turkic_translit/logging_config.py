@@ -16,13 +16,13 @@ have been silently downgraded to plain text instead of reported.
 from __future__ import annotations
 
 import logging
-import os
 import sys
 from functools import lru_cache
 
 from pythonjsonlogger.json import JsonFormatter
 from rich.logging import RichHandler
 
+from turkic_translit import _test_hooks
 from turkic_translit.error_service import CorrelationFilter, init_error_service
 
 JSON_FORMAT = "json"
@@ -30,13 +30,16 @@ _JSON_FIELDS = "%(asctime)s %(name)s %(levelname)s %(message)s %(correlation_id)
 _JSON_RENAMES = {"levelname": "level", "asctime": "time", "name": "logger"}
 
 
-def _env_level() -> str:
-    """Return the desired log level from the environment.
+def default_level() -> str:
+    """Return the log level the environment asks for.
+
+    Args:
+        None.
 
     Returns:
-        The level name, upper-cased; INFO when unset.
+        The value of ``TURKIC_LOG_LEVEL`` upper-cased, or ``INFO``.
     """
-    return (os.environ.get("TURKIC_LOG_LEVEL") or "INFO").upper()
+    return (_test_hooks.environment.get("TURKIC_LOG_LEVEL") or "INFO").upper()
 
 
 def _json_handler() -> logging.Handler:
@@ -62,8 +65,17 @@ def _rich_handler() -> logging.Handler:
 
 
 @lru_cache(maxsize=1)
-def setup() -> logging.Logger:
+def setup(level: str) -> logging.Logger:
     """Configure the root logger once for this process.
+
+    The level is passed in rather than read here, so a command with a
+    ``--log-level`` flag does not have to write to the environment for
+    this function to see it. Callers with no flag of their own pass
+    :func:`default_level`.
+
+    Args:
+        level: Level name, e.g. ``DEBUG``. Anything unrecognised by the
+            logging module falls to ``INFO``.
 
     Returns:
         The project logger, ``turkic_translit``.
@@ -72,19 +84,18 @@ def setup() -> logging.Logger:
     for existing in root_logger.handlers[:]:
         root_logger.removeHandler(existing)
 
-    level_name = _env_level()
-    root_logger.setLevel(getattr(logging, level_name, logging.INFO))
+    root_logger.setLevel(getattr(logging, level, logging.INFO))
 
-    wants_json = (os.environ.get("TURKIC_LOG_FORMAT") or JSON_FORMAT).lower() == JSON_FORMAT
-    handler = _json_handler() if wants_json else _rich_handler()
+    requested = _test_hooks.environment.get("TURKIC_LOG_FORMAT") or JSON_FORMAT
+    handler = _json_handler() if requested.lower() == JSON_FORMAT else _rich_handler()
     handler.addFilter(CorrelationFilter())
     root_logger.addHandler(handler)
 
     init_error_service()
 
     logger = logging.getLogger("turkic_translit")
-    logger.debug("Logging initialised at level %s", level_name)
+    logger.debug("Logging initialised at level %s", level)
     return logger
 
 
-__all__ = ["JSON_FORMAT", "setup"]
+__all__ = ["JSON_FORMAT", "default_level", "setup"]

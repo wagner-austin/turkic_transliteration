@@ -219,7 +219,7 @@ def require_float(
         FieldError: If the value is a ``bool`` or is neither ``int`` nor
             ``float``.
     """
-    if isinstance(value, bool) or not isinstance(value, (int, float)):
+    if isinstance(value, bool) or not isinstance(value, int | float):
         raise FieldError(ERR_FIELD_TYPE, field, f"expected float, got {type(value).__name__}")
     return float(value)
 

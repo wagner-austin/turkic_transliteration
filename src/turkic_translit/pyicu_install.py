@@ -5,8 +5,13 @@ must be importable and executable in an environment where PyICU is
 not yet installed. That is why this module lives at the top of the
 package rather than under :mod:`turkic_translit.cli` — importing the
 ``cli`` subpackage pulls in every registered subcommand and their
-transitive dependencies (transformers, torch, evaluate, …), which
+transitive dependencies (transformers, torch, datasets, …), which
 defeats the point of a lightweight bootstrap tool.
+
+Which wheel to install is decided in :mod:`turkic_translit.wheels`;
+fetching and installing it happen through the hooks in
+:mod:`turkic_translit._test_hooks`. This module only sequences them and
+turns a wheel-selection failure into a command-line error.
 
 Invoke via the console script::
 
@@ -19,21 +24,86 @@ Or directly::
 
 from __future__ import annotations
 
-import json
 import logging
-import os
 import pathlib
-import platform
-import subprocess
-import sys
-import urllib.request
-
-if platform.system() == "Windows":
-    os.environ["PYTHONUTF8"] = "1"
+from collections.abc import Sequence
 
 import click
 
+from . import _test_hooks
+from .logging_config import default_level
 from .logging_config import setup as _log_setup
+from .wheels import (
+    RELEASES_API_URL,
+    ReleaseAsset,
+    WheelError,
+    pinned_asset,
+    python_tag,
+    require_installable,
+    select_asset,
+)
+
+VENDOR_DIRECTORY = pathlib.Path(__file__).parent.parent.parent / "vendor" / "pyicu"
+
+logger = logging.getLogger("turkic-pyicu-install")
+
+
+def choose_asset(version: str | None, tag: str) -> ReleaseAsset:
+    """Name the wheel to install for this interpreter.
+
+    Args:
+        version: Explicit PyICU version, or ``None`` to take whatever
+            the latest release publishes.
+        tag: Interpreter tag from :func:`~turkic_translit.wheels.python_tag`.
+
+    Returns:
+        The asset to install, named and located.
+
+    Raises:
+        NoMatchingAssetError: If the latest release publishes no wheel
+            for this interpreter.
+        FieldError: If the release API describes an asset without a name
+            or a download URL.
+    """
+    if version is not None:
+        return pinned_asset(version, tag)
+    return select_asset(_test_hooks.releases.latest_assets(RELEASES_API_URL), tag)
+
+
+def resolve_wheel(
+    asset: ReleaseAsset, search: Sequence[pathlib.Path], download_to: pathlib.Path
+) -> pathlib.Path:
+    """Find the wheel on disk, downloading it when it is not there.
+
+    The search order is the caller's: a wheel vendored with a checkout is
+    the one that checkout was tested against, a wheel in the working
+    directory is one the developer put there on purpose, and only when
+    neither exists is the network consulted. Both the places to look and
+    the place to write are passed in, so this function reads no ambient
+    state and a test can point it anywhere.
+
+    Args:
+        asset: The wheel to obtain.
+        search: Directories to look in, most specific first.
+        download_to: Directory a downloaded wheel is written to.
+
+    Returns:
+        Path of the wheel file, which exists on return.
+
+    Raises:
+        URLError: If the wheel has to be downloaded and its URL is
+            unreachable or does not exist.
+    """
+    for directory in search:
+        candidate = directory / asset["name"]
+        if candidate.exists():
+            logger.info("Found wheel in %s: %s", directory, candidate)
+            return candidate
+
+    destination = download_to / asset["name"]
+    logger.info("Downloading %s from %s", asset["name"], asset["download_url"])
+    _test_hooks.releases.download(asset["download_url"], destination)
+    return destination
 
 
 @click.command()
@@ -46,73 +116,31 @@ from .logging_config import setup as _log_setup
 def main(version: str | None) -> None:
     """Download and install a PyICU wheel for Windows / Python >=3.10.
 
-    Prefers a wheel already present in the package's ``vendor/pyicu``
-    directory, then falls back to a wheel in the current working
-    directory, and finally downloads from the cgohlke pyicu-build
-    GitHub releases. Every path is deterministic — no silent
-    "best-effort" fallback: a missing wheel raises the appropriate
-    error from urllib or pip.
-
     Args:
         version: Explicit PyICU version to install (e.g. ``"2.15"``).
             When ``None``, the latest release published by
             ``cgohlke/pyicu-build`` is used.
 
     Raises:
-        SystemExit: When the current platform or Python version has no
-            pre-built wheel available.
-        urllib.error.URLError: When the GitHub API or download URL is
-            unreachable.
-        subprocess.CalledProcessError: When ``pip install`` fails.
+        click.ClickException: If this platform or interpreter has no
+            pre-built wheel, or the release publishes none for it. The
+            message carries the originating error code.
+        URLError: If the GitHub API or the download URL is unreachable.
+        CalledProcessError: If ``pip install`` fails.
     """
-    _log_setup()
-    log = logging.getLogger("turkic-pyicu-install")
+    _log_setup(default_level())
 
-    major, minor = sys.version_info[:2]
-    if platform.system() != "Windows":
-        sys.exit(
-            "turkic-pyicu-install: Not needed — PyICU wheels are on PyPI for non-Windows platforms."
-        )
-    py_tag = f"cp{major}{minor}"
-    if py_tag not in {"cp310", "cp311", "cp312", "cp313"}:
-        sys.exit(f"turkic-pyicu-install: No pre-built PyICU wheel for {py_tag}.")
+    tag = python_tag(_test_hooks.interpreter.version())
+    try:
+        require_installable(_test_hooks.interpreter.platform_name(), tag)
+        asset = choose_asset(version, tag)
+    except WheelError as exc:
+        raise click.ClickException(str(exc)) from exc
 
-    if version is None:
-        api_url = "https://api.github.com/repos/cgohlke/pyicu-build/releases/latest"
-        with urllib.request.urlopen(api_url) as resp:
-            release = json.load(resp)
-        assets = release.get("assets", [])
-        wheel_asset = next(
-            (a for a in assets if py_tag in a["name"] and "win_amd64" in a["name"]),
-            None,
-        )
-        if wheel_asset is None:
-            sys.exit(
-                f"turkic-pyicu-install: No suitable wheel found for {py_tag} "
-                "in the cgohlke/pyicu-build latest release."
-            )
-        wheel_name = wheel_asset["name"]
-        url = wheel_asset["browser_download_url"]
-    else:
-        wheel_name = f"pyicu-{version}-{py_tag}-{py_tag}-win_amd64.whl"
-        url = f"https://github.com/cgohlke/pyicu-build/releases/download/v{version}/{wheel_name}"
+    here = pathlib.Path.cwd()
+    wheel = resolve_wheel(asset, (VENDOR_DIRECTORY, here), here)
+    _test_hooks.installer.install(_test_hooks.interpreter.executable(), wheel)
+    logger.info("PyICU %s installed", asset["name"])
 
-    # Search order: vendored wheel, current working directory, then
-    # download from cgohlke.
-    package_dir = pathlib.Path(__file__).parent.parent.parent
-    vendor_wheel = package_dir / "vendor" / "pyicu" / wheel_name
-    local_wheel = pathlib.Path(wheel_name)
 
-    if vendor_wheel.exists():
-        log.info("Found wheel in vendor directory: %s", vendor_wheel)
-        wheel_path = vendor_wheel
-    elif local_wheel.exists():
-        log.info("Found wheel in current directory: %s", local_wheel)
-        wheel_path = local_wheel
-    else:
-        log.info("Downloading %s from %s", wheel_name, url)
-        urllib.request.urlretrieve(url, wheel_name)
-        wheel_path = local_wheel
-
-    subprocess.check_call([sys.executable, "-m", "pip", "install", str(wheel_path)])
-    log.info("PyICU %s installed", wheel_name)
+__all__ = ["VENDOR_DIRECTORY", "choose_asset", "main", "resolve_wheel"]

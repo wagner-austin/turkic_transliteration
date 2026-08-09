@@ -13,11 +13,11 @@ time would produce training data whose filter is written down nowhere.
 from __future__ import annotations
 
 import itertools
-import os
 from collections.abc import Iterable, Iterator
 
 from tqdm import tqdm
 
+from turkic_translit import _test_hooks
 from turkic_translit.corpus.drivers import stream_source
 from turkic_translit.corpus.run import normalize_line
 from turkic_translit.corpus.sources import get_source_spec
@@ -57,7 +57,7 @@ class DatasetStream(Iterable[str]):
             CorpusStreamError: If the source's host cannot be read.
         """
         spec = get_source_spec(self.source)
-        fragments = stream_source(spec, self.lang, os.getenv("HF_TOKEN"))
+        fragments = stream_source(spec, self.lang, _test_hooks.environment.get("HF_TOKEN"))
         lines = (line for line in map(normalize_line, fragments) if line != "")
         capped = lines if self.max_sent is None else itertools.islice(lines, self.max_sent)
         yield from tqdm(

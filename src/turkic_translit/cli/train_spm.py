@@ -17,13 +17,12 @@ from __future__ import annotations
 
 import hashlib
 import json
-import os
 import tempfile
 from pathlib import Path
 
 import click
-import sentencepiece as spm
 
+from turkic_translit import _test_hooks
 from turkic_translit.corpus.filtering import LidFilterRequest
 from turkic_translit.corpus.manifest import (
     CorpusRunManifest,
@@ -32,6 +31,7 @@ from turkic_translit.corpus.manifest import (
 from turkic_translit.corpus.run import download_corpus
 from turkic_translit.corpus.sources import known_source_ids
 from turkic_translit.lid.registry import known_model_ids
+from turkic_translit.tokenizer import sentencepiece_trainer
 
 DEFAULT_SOURCE: str = "oscar-2301"
 DEFAULT_THRESHOLD: float = 0.95
@@ -83,7 +83,7 @@ def gather_corpora(
         Each corpus path paired with the manifest describing its run.
     """
     gathered: list[tuple[Path, CorpusRunManifest]] = []
-    token = os.getenv("HF_TOKEN")
+    token = _test_hooks.environment.get("HF_TOKEN")
     for language in languages:
         lid_filter = (
             None
@@ -279,7 +279,7 @@ def main(
             input_sentence_size,
         )
         click.echo("Training SentencePiece; this may take a while.")
-        spm.SentencePieceTrainer.train(**trainer_arguments)
+        sentencepiece_trainer().train(**trainer_arguments)
         model_path = Path(f"{model_prefix}.model")
         click.secho(f"Model at {model_path}", fg="green")
 

@@ -11,12 +11,21 @@ license: apache-2.0
 short_description: Transliteration of Turkic languages into Latin and IPA
 ---
 
-# turkic_transliterate
+# Turkic Transliteration
+
+*(The YAML block above is Hugging Face Space configuration — this repo doubles as
+the deployment source for the live demo.)*
+
+**Try it:** <https://huggingface.co/spaces/AustinWagner/turkic-transliteration-demo>
 
 Deterministic Latin and IPA transliteration for Turkic languages, plus helper
 utilities for corpus building, tokenizer/LM training, and Russian-token
-filtering. Languages are discovered dynamically from rule files in
-`src/turkic_translit/rules/`, so support grows by adding a `.rules` file.
+filtering.
+
+The design decision worth noting: **languages are discovered dynamically from
+rule files** in `src/turkic_translit/rules/`, so adding a language means adding a
+`.rules` file — no code change, and the CLI, the library API and the web demo all
+pick it up at once.
 
 **Supported languages** (verified by the test suite): Azerbaijani, Finnish,
 Kazakh, Kyrgyz, Turkish, Uyghur, and Uzbek (both Cyrillic and Latin input).

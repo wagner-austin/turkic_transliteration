@@ -4,21 +4,35 @@ import os
 import tempfile
 from collections.abc import Iterator
 from contextlib import contextmanager
-from importlib.abc import Traversable
+from dataclasses import dataclass
 from pathlib import Path
 from typing import IO, Literal
 
-import icu
-import panphon
 import pytest
-import sentencepiece as spm
-from panphon import featuretable
 
+from tests.foreign import (
+    ResourceDirectory,
+    icu_transliterator_factory,
+    panphon_feature_table,
+    replace_panphon_resource_locator,
+)
 from turkic_translit.core import to_ipa
 from turkic_translit.lid.factory import load_installed_classifier
 from turkic_translit.lid.locations import default_search_dirs
 from turkic_translit.lid.registry import find_model_path
+from turkic_translit.tokenizer import sentencepiece_processor, sentencepiece_trainer
 from turkic_translit.web.web_utils import LANGUAGE_MODEL_ID, train_sentencepiece_model
+
+
+@dataclass(frozen=True)
+class UploadedFile:
+    """A file chosen in the browser, as the trainer reads it.
+
+    Args:
+        name: Path to the uploaded file's contents on disk.
+    """
+
+    name: str
 
 
 @contextmanager
@@ -48,7 +62,7 @@ def _panphon_utf8_resources() -> Iterator[None]:
             inner: The traversable being wrapped.
         """
 
-        def __init__(self, inner: Traversable) -> None:
+        def __init__(self, inner: ResourceDirectory) -> None:
             """Store the traversable this one delegates to."""
             self._inner = inner
 
@@ -76,12 +90,22 @@ def _panphon_utf8_resources() -> Iterator[None]:
             stream: IO[str] = self._inner.open(mode, encoding=encoding)
             return stream
 
-    real_files = featuretable.files
-    featuretable.files = lambda package: _Utf8Traversable(real_files(package))
+    def utf8_files(package: str) -> ResourceDirectory:
+        """Locate a package's data files, opening them as UTF-8.
+
+        Args:
+            package: Dotted name of the package to read from.
+
+        Returns:
+            The wrapped traversable.
+        """
+        return _Utf8Traversable(real_files(package))
+
+    real_files = replace_panphon_resource_locator(utf8_files)
     try:
         yield
     finally:
-        featuretable.files = real_files
+        replace_panphon_resource_locator(real_files)
 
 
 # 1. Test PyICU transliteration
@@ -92,7 +116,7 @@ def test_icu_transliteration() -> None:
     that letter is checked as a set while the rest of the word is
     pinned exactly.
     """
-    result = icu.Transliterator.createInstance("Any-Latin; NFC").transliterate("Ғылым")
+    result = icu_transliterator_factory()("Any-Latin; NFC").transliterate("Ғылым")
 
     assert result[1:] == "ylym"
     assert result[0] in {"G", "Ğ", "Ġ"}, f"ICU result: {result}"
@@ -107,8 +131,7 @@ def test_epitran_panphon_ipa() -> None:
     test_word = "Ғылым"  # "Knowledge" in Kazakh
     ipa = to_ipa(test_word, "kk")
     with _panphon_utf8_resources():
-        ft = panphon.FeatureTable()
-        vec = ft.word_to_vector_list(ipa)
+        vec = panphon_feature_table().word_to_vector_list(ipa)
 
     # Print for inspection during test runs
     print(f"\nTest word: {test_word}")
@@ -154,7 +177,7 @@ def test_sentencepiece_roundtrip() -> None:
     try:
         # Train with the exact vocab size needed for this corpus (33)
         # This value was determined from the error message
-        spm.SentencePieceTrainer.train(
+        sentencepiece_trainer().train(
             input=temp_path,
             model_prefix="mini",
             vocab_size=33,  # Exactly what SentencePiece can handle with this corpus
@@ -164,16 +187,9 @@ def test_sentencepiece_roundtrip() -> None:
 
         # Test encoding and decoding
         sample = samples[0]
-        try:
-            # Try newer SentencePiece API
-            proc = spm.SentencePieceProcessor()
-            proc.load(model_file)
-        except (TypeError, AttributeError):
-            # Fallback for older versions
-            proc = spm.SentencePieceProcessor(model_file=model_file)
-
-        ids = proc.encode(sample, out_type=int)
-        decoded = proc.decode(ids)
+        proc = sentencepiece_processor(model_file)
+        pieces = proc.encode(sample, out_type=str)
+        decoded = proc.decode(pieces)
 
         # The round trip is the assertion: it can only hold if encode
         # produced a usable id sequence.
@@ -232,14 +248,9 @@ def test_web_sentencepiece_training() -> None:
         test_file.write("тестовый текст\nбіз қазақша сөйлейміз\nкыргызча сүйлөйбүз")
         test_path = test_file.name
 
-    # Convert to an object similar to what Gradio provides
-    class MockFileObject:
-        name: str
-
-        def __init__(self, path: str) -> None:
-            self.name = path
-
-    test_file_obj = MockFileObject(test_path)
+    # The upload as Gradio hands it over: an object carrying the path it
+    # wrote the contents to, which is all the trainer reads.
+    test_file_obj = UploadedFile(test_path)
 
     try:
         # Train using both text content and file upload
@@ -262,13 +273,12 @@ def test_web_sentencepiece_training() -> None:
         assert "unigram" in info
 
         # Verify the model works by loading it and using it
-        proc = spm.SentencePieceProcessor()
-        proc.load(model_path)
+        proc = sentencepiece_processor(model_path)
 
         # Test encoding/decoding
         test_phrase = "менің атым Айдар"
-        ids = proc.encode(test_phrase, out_type=int)
-        decoded = proc.decode(ids)
+        pieces = proc.encode(test_phrase, out_type=str)
+        decoded = proc.decode(pieces)
 
         assert decoded == test_phrase
 

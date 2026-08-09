@@ -19,10 +19,9 @@ dependencies, so imports never need to be guarded.
 
 from __future__ import annotations
 
-import os
-
 import click
 
+from .. import _test_hooks
 from ..error_service import init_error_service, set_correlation_id
 from ..logging_config import setup as _log_setup
 from .build_spm import main as _build_spm
@@ -46,15 +45,13 @@ def main(log_level: str) -> None:
     """Turkic-Transliterate command-line tools.
 
     Args:
-        log_level: Value of ``--log-level``; written to the
-            ``TURKIC_LOG_LEVEL`` environment variable and consumed by
-            the logging setup routine so every subcommand inherits the
-            same level.
+        log_level: Value of ``--log-level``; passed straight to the
+            logging setup routine, which configures the root logger, so
+            every subcommand inherits the same level.
     """
-    os.environ["TURKIC_LOG_LEVEL"] = log_level.upper()
-    _log_setup()
+    _log_setup(log_level.upper())
     init_error_service()
-    set_correlation_id(os.getenv("TURKIC_CORRELATION_ID"))
+    set_correlation_id(_test_hooks.environment.get("TURKIC_CORRELATION_ID"))
 
 
 main.add_command(_translit, "translit")

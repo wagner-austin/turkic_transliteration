@@ -8,7 +8,12 @@ name = "turkic-translit"
 version = "0.3.9"
 description = "Deterministic Latin and IPA transliteration for Kazakh, Kyrgyz, Uzbek, Turkish, Azerbaijani, Uyghur, Finnish, plus tokenizer/glue scripts."
 authors = [ {name="Austin Wagner", email="austinwagner@msn.com"} ]
-requires-python = ">=3.9"
+# 3.10 is the real floor, and was already the floor everywhere except
+# here: the classifiers below advertise 3.10 and 3.11, and
+# turkic-pyicu-install refuses any interpreter outside cp310-cp313
+# because no PyICU wheel is built for one. Declaring 3.9 promised an
+# install that could not have worked.
+requires-python = ">=3.10"
 readme = "README.md"
 license = "MIT"
 keywords = ["kazakh", "kyrgyz", "transliteration", "ipa"]
@@ -32,7 +37,6 @@ dependencies = [
     # opposite sides, and both were present here.
     "click>=8.1",
     "datasets (>=3.6.0,<4.0.0)",
-    "evaluate>=0.4",                # perplexity metric in lm/eval.py
     # Universal fasttext-wheel for all platforms and Python 3.10-3.13. It is
     # the only build with Windows wheels; the numpy-2 forks publish none, so
     # swapping the dependency would cost every Windows user a C++ toolchain.
@@ -41,7 +45,15 @@ dependencies = [
     # numpy<2. Nothing here calls that wrapper any more: the LID adapter goes
     # straight to the native predictor, which returns plain tuples.
     "fasttext-wheel==0.9.2",
-    "gradio>=4.0",
+    # 6.0 or newer for two reasons. Its gradio_client reaches websockets
+    # through `websockets.asyncio` rather than `websockets.legacy`, which
+    # has warned on import since websockets 14. And 5.x warns about three
+    # parameters it removes in 6.0 — the Blocks theme, a Textbox's copy
+    # button, and an event listener's show_api — while providing none of
+    # the replacements, so no code written against 5.x can be free of
+    # those warnings. Both are what stopped this project from treating a
+    # warning as an error.
+    "gradio>=6.0,<7",
     "numpy>=1.26",
     "pandas",
     # PyICU produces every transliteration and every IPA string: to_ipa and
@@ -55,7 +67,6 @@ dependencies = [
     "PyYAML>=6.0",                  # reads the corpus source registry at import
     "rapidfuzz>=3.5",
     "rich>=13.7",                   # colour-aware logging and console output
-    "scikit-learn>=1.4",            # cosine similarity in lm/similarity.py
     "sentencepiece>=0.2.0",
     # pandas ships tabulate only under its output-formatting extra, and
     # web_utils.token_table_markdown calls DataFrame.to_markdown directly.
@@ -100,9 +111,18 @@ dev = [
     "make>=0.1.6",         # Make command for Windows
     "types-PyYAML>=6.0",   # Type stubs for the corpus source registry loader
     "pandas-stubs>=2.0",   # Type stubs for the web UI's token table
+    "types-tqdm>=4.66",    # Type stubs for the corpus and encoding progress bars
     # 0.21.x imports pkg_resources, which setuptools 81 removed, so the
     # module cannot be imported at all below 0.22.
     "panphon>=0.22,<0.23",  # Phonological features; only tests/test_verification.py
+    # The optional error-reporting backend. Declared here as well as in
+    # [sentry] so the reporter that production binds is exercised for
+    # real rather than only through the protocol it satisfies.
+    "sentry-sdk>=2.0",
+    # transformers reads a SentencePiece-backed tokenizer's model through
+    # protobuf. Only tests/tiny_model.py builds one, to exercise the
+    # shared-vocabulary override in lm/tokenizer.py.
+    "protobuf>=4.0",
 ]
 
 [project.scripts]
@@ -148,37 +168,16 @@ files = ["src", "tests", "scripts"]
 mypy_path = ["src"]
 explicit_package_bases = true
 
-# Third-party libraries that ship no stubs and no py.typed marker. Scoped
-# per module rather than blanket-disabled, so a newly-untyped import fails
-# the build instead of being silently absorbed. No `# type: ignore` is used
-# anywhere in the tree; this is the config-level equivalent, narrowed to the
-# exact modules that lack type information upstream.
-[[tool.mypy.overrides]]
-module = [
-    "icu", "icu.*",
-    "fasttext", "fasttext.*",
-    "sentencepiece",
-    "datasets", "datasets.*",
-    "sentry_sdk", "sentry_sdk.*",
-    "panphon", "panphon.*",
-    "sklearn", "sklearn.*",
-    "evaluate",
-    "tqdm", "tqdm.*",
-]
-ignore_missing_imports = true
-
-# transformers ships a py.typed marker but leaves much of its public API
-# unannotated, so strict mode rejects every call into it. Rather than
-# relax the flag globally, it is relaxed only in the two modules whose
-# job is to wrap that library; everything they hand back to the rest of
-# the project is annotated at the boundary and checked as normal.
-[[tool.mypy.overrides]]
-module = ["turkic_translit.lm.tokenizer", "turkic_translit.lm.train"]
-disallow_untyped_calls = false
+# There are no [[tool.mypy.overrides]] blocks, and there will not be one.
+# A library that ships no stubs is reached through __import__ and bound to
+# a Protocol that states the part of it this project uses; a library whose
+# public API is unannotated is reached the same way. Both are in
+# _test_hooks modules, so the untyped surface stops at a named boundary
+# instead of being absorbed by configuration nobody reads.
 
 [tool.ruff]
 line-length = 100
-target-version = "py39"
+target-version = "py310"
 src = ["src", "tests", "scripts"]
 exclude = [".venv", "vendor", "dist", "tmp"]
 
@@ -219,17 +218,20 @@ mypy-init-return = true
 [tool.ruff.lint.isort]
 known-first-party = ["turkic_translit", "scripts"]
 
-[tool.ruff.lint.per-file-ignores]
-"__init__.py" = ["F401"]
-# Protocols that mirror a C or C++ binding have to spell its method names
-# exactly. Those names are not ours to choose, and an inline noqa would
-# put the exception where nobody reviews it.
-"src/turkic_translit/core.py" = ["N802"]
-"src/turkic_translit/lid/_test_hooks.py" = ["N802"]
+# There are no [tool.ruff.lint.per-file-ignores], and there will not be
+# one. A re-export is spelled `from x import y as y` so it is a re-export
+# rather than an unused import, and a Protocol never spells a foreign
+# binding's method name: the bound method is taken with getattr and
+# annotated as a callable Protocol, which needs no name of its own.
 
 [tool.coverage.run]
 source = ["src", "scripts"]
 branch = true
+# Child processes write their own data file and are combined in. Needed
+# because several tests spawn the real console scripts, and measuring
+# only the parent would report that code as untested.
+parallel = true
+sigterm = true
 
 [tool.coverage.report]
 precision = 2
@@ -241,7 +243,42 @@ pythonpath = ["."]
 testpaths = ["tests"]
 addopts = "-v -n auto --dist loadscope"
 markers = ["network: tests that hit external sites"]
+# A warning fails the run. The previous setting ignored every
+# DeprecationWarning in the tree, which hid this project's own
+# deprecations along with its dependencies' — and it was hiding three
+# real ones, all now fixed: gradio's theme and stylesheet moved from the
+# Blocks constructor to launch(), and a Textbox's copy button became an
+# entry in `buttons`.
+#
+# Four lines follow `error`, covering two upstream defects that cannot
+# be fixed here.
+#
+# Building a Gradio interface leaves an asyncio event loop unclosed, and
+# on Windows that loop's self-pipe is a socket pair. The loop belongs to
+# Gradio and lives as long as the interface does. ResourceWarning is
+# silenced as a category rather than by message because it is raised by
+# the garbage collector, so it lands in whichever test happens to
+# trigger a collection — a leak in one module failed an unrelated ICU
+# test. pytest re-raises the same event as its own unraisable warning,
+# which is why both appear.
+#
+# Serving an interface makes uvicorn drive websockets through its pre-14
+# API, which warns on import and again per connection. These two are
+# scoped to the modules that raise them rather than to a message,
+# because the set of messages is upstream's to change. They must be
+# ignored rather than merely tolerated: raised inside the server thread,
+# an error kills that thread, so the server never binds and every test
+# that serves fails with a misleading "cannot find empty port". Turning
+# a warning into an error changes what third-party threads do, which is
+# the one place this setting cannot be applied blindly.
+#
+# Every other warning still fails, including any raised by this project.
+# DeprecationWarning outside those two modules is what this setting is
+# for, and it is what caught the three Gradio 6 changes fixed above.
 filterwarnings = [
-    "ignore::DeprecationWarning",
-    "ignore:pkg_resources is deprecated as an API:UserWarning",
+    "error",
+    "ignore::ResourceWarning",
+    "ignore::pytest.PytestUnraisableExceptionWarning",
+    "ignore::DeprecationWarning:websockets.*",
+    "ignore::DeprecationWarning:uvicorn.*",
 ]

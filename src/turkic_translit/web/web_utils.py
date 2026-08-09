@@ -8,15 +8,21 @@ import re
 import tempfile
 import threading
 import time
+from collections.abc import Callable
 from pathlib import Path
-from typing import TYPE_CHECKING, Protocol
+from typing import Protocol
 
 import gradio as gr
 import pandas as pd
 
 from turkic_translit.lang_utils import pretty_lang
-from turkic_translit.tokenizer import default_model_path
+from turkic_translit.tokenizer import (
+    MODEL_PATH_VARIABLE,
+    default_model_path,
+    sentencepiece_trainer,
+)
 
+from .. import _test_hooks
 from ..error_service import (
     error_markdown,
     error_response,
@@ -26,6 +32,7 @@ from ..error_service import (
 from ..lang_filter import is_russian_token
 from ..lid.errors import LidError
 from ..lid.factory import load_installed_classifier
+from ..pipeline import TurkicTransliterationPipeline
 
 log = logging.getLogger(__name__)
 
@@ -34,11 +41,27 @@ _ANSI = re.compile(r"\x1b\[[0-9;]*m")
 # How often, in lines kept, the progress bar is updated.
 _PROGRESS_EVERY = 10
 
+# How long a temporary download survives, and how long the janitor waits
+# between sweeps.
+JANITOR_INTERVAL_SECONDS = 600
+
 
 class NamedFile(Protocol):
-    """A Gradio file upload, which this module only reads a path from."""
+    """A Gradio file upload, which this module only reads a path from.
 
-    name: str
+    The path is declared read-only because that is all this module does
+    with it. A mutable attribute would exclude any immutable stand-in
+    while granting a capability nothing here uses.
+    """
+
+    @property
+    def name(self) -> str:
+        """Return the path the upload's contents were written to.
+
+        Returns:
+            An absolute path on the local filesystem.
+        """
+        ...
 
 
 class ProgressReporter(Protocol):
@@ -72,10 +95,24 @@ class SilentProgress:
         """
 
 
-# Directory for temporary corpus downloads – excluded from VCS via .gitignore
+def download_dir() -> Path:
+    """Return the directory temporary corpus downloads are written to.
 
-_CRON_DIR = Path(os.getenv("TURKIC_CRON_DIR", Path.cwd() / "cronjob"))
-_CRON_DIR.mkdir(parents=True, exist_ok=True)
+    Resolved on each call rather than at import, so nothing is created as
+    a side effect of importing this module and a test can point the
+    directory somewhere disposable without touching the process.
+
+    Args:
+        None.
+
+    Returns:
+        The directory named by ``TURKIC_CRON_DIR``, or ``cronjob`` under
+        the working directory. It is created if it does not yet exist.
+    """
+    configured = _test_hooks.environment.get("TURKIC_CRON_DIR")
+    directory = Path(configured) if configured else Path.cwd() / "cronjob"
+    directory.mkdir(parents=True, exist_ok=True)
+    return directory
 
 
 def purge_expired_downloads(max_age_sec: int) -> int:
@@ -94,40 +131,103 @@ def purge_expired_downloads(max_age_sec: int) -> int:
     """
     cutoff = time.time() - max_age_sec
     removed = 0
-    for entry in _CRON_DIR.glob("*"):
+    for entry in download_dir().glob("*"):
         if entry.is_file() and entry.stat().st_mtime < cutoff:
             entry.unlink(missing_ok=True)
             removed += 1
     return removed
 
 
-def _start_janitor(max_age_sec: int = 600) -> None:
-    """Start the background thread that purges temporary downloads.
+def sweep_once(max_age_sec: int) -> int:
+    """Purge expired downloads, reporting a filesystem error rather than
+    letting it end the sweeping thread.
+
+    This is the only place an exception is absorbed in this module, and
+    the reason is that the caller is a daemon serving a long-lived UI: a
+    single file held open by the browser must not stop every later
+    sweep. The failure is logged with its traceback, not discarded.
+
+    Args:
+        max_age_sec: Age beyond which a download is removed.
+
+    Returns:
+        The number of files deleted, or zero when the sweep failed.
+    """
+    try:
+        return purge_expired_downloads(max_age_sec)
+    except OSError:
+        log.exception("janitor sweep failed")
+        return 0
+
+
+def forever() -> bool:
+    """Report that the janitor should keep sweeping.
+
+    Returns:
+        True, always. This is the loop condition a real run uses; a test
+        supplies one that stops.
+    """
+    return True
+
+
+def run_janitor(max_age_sec: int, running: Callable[[], bool]) -> int:
+    """Sweep expired downloads until the loop condition says to stop.
 
     Args:
         max_age_sec: Age beyond which a download is removed, and the
             interval between sweeps.
+        running: Consulted before each sweep. A real run passes
+            :func:`forever`.
+
+    Returns:
+        The number of sweeps performed.
     """
-
-    def _janitor() -> None:
-        """Sweep expired downloads forever, reporting and continuing."""
-        while True:
-            try:
-                purge_expired_downloads(max_age_sec)
-            except OSError:
-                # The thread is a daemon serving a long-lived UI: it logs
-                # and keeps sweeping rather than dying on one bad file.
-                log.exception("janitor sweep failed")
-            time.sleep(max_age_sec)
-
-    threading.Thread(target=_janitor, daemon=True, name="cron-janitor").start()
+    sweeps = 0
+    while running():
+        sweep_once(max_age_sec)
+        sweeps += 1
+        _test_hooks.clock.sleep(max_age_sec)
+    return sweeps
 
 
-_start_janitor()
+def start_janitor(
+    max_age_sec: int = JANITOR_INTERVAL_SECONDS,
+    running: Callable[[], bool] = forever,
+) -> threading.Thread:
+    """Start the background thread that purges temporary downloads.
+
+    Started by the application rather than by importing this module.
+    Sweeping on import meant every process that touched a web helper —
+    including every test run — spawned a thread and created a download
+    directory wherever it happened to be running.
+
+    Args:
+        max_age_sec: Age beyond which a download is removed, and the
+            interval between sweeps.
+        running: Loop condition, defaulting to sweeping indefinitely.
+
+    Returns:
+        The started daemon thread.
+    """
+    thread = threading.Thread(
+        target=run_janitor,
+        args=(max_age_sec, running),
+        daemon=True,
+        name="cron-janitor",
+    )
+    thread.start()
+    return thread
 
 
 def labelise(codes: list[str]) -> list[tuple[str, str]]:
-    """Return (label, value) pairs for Gradio dropdown from ISO codes."""
+    """Pair each language code with the name a dropdown should show.
+
+    Args:
+        codes: ISO language codes, in the order to offer them.
+
+    Returns:
+        Label and value pairs, in the same order.
+    """
     return [(pretty_lang(c), c) for c in codes]
 
 
@@ -135,13 +235,24 @@ class GradioLogHandler(logging.Handler):
     """Buffers log records so UI callbacks can flush them into the browser."""
 
     def __init__(self) -> None:
+        """Start with an empty buffer."""
         super().__init__()
         self.buffer: list[str] = []
 
     def emit(self, record: logging.LogRecord) -> None:
+        """Add one formatted record to the buffer.
+
+        Args:
+            record: The record being logged.
+        """
         self.buffer.append(self.format(record))
 
     def dump(self) -> str:
+        """Take everything buffered so far, leaving the buffer empty.
+
+        Returns:
+            The buffered records as one newline-separated block.
+        """
         out, self.buffer = "\n".join(self.buffer), []
         return out
 
@@ -155,6 +266,15 @@ class UiPrettyLogFilter(logging.Filter):
     )
 
     def filter(self, record: logging.LogRecord) -> bool:
+        """Decide whether a record belongs in the browser's log.
+
+        Args:
+            record: The record being logged.
+
+        Returns:
+            False for the housekeeping messages that would bury the ones
+            a user is actually watching for.
+        """
         msg = record.getMessage()
         return not any(p in msg for p in self._SKIP_PHRASES)
 
@@ -163,7 +283,12 @@ _UI_LOG_HANDLER: GradioLogHandler | None = None
 
 
 def get_ui_log_handler() -> GradioLogHandler:
-    """Return shared UI log handler attached to the package logger."""
+    """Return the shared handler that feeds the browser's log panel.
+
+    Returns:
+        The handler, attached to the project logger on first call and
+        reused afterwards so records are buffered in one place.
+    """
     global _UI_LOG_HANDLER
     if _UI_LOG_HANDLER is None:
         h = GradioLogHandler()
@@ -174,33 +299,46 @@ def get_ui_log_handler() -> GradioLogHandler:
     return _UI_LOG_HANDLER
 
 
-if TYPE_CHECKING:  # for static checkers only
-    from ..pipeline import TurkicTransliterationPipeline  # Import from main package
-
-
 def _make_pipeline() -> TurkicTransliterationPipeline:
-    from ..pipeline import TurkicTransliterationPipeline  # Import from main package
+    """Build the pipeline the transliteration helpers share.
 
+    Returns:
+        A pipeline over the default language-identification model.
+    """
     log.info("Instantiating TurkicTransliterationPipeline singleton")
     return TurkicTransliterationPipeline()
 
 
 _lazy_pipeline = functools.lru_cache(maxsize=1)(_make_pipeline)
 
-# Create a singleton for the language ID model. The model is named
-# explicitly; there is no preference order to drift.
+# The language-identification model is named explicitly; there is no
+# preference order to drift. Loading it costs a 126 MB read, so the
+# result is held for the life of the process. The cache is public
+# because it is the reason a rebound loader hook would otherwise go
+# unnoticed: whoever rebinds the hook clears this.
 LANGUAGE_MODEL_ID = "lid.176"
-_langid_singleton = functools.lru_cache(maxsize=1)(load_installed_classifier)
+installed_classifier = functools.lru_cache(maxsize=1)(load_installed_classifier)
 
 
 def direct_transliterate(
     text: str, lang: str, include_arabic: bool, out_fmt: str
 ) -> tuple[str, str]:
-    """
-    Transliterate text directly to Latin or IPA.
-    Usage: direct_transliterate('сәлем', 'kk', False, 'latin')
-    Returns: (result, stats_markdown)
-    Raises: ValueError if out_fmt is invalid.
+    """Transliterate text to Latin or IPA with the language's rules.
+
+    Args:
+        text: Input in the language's native orthography.
+        lang: ISO 639-1 language code.
+        include_arabic: Whether to fold Arabic-script tokens to Latin
+            before applying the target rules.
+        out_fmt: ``latin`` or ``ipa``, in any casing.
+
+    Returns:
+        The transliteration and a Markdown line reporting the input and
+        output sizes in bytes.
+
+    Raises:
+        ValueError: If the format is neither ``latin`` nor ``ipa``, or
+            the language has no rules for the one requested.
     """
     from ..core import to_ipa, to_latin  # Import from main package
 
@@ -220,11 +358,22 @@ def direct_transliterate(
 
 
 def pipeline_transliterate(text: str, mode: str) -> tuple[str, str]:
-    """
-    Transliterate text using the pipeline (mode: 'latin' or 'ipa').
-    Usage: pipeline_transliterate('сәлем', 'ipa')
-    Returns: (result, stats_markdown)
-    Raises: ValueError if mode is invalid (passed to pipeline).
+    """Transliterate text through the tokenising pipeline.
+
+    Unlike :func:`direct_transliterate`, this splits the text into
+    tokens and identifies each one's language first, so mixed-language
+    input is transliterated by the rules of the language each token is
+    actually in.
+
+    Args:
+        text: Input text, which may mix languages.
+        mode: ``latin`` or ``ipa``, in any casing.
+
+    Returns:
+        The transliteration and a Markdown line reporting its length.
+
+    Raises:
+        ValueError: If the mode is neither ``latin`` nor ``ipa``.
     """
     # Correlation for this user action
     set_correlation_id()
@@ -258,9 +407,9 @@ def token_table_markdown(text: str) -> str:
     if not default_model_path().is_file():
         return (
             "**⚠️ Tokenizer model file missing**\n\n"
-            f"`{default_model_path().name}` is required for tokenization.\n"
-            "Train one with the `turkic-build-spm` command and place it in "
-            "the package directory."
+            f"`{default_model_path()}` is required for tokenization.\n"
+            "Train one with the `turkic-build-spm` command, then point "
+            f"`{MODEL_PATH_VARIABLE}` at it."
         )
 
     pipeline = _lazy_pipeline()
@@ -290,7 +439,7 @@ def mask_russian(
     set_request_context(action="mask_russian", thr=thr, min_len=min_len)
 
     try:
-        lid = _langid_singleton(LANGUAGE_MODEL_ID)
+        lid = installed_classifier(LANGUAGE_MODEL_ID)
     except LidError as exc:
         log.warning("language-identification model unavailable: %s", exc)
         return (
@@ -324,12 +473,22 @@ def mask_russian(
 
 
 def median_levenshtein(file_lat: NamedFile, file_ipa: NamedFile, sample: int | None = None) -> str:
-    """
-    Compute median Levenshtein distance between two files (accepts any objects with .name attribute).
-    Usage: median_levenshtein(NamedTuple('F', [('name', str)])('lat.txt'), NamedTuple('F', [('name', str)])('ipa.txt'))
-    Returns: formatted string prefixed with 'Median distance: ...'.
-    Example: 'Median distance: 0.1234'
-    Raises: ValueError if file objects are missing .name.
+    """Report the median edit distance between two aligned files.
+
+    Args:
+        file_lat: Upload holding the Latin transliteration, one line per
+            sentence.
+        file_ipa: Upload holding the IPA transliteration, aligned line
+            for line with ``file_lat``.
+        sample: Lines to compare, or ``None`` to use the default cap.
+
+    Returns:
+        The distance rendered as ``Median distance: 0.1234``.
+
+    Raises:
+        ValueError: If either upload names no path, which means the
+            browser sent a file reference the UI never wrote.
+        OSError: If either path cannot be read.
     """
     # Correlation for this user action
     set_correlation_id()
@@ -337,14 +496,12 @@ def median_levenshtein(file_lat: NamedFile, file_ipa: NamedFile, sample: int | N
 
     from .. import sanity  # Import from main package, not web subpackage
 
-    lat_path = getattr(file_lat, "name", None)
-    ipa_path = getattr(file_ipa, "name", None)
-    if not lat_path or not ipa_path:
+    if file_lat.name == "" or file_ipa.name == "":
         raise ValueError("Both file_lat and file_ipa must have a .name attribute")
     if sample is not None:
-        value = sanity.median_lev(lat_path, ipa_path, sample=sample)
+        value = sanity.median_lev(file_lat.name, file_ipa.name, sample=sample)
     else:
-        value = sanity.median_lev(lat_path, ipa_path)
+        value = sanity.median_lev(file_lat.name, file_ipa.name)
     return f"Median distance: {value:.4f}"
 
 
@@ -416,11 +573,31 @@ def download_corpus_to_file(
     *,
     progress: gr.Progress | None = None,  # injected by Gradio
 ) -> tuple[str, str]:
-    """
-    Stream sentences from *source*/*lang* into a temporary UTF-8 file.
+    """Stream a corpus into a file the browser can download.
 
-    Returns a pair *(file_path, markdown_info)* so the caller can both expose
-    the file for download **and** show a summary message.
+    Args:
+        source: Registry key of the corpus source.
+        lang: Language code within that source.
+        max_lines: Stop after this many lines are kept, or ``None`` to
+            read the source to exhaustion.
+        filter_langid: Whether to keep only lines the classifier assigns
+            to ``lang``.
+        prob_threshold: Minimum probability a line must reach to be kept
+            when filtering.
+        progress: Gradio's progress reporter, or ``None`` to report
+            nowhere, which is what a caller outside the web UI wants.
+
+    Returns:
+        The path written and a Markdown summary of the run. An
+        unregistered source returns an empty path and an error payload
+        rendered as Markdown, because the caller displays this rather
+        than handling an exception.
+
+    Raises:
+        CorpusError: If the source is registered but cannot be read.
+        LidError: If filtering was asked for and the classifier's
+            weights are missing or unreadable.
+        OSError: If the output file cannot be written.
     """
     import logging
     from pathlib import Path
@@ -447,21 +624,24 @@ def download_corpus_to_file(
 
     # Drivers no longer filter; they yield raw fragments and this function
     # applies its own threshold-aware filter below.
-    base_iter = stream_source(SOURCE_REGISTRY[source], lang, os.getenv("HF_TOKEN"))
+    base_iter = stream_source(
+        SOURCE_REGISTRY[source], lang, _test_hooks.environment.get("HF_TOKEN")
+    )
 
     progress_fn: ProgressReporter = SilentProgress() if progress is None else progress
 
     # Initial tick so the UI shows the bar immediately
     progress_fn(0, desc="starting stream")
 
-    model = _langid_singleton(LANGUAGE_MODEL_ID) if filter_langid else None
+    model = installed_classifier(LANGUAGE_MODEL_ID) if filter_langid else None
 
     # Counters
     i = 0  # lines written
     removed = 0
     total_processed = 0
 
-    with open(_CRON_DIR / f"{source}_{lang}_{int(time.time())}.txt", "w", encoding="utf8") as tmp:
+    target = download_dir() / f"{source}_{lang}_{int(time.time())}.txt"
+    with open(target, "w", encoding="utf8") as tmp:
         tmp_path = tmp.name  # capture early so it is available after context closes
         logger.info(f"Starting to process sentences (max_lines={max_lines})...")
         # Ensure *i* is defined even when the iterator is empty
@@ -535,15 +715,7 @@ def train_sentencepiece_model(
 
     Raises:
         ValueError: If neither input_text nor training_file is provided
-        ImportError: If sentencepiece is not installed
     """
-    try:
-        import sentencepiece as spm
-    except ImportError as err:
-        raise ImportError(
-            "SentencePiece is required for model training. Please install with: pip install sentencepiece"
-        ) from err
-
     if not input_text.strip() and not training_file:
         raise ValueError("Either input text or training file must be provided")
 
@@ -561,19 +733,17 @@ def train_sentencepiece_model(
                 f.write(input_text.strip() + "\n")
             input_files.append(str(training_data_path))
 
-        # If a file was uploaded, use its path directly for SentencePiece training
-        # This avoids loading large files into memory
-        if training_file:
-            file_path = getattr(training_file, "name", None)
-            if file_path:
-                input_files.append(file_path)
+        # If a file was uploaded, use its path directly for SentencePiece
+        # training, which avoids loading large files into memory.
+        if training_file is not None and training_file.name != "":
+            input_files.append(training_file.name)
 
         # Parse user symbols
         user_symbols_list = [s.strip() for s in user_symbols.split(",") if s.strip()]
 
         # Train the model with all input files
         # This approach is more memory-efficient for large files
-        spm.SentencePieceTrainer.train(
+        sentencepiece_trainer().train(
             input=",".join(input_files),  # SentencePiece accepts comma-separated file paths
             model_prefix=str(model_prefix),
             vocab_size=vocab_size,

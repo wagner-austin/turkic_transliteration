@@ -16,6 +16,7 @@ from pathlib import Path
 import pytest
 from click.testing import CliRunner
 
+from turkic_translit import _test_hooks
 from turkic_translit.cli import download_corpus as cli_module
 from turkic_translit.corpus import _test_hooks as corpus_hooks
 from turkic_translit.corpus.catalogue import health_check_url
@@ -341,33 +342,63 @@ def test_a_source_that_cannot_be_read_reports_its_code(runner: CliRunner, tmp_pa
     assert "TURKIC_CORPUS_002_STREAM_FAILED" in result.output
 
 
-def test_the_hugging_face_token_is_read_from_the_environment(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
-) -> None:
+def test_the_hugging_face_token_is_read_from_the_environment(tmp_path: Path) -> None:
     """A gated dataset receives the token the environment carries."""
-    monkeypatch.setenv("HF_TOKEN", "secret-token")
-    original = corpus_hooks.dataset_texts
+    original_streamer = corpus_hooks.dataset_texts
+    original_environment = _test_hooks.environment
     streamer = corpus_hooks.MappingDatasetTextStreamer({"uz": ["salom dunyo"]})
     corpus_hooks.dataset_texts = streamer
+    _test_hooks.environment = _test_hooks.MappingEnvironment({"HF_TOKEN": "secret-token"})
     try:
         result = CliRunner().invoke(
             cli_module.cli,
             ["download", "--lang", "uz", "--out", str(tmp_path / "uz.txt")],
         )
     finally:
-        corpus_hooks.dataset_texts = original
+        corpus_hooks.dataset_texts = original_streamer
+        _test_hooks.environment = original_environment
 
     assert result.exit_code == 0
     assert streamer.requests == [("oscar-corpus/OSCAR-2301", "uz", "secret-token")]
 
 
-def test_the_log_level_option_reaches_the_environment(
-    runner: CliRunner, monkeypatch: pytest.MonkeyPatch
-) -> None:
-    """The group-level option configures logging for the whole invocation."""
-    monkeypatch.delenv("TURKIC_LOG_LEVEL", raising=False)
-    result = runner.invoke(cli_module.cli, ["--log-level", "debug", "list-sources"])
-    assert result.exit_code == 0
-    import os
+def test_an_ungated_dataset_is_streamed_without_a_token(tmp_path: Path) -> None:
+    """With no credential configured, none is passed to the streamer."""
+    original_streamer = corpus_hooks.dataset_texts
+    original_environment = _test_hooks.environment
+    streamer = corpus_hooks.MappingDatasetTextStreamer({"uz": ["salom dunyo"]})
+    corpus_hooks.dataset_texts = streamer
+    _test_hooks.environment = _test_hooks.MappingEnvironment({})
+    try:
+        result = CliRunner().invoke(
+            cli_module.cli,
+            ["download", "--lang", "uz", "--out", str(tmp_path / "uz.txt")],
+        )
+    finally:
+        corpus_hooks.dataset_texts = original_streamer
+        _test_hooks.environment = original_environment
 
-    assert os.environ["TURKIC_LOG_LEVEL"] == "DEBUG"
+    assert result.exit_code == 0
+    assert streamer.requests == [("oscar-corpus/OSCAR-2301", "uz", None)]
+
+
+@pytest.mark.parametrize("level", ["debug", "info", "warning", "error", "critical"])
+def test_every_log_level_the_group_offers_is_accepted(runner: CliRunner, level: str) -> None:
+    """Each documented level configures logging and runs the subcommand.
+
+    Args:
+        runner: The Click runner driving the group.
+        level: One of the levels ``--log-level`` advertises.
+    """
+    result = runner.invoke(cli_module.cli, ["--log-level", level, "list-sources"])
+
+    assert result.exit_code == 0
+    assert "oscar-2301" in result.output
+
+
+def test_a_level_the_group_does_not_offer_is_rejected(runner: CliRunner) -> None:
+    """An unlisted level fails at parse time rather than defaulting."""
+    result = runner.invoke(cli_module.cli, ["--log-level", "trace", "list-sources"])
+
+    assert result.exit_code == 2
+    assert "trace" in result.output

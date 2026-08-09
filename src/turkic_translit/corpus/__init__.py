@@ -86,4 +86,5 @@ __all__ = [
     "stream_source",
     "stream_wikipedia",
     "wikipedia_dump_url",
+    "write_corpus_run_manifest",
 ]

@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 import click
-import sentencepiece as spm
+
+from turkic_translit.tokenizer import sentencepiece_trainer
 
 
 @click.command()
@@ -39,9 +40,27 @@ def main(
     character_coverage: float,
     user_symbols: str,
 ) -> None:
-    """Train a SentencePiece model for Turkic transliteration."""
+    """Train a SentencePiece model for Turkic transliteration.
+
+    Args:
+        input: Comma-separated corpus files to train on.
+        model_prefix: Base path for the ``.model`` and ``.vocab`` output.
+        vocab_size: Number of pieces to learn. SentencePiece rejects a
+            size the corpus cannot support, naming the largest that fits.
+        model_type: Algorithm to use — ``unigram``, ``bpe``, ``char`` or
+            ``word``.
+        character_coverage: Fraction of the corpus's characters the
+            vocabulary must cover.
+        user_symbols: Comma-separated symbols to reserve as whole pieces,
+            such as the per-language tags this project prefixes lines
+            with.
+
+    Raises:
+        RuntimeError: If SentencePiece rejects the requested vocabulary
+            size or cannot read the corpus.
+    """
     user_symbols_list = [s.strip() for s in user_symbols.split(",") if s.strip()]
-    spm.SentencePieceTrainer.train(
+    sentencepiece_trainer().train(
         input=input,
         model_prefix=model_prefix,
         vocab_size=vocab_size,

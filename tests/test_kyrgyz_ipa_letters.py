@@ -49,4 +49,10 @@ GOLD = {
 
 @pytest.mark.parametrize(("cyr", "ipa"), GOLD.items())
 def test_kyrgyz_letter_to_ipa(cyr: str, ipa: str) -> None:
+    """Each Kyrgyz Cyrillic letter maps to its documented IPA.
+
+    Args:
+        cyr: The Cyrillic letter.
+        ipa: The IPA the rules must produce for it.
+    """
     assert to_ipa(cyr, "ky") == ipa, f"{cyr} → {to_ipa(cyr, 'ky')}, expected {ipa}"

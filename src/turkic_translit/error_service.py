@@ -12,9 +12,10 @@ from __future__ import annotations
 
 import contextvars
 import logging
-import os
 import time
 import uuid
+
+from turkic_translit import _test_hooks
 
 logger = logging.getLogger(__name__)
 
@@ -28,18 +29,40 @@ _request_ctx: contextvars.ContextVar[
 
 
 def set_correlation_id(value: str | None = None) -> str:
-    """Set correlation ID for the current context; returns the ID used."""
+    """Set the correlation ID for the current context.
+
+    Args:
+        value: Identifier to adopt. ``None`` or an empty string mints a
+            fresh one, so a caller that has nothing to propagate still
+            gets a run it can be identified by.
+
+    Returns:
+        The identifier now in force.
+    """
     cid = value or str(uuid.uuid4())
     _correlation_id.set(cid)
     return cid
 
 
 def get_correlation_id() -> str:
+    """Return the correlation ID in force for this context.
+
+    Returns:
+        The identifier, or an empty string when none was set.
+    """
     cid = _correlation_id.get("")
     return cid or ""
 
 
 def set_request_context(**fields: str | int | float | bool | None | list[str]) -> None:
+    """Add fields to the context attached to every later log record.
+
+    Fields accumulate rather than replace, so one action can describe
+    itself in stages as it learns more.
+
+    Args:
+        **fields: Values to record, by name.
+    """
     base = _request_ctx.get(None) or {}
     ctx = base.copy()
     ctx.update(fields)
@@ -47,6 +70,12 @@ def set_request_context(**fields: str | int | float | bool | None | list[str]) -
 
 
 def get_request_context() -> dict[str, str | int | float | bool | None | list[str]]:
+    """Return the context fields recorded for this action.
+
+    Returns:
+        A copy of the fields, so a caller cannot alter what later log
+        records will carry.
+    """
     ctx = _request_ctx.get(None) or {}
     return ctx.copy()
 
@@ -73,30 +102,28 @@ class CorrelationFilter(logging.Filter):
 def init_error_service() -> None:
     """Initialise the external error backend when one is configured.
 
-    Sentry being absent is the documented optional path and is reported
-    rather than swallowed. A failure inside ``init`` is a real error and
-    propagates: silently continuing would leave the caller believing
-    errors are being reported when they are not.
+    No DSN means no backend was asked for, which is the ordinary case and
+    not a failure. A DSN that is set is a request, and it is carried out
+    or it raises: the previous version caught the missing-package case
+    and warned, which left an operator who had configured reporting with
+    a log line and no reporting.
+
+    Raises:
+        ImportError: If a DSN is configured but the backend's package is
+            not installed. Install the ``sentry`` extra, or unset
+            ``TURKIC_SENTRY_DSN``.
     """
-    dsn = os.getenv("TURKIC_SENTRY_DSN")
+    dsn = _test_hooks.environment.get("TURKIC_SENTRY_DSN")
     if not dsn:
         return
-    try:
-        sentry = __import__("sentry_sdk")
-    except ImportError:
-        logger.warning(
-            "TURKIC_SENTRY_DSN is set but sentry-sdk is not installed; "
-            "install turkic-translit[sentry] to enable error reporting"
-        )
-        return
 
-    sentry.init(
+    _test_hooks.reporter.initialise(
         dsn=dsn,
-        environment=os.getenv("TURKIC_ENV", "local"),
-        traces_sample_rate=float(os.getenv("TURKIC_SENTRY_TRACES", "0")),
-        release=os.getenv("TURKIC_RELEASE"),
+        environment=_test_hooks.environment.get("TURKIC_ENV") or "local",
+        traces_sample_rate=float(_test_hooks.environment.get("TURKIC_SENTRY_TRACES") or "0"),
+        release=_test_hooks.environment.get("TURKIC_RELEASE"),
     )
-    logger.info("Sentry initialised")
+    logger.info("error reporting initialised")
 
 
 def error_response(
@@ -115,7 +142,18 @@ def error_response(
     | list[str]
     | dict[str, str | int | float | bool | None | list[str]],
 ]:
-    """Standardised error payload for UI/HTTP-style responses."""
+    """Build the error payload every UI surface reports failures with.
+
+    Args:
+        message: Human-readable description of what went wrong.
+        status: HTTP-style status code.
+        code: Stable machine-readable identifier for the failure.
+        details: Extra fields describing the failure, or ``None``.
+
+    Returns:
+        The payload, carrying the correlation ID of the run that
+        produced it so a report can be traced back to its logs.
+    """
     return {
         "timestamp": int(time.time()),
         "status": status,
@@ -138,7 +176,15 @@ def error_markdown(
         | dict[str, str | int | float | bool | None | list[str]],
     ],
 ) -> str:
-    """Render a standard error payload as Markdown for the web UI."""
+    """Render an error payload as Markdown for the web UI.
+
+    Args:
+        payload: A payload from :func:`error_response`.
+
+    Returns:
+        The Markdown block. The correlation ID and the details are
+        omitted when absent rather than rendered empty.
+    """
     cor = payload.get("correlationId") or ""
     det = payload.get("details") or {}
     lines = [

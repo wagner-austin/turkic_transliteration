@@ -12,6 +12,12 @@ data/raw_wiki/
 .pytest_cache/
 .ruff_cache/
 
+# Coverage data. The per-process files are what the subprocess measurement
+# in sitecustomize.py leaves behind before they are combined.
+.coverage
+.coverage.*
+htmlcov/
+
 # Package files
 *.whl
 *.egg-info/

@@ -1,118 +1,122 @@
 #!/usr/bin/env python
-"""
-Development Environment Setup Script
+"""Set up a development environment for this project.
 
-This script helps set up a development environment for the Turkic Transliteration package.
-It installs all required development dependencies and performs basic configuration.
+Installs the package in editable mode with its development extras,
+bootstraps PyICU on Windows where no wheel resolves automatically, and
+reports which developer tools are on PATH.
+
+Every effect this script performs and every fact it branches on — running
+a subprocess, reading from the terminal, ending the process, and what the
+interpreter is — goes through :mod:`scripts._test_hooks`. That is what
+lets the whole flow be exercised without installing anything and without
+a test reaching in to rebind an attribute.
 """
 
-import logging
-import os
+from __future__ import annotations
+
 import pathlib
-import platform
-import subprocess
-import sys
+from collections.abc import Sequence
 
-logger = logging.getLogger(__name__)
+from scripts import _test_hooks
+
+PROJECT_ROOT = pathlib.Path(__file__).resolve().parent.parent
+DEVELOPER_TOOLS: tuple[str, ...] = ("ruff", "mypy", "pytest")
+WINDOWS = "Windows"
 
 
-def command_runs(command: list[str]) -> bool:
-    """Report whether a command exists and exits successfully.
+def confirm_outside_virtual_env() -> None:
+    """Ask before installing into a non-isolated interpreter.
+
+    Installing editable packages into the system interpreter is how a
+    machine ends up with one project's pins breaking another's, so this
+    asks rather than assuming.
+    """
+    if _test_hooks.interpreter.is_isolated():
+        return
+    print("WARNING: this interpreter is not a virtual environment.")
+    print("Installing here will change the packages available system-wide.")
+    if _test_hooks.prompt.ask("Continue anyway? [y/N]: ").lower() != "y":
+        print("Setup aborted. Create a virtual environment and try again.")
+        _test_hooks.exiter.fail(1)
+
+
+def install_editable() -> None:
+    """Install this project in editable mode with its dev extras."""
+    print("\n=== Installing package with development dependencies ===")
+    _test_hooks.commands.require(
+        [
+            _test_hooks.interpreter.executable(),
+            "-m",
+            "pip",
+            "install",
+            "-e",
+            f"{PROJECT_ROOT}[dev]",
+        ]
+    )
+
+
+def ensure_pyicu() -> None:
+    """Bootstrap PyICU, which has no wheel pip can resolve on Windows.
+
+    On every other platform PyICU is an ordinary declared dependency and
+    is already installed by :func:`install_editable`.
+    """
+    if _test_hooks.interpreter.platform_name() != WINDOWS:
+        return
+    executable = _test_hooks.interpreter.executable()
+    print("\n=== Checking PyICU ===")
+    if _test_hooks.commands.succeeds([executable, "-c", "import icu"]):
+        print("PyICU is already installed")
+        return
+    print("PyICU is not installed; running the bundled installer")
+    _test_hooks.commands.require([executable, "-m", "turkic_translit.pyicu_install"])
+
+
+def report_tools(tools: Sequence[str]) -> list[str]:
+    """Print which developer tools are usable, and name the missing ones.
 
     Args:
-        command: The command and arguments to run. Output is discarded;
-            only the exit status is consulted.
+        tools: Programs to probe, each run with ``--version``.
 
     Returns:
-        True when the command ran and returned zero.
+        The tools that could not be run, in the order probed.
     """
-    try:
-        subprocess.check_call(command, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
-    except (subprocess.CalledProcessError, FileNotFoundError) as exc:
-        logger.debug("probe %s failed: %s", command[0], exc)
-        return False
-    return True
+    print("\n=== Verifying development tools ===")
+    missing: list[str] = []
+    for tool in tools:
+        usable = _test_hooks.commands.succeeds([tool, "--version"])
+        print(f"{'installed' if usable else 'NOT FOUND'}: {tool}")
+        if not usable:
+            missing.append(tool)
+    return missing
+
+
+def report_next_steps() -> None:
+    """Print how to drive the project, according to what is installed."""
+    if _test_hooks.commands.succeeds(["make", "--version"]):
+        print("\nGNU Make is available:")
+        print("  make lint - Run the guards, Ruff and Mypy")
+        print("  make test - Run the test suite with coverage")
+        print("  make web  - Start the web UI")
+        return
+    print("\nGNU Make is not installed. Install it to use the documented targets:")
+    print("  choco install make    (from an elevated PowerShell)")
 
 
 def main() -> None:
-    """Set up the development environment."""
-    # Get the absolute path to the project root
-    script_path = pathlib.Path(__file__).resolve()
-    project_root = script_path.parent.parent
+    """Run the whole setup, in order."""
+    print("Setting up the development environment for turkic-translit")
+    print(f"Project root: {PROJECT_ROOT}")
 
-    print("Setting up development environment for Turkic Transliteration")
-    print(f"Project root: {project_root}")
+    confirm_outside_virtual_env()
+    install_editable()
+    ensure_pyicu()
+    missing = report_tools(DEVELOPER_TOOLS)
+    report_next_steps()
 
-    # Check if we're running in a virtual environment
-    if not is_virtual_env():
-        print("WARNING: You're not running in a virtual environment.")
-        print("It's recommended to use a virtual environment (virtualenv, conda, etc.)")
-        response = input("Continue anyway? [y/N]: ")
-        if response.lower() != "y":
-            print("Setup aborted. Please create a virtual environment and try again.")
-            sys.exit(1)
-
-    # Install the package in development mode with all extras
-    print("\n=== Installing package with all development dependencies ===")
-    subprocess.check_call(
-        [sys.executable, "-m", "pip", "install", "-e", f"{project_root}[dev,ui,winlid]"]
-    )
-
-    # Check for PyICU on Windows
-    if platform.system() == "Windows":
-        print("\n=== Checking PyICU installation on Windows ===")
-        if command_runs([sys.executable, "-c", "import icu"]):
-            print("PyICU is already installed")
-        else:
-            print("PyICU is not installed. Running the PyICU installer...")
-            subprocess.check_call([sys.executable, "-m", "turkic_translit.pyicu_install"])
-
-    # Run basic configuration checks
-    print("\n=== Verifying development tools ===")
-    tools = ["black", "ruff", "mypy", "pytest"]
-    for tool in tools:
-        status = "✓ installed" if command_runs([tool, "--version"]) else "✗ not found"
-        print(f"{status}: {tool}")
-
-    print("\n=== Setup complete! ===\n")
-
-    # Provide different instructions based on the platform
-    if platform.system() == "Windows":
-        # Check if GNU Make is installed
-        if command_runs(["make", "--version"]):
-            print("GNU Make is installed. You can run:")
-            print("  make help - Show available commands")
-            print("  make lint - Run linting checks")
-            print("  make test - Run tests")
-            print("  make web  - Start the web UI")
-        else:
-            print("You can run (using PowerShell):")
-            print("  ./scripts/run.ps1 help    - Show available commands")
-            print("  ./scripts/run.ps1 lint    - Run linting checks")
-            print("  ./scripts/run.ps1 test    - Run tests")
-            print("  ./scripts/run.ps1 web     - Start the web UI")
-            print("\nTo install GNU Make (recommended for easier development):")
-            print("  1. Open an Admin PowerShell window")
-            print("  2. Run: choco install make")
-            print("  3. After installation, you can use 'make <command>' instead.")
-    else:
-        print("You can now run:")
-        print("  make help - Show available commands")
-        print("  make lint - Run linting checks")
-        print("  make test - Run tests")
-        print("  make web  - Start the web UI")
-
-
-def is_virtual_env() -> bool:
-    """Check if the script is running in a virtual environment."""
-    return hasattr(sys, "real_prefix") or (
-        hasattr(sys, "base_prefix") and sys.base_prefix != sys.prefix
-    )
-
-
-def is_conda_env() -> bool:
-    """Check if running inside a conda environment."""
-    return bool(os.environ.get("CONDA_PREFIX") or os.environ.get("CONDA_DEFAULT_ENV"))
+    print("\n=== Setup complete ===")
+    if missing:
+        print(f"Missing developer tools: {', '.join(missing)}")
 
 
 if __name__ == "__main__":

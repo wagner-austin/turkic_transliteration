@@ -14,13 +14,14 @@ end.
 from __future__ import annotations
 
 import json
-from collections.abc import Mapping, Sequence
+from collections.abc import Iterator, Mapping, Sequence
 
 import pytest
 
 from turkic_translit.lang_filter import KZ_EXTRA, RU_ONLY, is_russian_token
 from turkic_translit.lid import _test_hooks
 from turkic_translit.lid.classifier import LidClassifier
+from turkic_translit.lid.locations import default_search_dirs
 from turkic_translit.lid.registry import get_spec
 
 
@@ -128,20 +129,45 @@ def test_mixed_script_defeats_the_orthography_test() -> None:
     assert is_russian_token("приветworld", thr=0.0, min_len=3, lid=lid) is False
 
 
-def test_masking_replaces_russian_tokens_and_reports_each_decision(
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    """The web helper masks Russian and explains itself when asked."""
+@pytest.fixture
+def installed_weights() -> Iterator[None]:
+    """Present ``lid.176`` as installed and back it with a table model.
+
+    The web helper resolves its classifier through the same registry as
+    everything else, so binding the probe and the loader exercises the
+    real resolution path without a 126 MB model on disk. The helper's
+    cache is cleared on the way in and out, because a classifier built
+    from another test's loader would otherwise survive here.
+
+    Yields:
+        None, once, with the original hooks captured.
+    """
     from turkic_translit.web import web_utils
 
-    lid = classifier_for(
-        {
-            "привет": [("__label__ru", 0.9)],
-            "мир": [("__label__ru", 0.8)],
-            "hello": [("__label__en", 0.95)],
-        }
+    probe, loader = _test_hooks.probe, _test_hooks.model_loader
+    _test_hooks.probe = _test_hooks.MappingFileProbe(
+        {default_search_dirs()[0] / "lid.176.bin": 131266198}
     )
-    monkeypatch.setattr(web_utils, "_langid_singleton", lambda _model_id: lid)
+    _test_hooks.model_loader = _test_hooks.FixedModelLoader(
+        _test_hooks.TableFastTextModel(
+            {
+                "привет": [("__label__ru", 0.9)],
+                "мир": [("__label__ru", 0.8)],
+                "hello": [("__label__en", 0.95)],
+            }
+        )
+    )
+    web_utils.installed_classifier.cache_clear()
+    yield
+    _test_hooks.probe = probe
+    _test_hooks.model_loader = loader
+    web_utils.installed_classifier.cache_clear()
+
+
+@pytest.mark.usefixtures("installed_weights")
+def test_masking_replaces_russian_tokens_and_reports_each_decision() -> None:
+    """The web helper masks Russian and explains itself when asked."""
+    from turkic_translit.web import web_utils
 
     result = web_utils.mask_russian(text="привет мир hello", thr=0.5, min_len=3, debug=True)
 

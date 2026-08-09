@@ -1,0 +1,121 @@
+% =============================================================================
+% Tu+ Conference Proceedings — Training Datasets section
+% Draft author: Austin Wagner
+% Replaces the SCiL-era "Training Datasets" subsection, which described the
+% earlier transfer-learning setup (1M tokens, 75/25 split, six languages).
+%
+% EVERY NUMBER BELOW WAS READ OUT OF THE CODE OR THE ARTIFACTS, NOT THE
+% PRIOR DRAFT. Provenance for each:
+%   corpus sizes / lines      -> wc over LSTM/corpora_clean/oscar_<lang>_ipa.txt
+%   vocab sizes               -> len(itos) in LSTM/checkpoints/<lang>_vocab.json
+%   cleaning thresholds       -> LSTM/scripts/clean_corpus.py (DEFAULT_MIN_LINE_CHARS,
+%                                DEFAULT_MIN_IPA_RATIO) + corpora_clean/cleaning_manifest.json
+%   equalisation target       -> cleaning_manifest.json "equalized_char_budget"
+%   10M truncation + split    -> LSTM/src/char_lstm/train.py load_and_split_corpus()
+%                                and build_train_config() (train_ratio .70, val_ratio .15)
+%   model hyperparameters     -> LSTM/src/char_lstm/train.py EMBED_DIM/HIDDEN_DIM/
+%                                NUM_LAYERS/DROPOUT, build_train_config()
+%   perception passages       -> LSTM/data/perception/manifest.json
+%   LID model                 -> LSTM/corpora_raw/manifest.json "lid_model"
+%
+% OPEN ITEM FLAGGED TO CO-AUTHORS (see \S\ref{sec:data-repro} note):
+%   the corpora were filtered with NLLB lid218e, but the released
+%   turkic-transliteration package resolves fastText lid.176. Resolve before
+%   submission — either integrate lid218e into the package or state both.
+% =============================================================================
+
+\section{Training Datasets}
+\label{sec:data}
+
+\subsection{Source corpora and transliteration}
+\label{sec:data-source}
+
+Training data for all seven languages comes from per-language slices of OSCAR-2301 \citep{abadji-etal-2022-towards}, the Open Super-large Crawled Aggregated coRpus, which is Common Crawl web text after language classification and deduplication. OSCAR is the largest freely-licensed general-domain source that covers every language in our set, including the three lower-resource members (Kyrgyz, Uyghur, and Uzbek) where curated corpora are thin.
+
+Raw OSCAR slices carry substantial cross-language contamination, most heavily in the Central Asian Turkic sub-corpora where Russian-language content is common. We score each line with a fastText language-identification classifier \citep{joulin2016bag, joulin2017bag} and retain only lines whose target-language probability is at least $0.95$. Surviving lines are converted to broad phonemic IPA with the deterministic rule engine described in \S\ref{sec:ipa}, so that all seven languages are represented in a single, commensurable symbol space rather than in three mutually incomparable orthographies.
+
+Finnish is included as a Uralic control. It is agglutinative and vowel-harmonic like the six Turkic languages but genealogically unrelated to them, so it provides a floor against which a genuine within-Turkic intelligibility gradient has to separate itself.
+
+\subsection{Cleaning and size equalisation}
+\label{sec:data-clean}
+
+Web-crawled text transliterated character-by-character retains artefacts that a character-level model would otherwise learn as if they were phonology: navigation boilerplate repeated across thousands of pages, residual foreign-script fragments, and stray symbols outside the IPA inventory. We therefore apply a five-stage cleaning pass, in this order:
+
+\begin{enumerate}
+\item \textbf{Symbol harmonisation.} A per-language substitution map is applied so that all seven languages spell the same sound with the same character. Each row of the map carries its own citation to the phonological source that justifies the merge.
+\item \textbf{IPA-ratio filtering.} Lines whose proportion of legitimate IPA characters falls below $0.95$ are dropped, which removes emoji, CJK, and other foreign-script leakage that survived language identification.
+\item \textbf{Sanitisation.} Residual non-IPA characters in surviving lines are replaced with spaces, so no junk symbol can reach the training vocabulary.
+\item \textbf{Short-line removal.} Lines shorter than 30 characters are dropped. These are overwhelmingly menu items and section markers rather than running prose.
+\item \textbf{Deduplication.} Repeated lines are reduced to their first occurrence, removing site boilerplate such as navigation menus and footers.
+\end{enumerate}
+
+Cleaning is consequential rather than cosmetic: it collapses raw per-language symbol inventories of several hundred distinct characters down to between 61 and 79 genuine IPA characters, which is the vocabulary the models actually learn over.
+
+Because cross-entropy is sensitive to training-set size, every cleaned corpus is then truncated on whole-line boundaries to the size of the smallest one. Uyghur is the binding constraint at $10{,}215{,}670$ characters, so all seven corpora are equalised to that budget. Table~\ref{tab:corpora} reports the result.
+
+\begin{table}[t]
+\small
+\centering
+\begin{tabular}{@{}llrr@{}}
+\toprule
+Lang. & Branch & Lines & Vocab \\
+\midrule
+tr & Oghuz          & 44{,}312 & 68 \\
+az & Oghuz          & 46{,}728 & 73 \\
+kk & Kipchak        & 46{,}689 & 79 \\
+ky & Kipchak        & 44{,}992 & 79 \\
+uz & Karluk         & 33{,}398 & 77 \\
+ug & Karluk         & 41{,}378 & 72 \\
+fi & Uralic (ctrl.) & 51{,}795 & 61 \\
+\bottomrule
+\end{tabular}
+\caption{Cleaned, size-equalised training corpora. Every corpus is truncated to $10{,}215{,}670$ characters, the size of the smallest (Uyghur), so line counts vary inversely with mean line length. Vocab is the number of distinct IPA characters remaining after cleaning, plus an \texttt{<unk>} symbol.}
+\label{tab:corpora}
+\end{table}
+
+Line counts vary across languages by roughly a third even though character budgets are identical, because mean line length differs: Uzbek OSCAR documents are longer on average than Finnish ones. The equalisation holds constant the quantity the model consumes, namely characters, not the quantity a reader would count.
+
+\subsection{Splits}
+\label{sec:data-splits}
+
+Each model reads the first $10{,}000{,}000$ characters of its language's cleaned corpus and splits that text by position into $70\%$ training, $15\%$ validation, and $15\%$ held-out test, giving $7{,}000{,}000$ / $1{,}500{,}000$ / $1{,}500{,}000$ characters respectively. The split is positional rather than random so that no line, and therefore no boilerplate remnant, can appear on both sides of the boundary.
+
+Models are 2-layer character-level LSTMs \citep{hochreiter1997lstm} with 128-dimensional embeddings, 256 hidden units, and dropout $0.1$, trained over sequences of 100 characters. Character-level modelling avoids committing to a tokenizer, which is a live confound for agglutinative low-resource languages \citep{toraman2023impact}.
+
+\subsection{Evaluation passages}
+\label{sec:data-eval}
+
+Model evaluation does not use held-out OSCAR text. It uses the same passages the human participants read, so that the model and human measurements are taken over identical material. The set comprises four texts, each divided into five sub-passages, translated in parallel across all seven languages and transliterated through the identical pipeline, for 20 passages per language.
+
+Uzbek has 19 rather than 20. Passage 5 of Text 2 was withdrawn at source because its audio recording was removed for speaker disfluency, so no human listener ever heard it. The model evaluation scores the 19 passages that human participants actually received rather than reconstructing the missing item, which keeps the model and human sets aligned.
+
+\subsection{Reproducibility}
+\label{sec:data-repro}
+
+The transliteration rules, the corpus-download and filtering CLIs, and the cleaning script are released (\S\ref{sec:ipa}). The cleaning pass writes a manifest recording, per language, the input line count and the counts dropped as duplicate, short, and low-IPA-ratio, together with the equalisation budget, so the reported corpus sizes can be audited against the intermediate artefacts rather than taken on trust.
+
+% -----------------------------------------------------------------------------
+% NOTE TO CO-AUTHORS — RESOLVE BEFORE SUBMISSION, DO NOT LEAVE IN FINAL TEXT
+%
+% The prose above says "a fastText language-identification classifier" without
+% naming the model, because the record and the released code disagree:
+%
+%   * LSTM/corpora_raw/manifest.json records  "lid_model": "lid218e"
+%     (NLLB's 218-language script-aware classifier) for the run that actually
+%     produced these corpora on 2026-02-17.
+%   * The released turkic-transliteration package resolves lid.176 only.
+%     `git log -S lid218e -- src/turkic_translit/model_utils.py` is EMPTY on
+%     every branch: lid218e was never wired into the library. The script that
+%     wrote that manifest is not in either repository.
+%
+% So as things stand the released tool cannot rebuild the paper's corpora,
+% which undercuts the "valuable resource for Turkic research" framing.
+% Options: (a) name lid218e and disclose that the CLI ships lid.176;
+% (b) integrate lid218e into the package (INTEGRATION_PLAN_LID218E.md,
+% Option A, ~100 lines / 5 files) so the tool reproduces the data;
+% (c) rebuild with lid.176 and retrain. Recommend (b).
+%
+% SECOND OPEN ITEM: LSTM/data/perception/manifest.json records that the
+% Finnish passages still want a native-speaker spot-check on the source
+% orthography before publication use.
+% -----------------------------------------------------------------------------

@@ -55,7 +55,7 @@ def runner() -> CliRunner:
     # Logging is silenced so the captured stream carries only the command's
     # own output; the --debug reports below are written independently of
     # the logger and so survive.
-    return CliRunner(env={"PYTHONIOENCODING": "utf8", "GRADIO": "", "TURKIC_LOG_LEVEL": "ERROR"})
+    return CliRunner(env={"PYTHONIOENCODING": "utf8", "TURKIC_LOG_LEVEL": "ERROR"})
 
 
 @pytest.fixture
@@ -77,6 +77,14 @@ def corpus(tmp_path: Path) -> Callable[[str], list[str]]:
     """
 
     def make(text: str) -> list[str]:
+        """Write the text to a file and name it to the command.
+
+        Args:
+            text: Input the command should read.
+
+        Returns:
+            The ``--input`` arguments naming the written file.
+        """
         path = tmp_path / "input.txt"
         path.write_text(text, encoding="utf-8")
         return ["--input", str(path)]

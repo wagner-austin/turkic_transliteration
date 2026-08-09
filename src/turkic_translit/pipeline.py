@@ -69,7 +69,7 @@ class TurkicTransliterationPipeline:
         languages = self.predict_tokens(tokens)
         transliterated = [
             transliterate_token(token, language, self.mode)
-            for token, language in zip(tokens, languages)
+            for token, language in zip(tokens, languages, strict=False)
         ]
         return self.tokenizer.detokenize(transliterated)
 

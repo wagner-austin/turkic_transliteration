@@ -6,6 +6,7 @@ Checks for violations:
 - No `object` in type annotations
 - No `type: ignore` comments
 - No `TypeAlias` usage
+- No `TYPE_CHECKING` blocks
 - No `contextlib.suppress` usage
 - No `# pragma` comments
 - No silent exception handling (except: pass)
@@ -14,6 +15,8 @@ Checks for violations:
 - No `print()` in src/ (use _console module instead)
 - Weak test assertions (is not None, isinstance, hasattr, len > 0)
 - Transliteration test quality (domain calls must assert on the returned value)
+- Google-style docstrings (every function documented, parameters and
+  return values named)
 
 Run with: python -m scripts.guard
 """
@@ -29,22 +32,42 @@ from io import StringIO
 from pathlib import Path
 
 from scripts.guards import RuleReport, Violation
+from scripts.guards.docstring_rules import DocstringRule
 from scripts.guards.test_quality_rules import (
+    PatchingRule,
     TransliterationTestQualityRule,
     WeakAssertionRule,
 )
 
+PROJECT_ROOT = Path(__file__).resolve().parent.parent
+
+SCANNED_DIRECTORIES: tuple[str, ...] = ("src", "tests", "scripts")
+
 
 def _iter_py_files(root: Path) -> Generator[Path, None, None]:
-    """Iterate over Python files in src and tests directories."""
-    for subdir in ["src", "tests", "scripts"]:
+    """Yield every Python file the guards apply to.
+
+    Args:
+        root: Project root to scan beneath.
+
+    Yields:
+        Each ``.py`` file under the scanned directories that exist.
+    """
+    for subdir in SCANNED_DIRECTORIES:
         dir_path = root / subdir
-        if dir_path.exists():
-            yield from dir_path.rglob("*.py")
+        if dir_path.is_dir():
+            yield from sorted(dir_path.rglob("*.py"))
 
 
 def _iter_tokens(text: str) -> Generator[tokenize.TokenInfo, None, None]:
-    """Generate tokens from source text."""
+    """Tokenise source text.
+
+    Args:
+        text: Python source.
+
+    Yields:
+        Each token, including comments, in source order.
+    """
     reader = StringIO(text).readline
     yield from tokenize.generate_tokens(reader)
 
@@ -55,12 +78,29 @@ def _iter_tokens(text: str) -> Generator[tokenize.TokenInfo, None, None]:
 
 
 def _contains_object_in_annotation(node: ast.AST) -> bool:
-    """Check if AST node contains 'object' as a type annotation."""
+    """Report whether an annotation names ``object`` anywhere within it.
+
+    Args:
+        node: An annotation subtree.
+
+    Returns:
+        True when ``object`` appears, including nested inside a
+        subscript such as ``dict[str, object]``.
+    """
     return any(isinstance(child, ast.Name) and child.id == "object" for child in ast.walk(node))
 
 
 def _check_object_annotations(path: Path, node: ast.AST) -> list[Violation]:
-    """Check for object in type annotations."""
+    """Report every ``object`` annotation on one node.
+
+    Args:
+        path: File being scanned, for the violation record.
+        node: Node from the module's tree.
+
+    Returns:
+        A violation for each of the variable, parameter and return
+        annotations that names ``object``.
+    """
     violations: list[Violation] = []
     kind = "object-in-annotation"
 
@@ -89,9 +129,24 @@ def _check_object_annotations(path: Path, node: ast.AST) -> list[Violation]:
 
 
 def _run_typing_rule(path: Path, tree: ast.AST) -> list[Violation]:
-    """Check AST for typing violations."""
+    """Report the forbidden typing constructs in one module.
+
+    Args:
+        path: File being scanned, for the violation record.
+        tree: Parsed module.
+
+    Returns:
+        One violation per forbidden import, attribute, call or name.
+    """
     violations: list[Violation] = []
-    forbidden_imports = {"Any", "cast", "TypeAlias"}
+    # TYPE_CHECKING is banned with the rest: a name imported under it
+    # exists for the type checker and not at runtime, so the annotation
+    # referring to it is checked against something the program never
+    # loads. Where it is used to break an import cycle, the cycle is the
+    # defect. Where it is used to defer a costly import, as it was in
+    # web_utils for the transliteration pipeline, it duplicates an import
+    # the function performs anyway.
+    forbidden_imports = {"Any", "TYPE_CHECKING", "TypeAlias", "cast"}
 
     for node in ast.walk(tree):
         if isinstance(node, ast.ImportFrom) and node.module == "typing":
@@ -131,13 +186,27 @@ def _run_typing_rule(path: Path, tree: ast.AST) -> list[Violation]:
         if isinstance(node, ast.Name) and node.id == "Any":
             violations.append(Violation(file=path, line_no=node.lineno, kind="any-usage", line=""))
 
+        if isinstance(node, ast.Name) and node.id == "TYPE_CHECKING":
+            violations.append(
+                Violation(file=path, line_no=node.lineno, kind="type-checking-usage", line="")
+            )
+
         violations.extend(_check_object_annotations(path, node))
 
     return violations
 
 
 def _run_comments_rule(path: Path, text: str) -> list[Violation]:
-    """Check for type: ignore and pragma comments."""
+    """Report the suppression comments in one module.
+
+    Args:
+        path: File being scanned, for the violation record.
+        text: The module's source.
+
+    Returns:
+        One violation per ``type: ignore`` and per ``pragma`` comment.
+        A comment carrying both is reported twice.
+    """
     violations: list[Violation] = []
     for tok in _iter_tokens(text):
         if tok.type == tokenize.COMMENT:
@@ -168,7 +237,15 @@ def _run_comments_rule(path: Path, text: str) -> list[Violation]:
 
 
 def _is_suppress(expr: ast.AST) -> bool:
-    """Check if expression is contextlib.suppress."""
+    """Report whether an expression is ``contextlib.suppress``.
+
+    Args:
+        expr: The context expression of a ``with`` item.
+
+    Returns:
+        True for both the qualified and the bare spelling, whether or
+        not it is being called.
+    """
     func = expr.func if isinstance(expr, ast.Call) else expr
     if isinstance(func, ast.Attribute):
         is_contextlib = isinstance(func.value, ast.Name) and func.value.id == "contextlib"
@@ -177,7 +254,16 @@ def _is_suppress(expr: ast.AST) -> bool:
 
 
 def _run_suppress_rule(path: Path, tree: ast.AST, lines: list[str]) -> list[Violation]:
-    """Check for contextlib.suppress usage."""
+    """Report every ``contextlib.suppress`` block in one module.
+
+    Args:
+        path: File being scanned, for the violation record.
+        tree: Parsed module.
+        lines: Source lines, used to quote the offending line.
+
+    Returns:
+        One violation per suppressing ``with`` statement.
+    """
     violations: list[Violation] = []
     seen: set[int] = set()
     for node in ast.walk(tree):
@@ -207,10 +293,17 @@ def _run_suppress_rule(path: Path, tree: ast.AST, lines: list[str]) -> list[Viol
 
 
 def _run_logging_rule(path: Path, tree: ast.AST) -> list[Violation]:
-    """Check for print() usage in src/ files.
+    """Report every ``print`` call in a published module.
 
-    print() is forbidden in src/; library code emits through logging so
-    callers control the sink. Tests and scripts may print freely.
+    Library code emits through logging so the caller controls the sink.
+    Tests and scripts may print freely, so only ``src`` is scanned.
+
+    Args:
+        path: File being scanned, for the violation record.
+        tree: Parsed module.
+
+    Returns:
+        One violation per ``print`` call, or none outside ``src``.
     """
     # Only check src/ files
     if "src" not in path.parts:
@@ -245,7 +338,16 @@ _RAISE_RE = re.compile(r"\braise\b")
 
 
 def _parse_except_header(raw: str) -> tuple[int, str] | None:
-    """Parse an except header line, returning (indent, exception_types)."""
+    """Split an ``except`` header into its indent and its types.
+
+    Args:
+        raw: One source line, which may be anything.
+
+    Returns:
+        The indent width and the exception types as written, or
+        ``None`` when the line is not an ``except`` header. A bare
+        ``except:`` reports an empty type string.
+    """
     match = _EXCEPT_HEADER.match(raw)
     if match is None:
         return None
@@ -257,19 +359,46 @@ def _parse_except_header(raw: str) -> tuple[int, str] | None:
 
 
 def _is_broad_exception(types: str) -> bool:
-    """Check if exception type is broad (Exception/BaseException or bare except)."""
+    """Report whether a caught type is a broad one.
+
+    Args:
+        types: Exception types as written, empty for a bare ``except``.
+
+    Returns:
+        True for a bare ``except`` and for anything naming
+        ``Exception`` or ``BaseException``.
+    """
     return types == "" or _BROAD_TYPES.search(types) is not None
 
 
 def _first_body_is_trivial(line: str) -> bool:
-    """Check if first body line is just pass or ..."""
+    """Report whether a line is an empty statement.
+
+    Args:
+        line: One source line.
+
+    Returns:
+        True for ``pass`` and for ``...``, with or without a trailing
+        comment. Either means the handler discards the exception.
+    """
     return re.match(r"^\s+(pass|\.\.\.)\s*(#.*)?$", line) is not None
 
 
 def _scan_except_body(
     lines: Sequence[str], start: int, header_indent: int
 ) -> tuple[bool, bool, int]:
-    """Scan except body for log and raise statements."""
+    """Scan one ``except`` body for logging and re-raising.
+
+    Args:
+        lines: All source lines of the module.
+        start: Index of the body's first line.
+        header_indent: Indent width of the ``except`` header, which
+            marks where the body ends.
+
+    Returns:
+        Whether the body logs, whether it raises, and the index of the
+        first line after it.
+    """
     total = len(lines)
     has_log = False
     has_raise = False
@@ -293,11 +422,16 @@ def _scan_except_body(
 
 
 def _find_body_start(lines: Sequence[str], start: int) -> int:
-    """Find first non-empty line after except header.
+    """Find the first non-empty line after an ``except`` header.
 
-    Returns the index of the first non-empty line, or len(lines) if none found.
-    In practice, valid Python always has a body after except, so this returns
-    a valid index for syntactically correct files.
+    Args:
+        lines: All source lines of the module.
+        start: Index to begin looking from.
+
+    Returns:
+        The index of that line, or the number of lines when the file
+        ends first. Valid Python always has a body, so the second case
+        only arises on a truncated file.
     """
     total = len(lines)
     i = start
@@ -309,9 +443,19 @@ def _find_body_start(lines: Sequence[str], start: int) -> int:
 
 
 def _run_exceptions_rule(path: Path, lines: list[str]) -> list[Violation]:
-    """Check exception handling rules.
+    """Report the exception handlers that neither log nor re-raise.
 
-    Skips test files since tests legitimately catch exceptions to verify behavior.
+    A broad handler must do both; a specific one must do at least one.
+    Test files are skipped, because a test catching an exception to
+    assert on it is doing exactly what it should.
+
+    Args:
+        path: File being scanned, for the violation record.
+        lines: The module's source lines. Scanned as text rather than
+            parsed, so that a handler's formatting is visible.
+
+    Returns:
+        One violation per offending handler.
     """
     # Skip test files
     if "tests" in path.parts:
@@ -373,7 +517,19 @@ def _run_exceptions_rule(path: Path, lines: list[str]) -> list[Violation]:
 
 
 def run_guards(root: Path) -> int:
-    """Run all guard checks and return exit code."""
+    """Run every guard rule over a project tree.
+
+    Args:
+        root: Project root; its ``src``, ``tests`` and ``scripts``
+            directories are scanned.
+
+    Returns:
+        0 when nothing was found, 2 when any rule reported a violation.
+
+    Raises:
+        SyntaxError: If a scanned file does not parse. The exception
+            already names the file, so it is not wrapped.
+    """
     typing_violations: list[Violation] = []
     comments_violations: list[Violation] = []
     suppress_violations: list[Violation] = []
@@ -385,10 +541,7 @@ def run_guards(root: Path) -> int:
     for path in all_files:
         source = path.read_text(encoding="utf-8")
         lines = source.splitlines()
-        try:
-            tree = ast.parse(source, filename=str(path))
-        except SyntaxError as exc:
-            raise RuntimeError(f"Failed to parse {path}: {exc}") from exc
+        tree = ast.parse(source, filename=str(path))
 
         typing_violations.extend(_run_typing_rule(path, tree))
         comments_violations.extend(_run_comments_rule(path, source))
@@ -398,8 +551,12 @@ def run_guards(root: Path) -> int:
 
     weak_assertion_rule = WeakAssertionRule()
     translit_test_quality_rule = TransliterationTestQualityRule()
+    patching_rule = PatchingRule()
+    docstring_rule = DocstringRule()
     weak_assertion_violations = weak_assertion_rule.run(all_files)
     translit_test_quality_violations = translit_test_quality_rule.run(all_files)
+    patching_violations = patching_rule.run(all_files)
+    docstring_violations = docstring_rule.run(all_files)
 
     reports = [
         RuleReport(name="typing", violations=len(typing_violations)),
@@ -409,6 +566,8 @@ def run_guards(root: Path) -> int:
         RuleReport(name="logging", violations=len(logging_violations)),
         RuleReport(name="test-quality", violations=len(weak_assertion_violations)),
         RuleReport(name="translit-test-quality", violations=len(translit_test_quality_violations)),
+        RuleReport(name="patching", violations=len(patching_violations)),
+        RuleReport(name="docstrings", violations=len(docstring_violations)),
     ]
 
     all_violations = (
@@ -419,6 +578,8 @@ def run_guards(root: Path) -> int:
         + logging_violations
         + weak_assertion_violations
         + translit_test_quality_violations
+        + patching_violations
+        + docstring_violations
     )
 
     print("Guard rule summary:")
@@ -437,31 +598,48 @@ def run_guards(root: Path) -> int:
     return 0
 
 
-def main(argv: list[str] | None = None) -> int:
-    """Entry point for guard script."""
-    args = argv if argv is not None else sys.argv[1:]
+def parse_root_argument(args: Sequence[str]) -> Path | None:
+    """Extract the ``--root`` value from a command line.
 
-    root_override: Path | None = None
-    idx = 0
-    while idx < len(args):
-        if args[idx] == "--root" and idx + 1 < len(args):
-            root_override = Path(args[idx + 1]).resolve()
-            idx += 2
-        else:
-            idx += 1
+    Args:
+        args: Arguments after the program name.
 
-    if root_override is not None:
-        return run_guards(root_override)
+    Returns:
+        The resolved root, or ``None`` when ``--root`` was not given with
+        a value.
+    """
+    index = 0
+    while index < len(args):
+        if args[index] == "--root" and index + 1 < len(args):
+            return Path(args[index + 1]).resolve()
+        index += 1
+    return None
 
-    script_path = Path(__file__).resolve()
-    project_root = script_path.parent.parent
 
-    if not (project_root / "pyproject.toml").exists():
-        print(f"ERROR: pyproject.toml not found in {project_root}", file=sys.stderr)
+def main(argv: Sequence[str], default_root: Path = PROJECT_ROOT) -> int:
+    """Run the guards over ``--root`` or over this project.
+
+    Args:
+        argv: Arguments after the program name. Passed explicitly rather
+            than read from ``sys.argv`` here, so the entry point is the
+            only place that touches process state.
+        default_root: Root used when ``--root`` is absent. Defaults to
+            the directory holding this script's project file.
+
+    Returns:
+        0 when nothing was found, 2 when a rule reported a violation,
+        and 1 when the default root is not a project tree.
+    """
+    root = parse_root_argument(argv)
+    if root is not None:
+        return run_guards(root)
+
+    if not (default_root / "pyproject.toml").is_file():
+        print(f"ERROR: pyproject.toml not found in {default_root}", file=sys.stderr)
         return 1
 
-    return run_guards(project_root)
+    return run_guards(default_root)
 
 
 if __name__ == "__main__":
-    raise SystemExit(main())
+    raise SystemExit(main(sys.argv[1:]))

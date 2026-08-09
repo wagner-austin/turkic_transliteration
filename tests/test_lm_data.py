@@ -12,6 +12,7 @@ from collections.abc import Generator
 
 import pytest
 
+from turkic_translit import _test_hooks
 from turkic_translit.corpus import _test_hooks as corpus_hooks
 from turkic_translit.corpus.errors import UnknownCorpusSourceError
 from turkic_translit.lm.data import DatasetStream
@@ -62,18 +63,35 @@ def test_an_unknown_source_names_the_registered_ones(oscar_lines: None) -> None:
     assert excinfo.value.known == ("oscar-2301", "wikipedia")
 
 
-def test_the_access_token_reaches_the_dataset_streamer(
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
+def test_the_access_token_reaches_the_dataset_streamer() -> None:
     """A gated dataset receives the credential the environment carries."""
-    monkeypatch.setenv("HF_TOKEN", "secret-token")
-    original = corpus_hooks.dataset_texts
+    original_streamer = corpus_hooks.dataset_texts
+    original_environment = _test_hooks.environment
     streamer = corpus_hooks.MappingDatasetTextStreamer({"kk": ["salem alem"]})
     corpus_hooks.dataset_texts = streamer
+    _test_hooks.environment = _test_hooks.MappingEnvironment({"HF_TOKEN": "secret-token"})
     try:
         sentences = DatasetStream("oscar-2301", "kk").to_list()
     finally:
-        corpus_hooks.dataset_texts = original
+        corpus_hooks.dataset_texts = original_streamer
+        _test_hooks.environment = original_environment
 
     assert sentences == ["salem alem"]
     assert streamer.requests == [("oscar-corpus/OSCAR-2301", "kk", "secret-token")]
+
+
+def test_an_absent_token_reaches_the_streamer_as_absent() -> None:
+    """An ungated dataset is streamed with no credential at all."""
+    original_streamer = corpus_hooks.dataset_texts
+    original_environment = _test_hooks.environment
+    streamer = corpus_hooks.MappingDatasetTextStreamer({"kk": ["salem alem"]})
+    corpus_hooks.dataset_texts = streamer
+    _test_hooks.environment = _test_hooks.MappingEnvironment({})
+    try:
+        sentences = DatasetStream("oscar-2301", "kk").to_list()
+    finally:
+        corpus_hooks.dataset_texts = original_streamer
+        _test_hooks.environment = original_environment
+
+    assert sentences == ["salem alem"]
+    assert streamer.requests == [("oscar-corpus/OSCAR-2301", "kk", None)]

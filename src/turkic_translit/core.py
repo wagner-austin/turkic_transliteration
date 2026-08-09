@@ -16,9 +16,14 @@ import sys
 import unicodedata as ud
 from functools import lru_cache
 from pathlib import Path
-from typing import Protocol
+
+from turkic_translit import _test_hooks
+from turkic_translit._test_hooks import IcuTransliterator, RuleCompiler
 
 _RULE_DIR = Path(__file__).with_suffix("").parent / "rules"
+
+# ICU's UTRANS_FORWARD: apply the rules left to right, as written.
+FORWARD = 0
 
 _INSTALL_INSTRUCTIONS: dict[str, str] = {
     "win32": (
@@ -39,46 +44,25 @@ _INSTALL_INSTRUCTIONS: dict[str, str] = {
 }
 
 
-class IcuTransliterator(Protocol):
-    """A compiled ICU transliterator."""
+def missing_icu_message(python_version: str, platform: str) -> str:
+    """Explain how to install PyICU on one platform.
 
-    def transliterate(self, text: str) -> str:
-        """Apply the compiled rules to ``text``.
+    Args:
+        python_version: Version the caller is running, e.g. ``3.11``.
+        platform: Value of ``sys.platform``.
 
-        Args:
-            text: Input in the source orthography.
-
-        Returns:
-            The transliterated text.
-        """
-        ...
-
-
-class IcuTransliteratorFactory(Protocol):
-    """The ICU ``Transliterator`` class, as this project uses it."""
-
-    def createFromRules(self, name: str, rules: str, direction: int) -> IcuTransliterator:
-        """Compile a transliterator from rule text.
-
-        Args:
-            name: Identifier for the compiled instance.
-            rules: The rule file's contents.
-            direction: ICU direction constant; 0 is forward.
-
-        Returns:
-            The compiled transliterator.
-        """
-        ...
+    Returns:
+        The message, naming the platform's install command, or generic
+        advice for a platform with no recorded command.
+    """
+    instruction = _INSTALL_INSTRUCTIONS.get(
+        platform, "Please install the ICU C++ libraries for your platform."
+    )
+    return f"PyICU missing on Python {python_version} ({platform}).\n\n{instruction}"
 
 
-class IcuModule(Protocol):
-    """The single PyICU attribute this project reaches for."""
-
-    Transliterator: IcuTransliteratorFactory
-
-
-def _require_icu() -> IcuModule:
-    """Import and return the PyICU ``icu`` module.
+def _require_icu() -> RuleCompiler:
+    """Return PyICU's rule compiler, or explain how to install PyICU.
 
     Deferred to call time so ``import turkic_translit`` succeeds even
     when PyICU is missing. This is what lets the
@@ -86,7 +70,7 @@ def _require_icu() -> IcuModule:
     requiring PyICU to already be installed.
 
     Returns:
-        The imported ``icu`` module, narrowed to the one attribute used.
+        ICU's bound rule-compiling classmethod.
 
     Raises:
         RuntimeError: When PyICU cannot be imported. The exception
@@ -95,51 +79,105 @@ def _require_icu() -> IcuModule:
             platform.
     """
     try:
-        module: IcuModule = __import__("icu")
-    except ImportError as e:
-        py_ver = f"{sys.version_info.major}.{sys.version_info.minor}"
-        platform = sys.platform
-        instruction = _INSTALL_INSTRUCTIONS.get(
-            platform, "Please install the ICU C++ libraries for your platform."
-        )
-        raise RuntimeError(
-            f"PyICU missing on Python {py_ver} ({platform}).\n\n{instruction}"
-        ) from e
-    return module
+        return _test_hooks.icu.rule_compiler()
+    except ImportError as exc:
+        version = f"{sys.version_info.major}.{sys.version_info.minor}"
+        raise RuntimeError(missing_icu_message(version, sys.platform)) from exc
+
+
+# The rule-file suffixes that provide each output format, most preferred
+# first. Both the language listing and the file lookup read this table, so
+# adding a spelling is one edit and the two can never disagree.
+FORMAT_SPELLINGS: dict[str, tuple[str, ...]] = {
+    "latin": ("lat2023", "lat", "latin"),
+    "ipa": ("ipa",),
+}
+
+
+def rule_file_for(lang: str, fmt: str, directory: Path = _RULE_DIR) -> str | None:
+    """Name the rule file providing one format for one language.
+
+    Args:
+        lang: ISO 639-1 language code.
+        fmt: Output format, ``latin`` or ``ipa``.
+        directory: Directory to look in.
+
+    Returns:
+        The file's basename, or ``None`` when the language has no rules
+        for that format.
+    """
+    for spelling in FORMAT_SPELLINGS[fmt]:
+        candidate = f"{lang}_{spelling}.rules"
+        if (directory / candidate).exists():
+            return candidate
+    return None
+
+
+def languages_offering(fmt: str) -> list[str]:
+    """List every language this project can produce ``fmt`` for.
+
+    Args:
+        fmt: Output format, ``latin`` or ``ipa``.
+
+    Returns:
+        The language codes, sorted, for use in an error message.
+    """
+    return sorted(code for code, fmts in get_supported_languages().items() if fmt in fmts)
+
+
+def scan_rule_directory(directory: Path) -> dict[str, list[str]]:
+    """List the languages and formats a rules directory advertises.
+
+    A rule file is named ``<lang>_<fmt>.rules``. The two spellings of the
+    Latin rule set, ``lat`` and ``lat2023``, are both advertised as
+    ``latin``, so a caller asks for one name rather than knowing which
+    revision shipped. A file whose name carries no format is not a rule
+    set this function can describe, and is passed over.
+
+    The directory is a parameter so that the naming rules can be
+    exercised against a directory built for the purpose. The previous
+    version read the packaged directory directly, which meant the
+    unnamed-format case could not be reached at all.
+
+    Args:
+        directory: Directory to scan for ``*.rules`` files.
+
+    Returns:
+        A mapping of language code to the formats available for it, e.g.
+        ``{"kk": ["ipa", "latin"], "az": ["ipa"]}``.
+    """
+    supported: dict[str, list[str]] = {}
+
+    spelled_as = {
+        spelling: fmt for fmt, spellings in FORMAT_SPELLINGS.items() for spelling in spellings
+    }
+
+    for rule_file in sorted(directory.glob("*.rules")):
+        if "_" not in rule_file.stem:
+            continue
+        lang, spelling = rule_file.stem.split("_", 1)
+        fmt = spelled_as.get(spelling, spelling)
+        formats = supported.setdefault(lang, [])
+        if fmt not in formats:
+            formats.append(fmt)
+
+    return supported
 
 
 @lru_cache
 def get_supported_languages() -> dict[str, list[str]]:
     """Dynamically detect supported languages and their available formats.
 
-    Reads the rules directory only; does not require PyICU. This lets
-    the CLI report its language coverage even in environments where
+    Reads the packaged rules directory only; does not require PyICU. This
+    lets the CLI report its language coverage even in environments where
     PyICU is being bootstrapped.
 
     Returns:
         A dict mapping each ISO 639-1 language code advertised by the
         rules directory to a list of the formats available for it —
-        for example ``{"kk": ["latin", "ipa"], "tr": ["ipa"]}``.
+        for example ``{"kk": ["ipa", "latin"], "az": ["ipa"]}``.
     """
-    supported: dict[str, list[str]] = {}
-
-    for rule_file in _RULE_DIR.glob("*.rules"):
-        filename = rule_file.stem
-
-        if "_" in filename:
-            parts = filename.split("_", 1)
-            if len(parts) == 2:
-                lang, fmt = parts
-
-                if fmt == "lat2023" or fmt == "lat":
-                    fmt = "latin"
-
-                if lang not in supported:
-                    supported[lang] = []
-                if fmt not in supported[lang]:
-                    supported[lang].append(fmt)
-
-    return supported
+    return scan_rule_directory(_RULE_DIR)
 
 
 @lru_cache
@@ -158,9 +196,9 @@ def _icu_trans(name: str) -> IcuTransliterator:
         FileNotFoundError: When the rule file does not exist under
             :data:`_RULE_DIR`.
     """
-    icu = _require_icu()
-    txt = (_RULE_DIR / name).read_text(encoding="utf8")
-    return icu.Transliterator.createFromRules(name, txt, 0)
+    compile_rules = _require_icu()
+    rules = (_RULE_DIR / name).read_text(encoding="utf8")
+    return compile_rules(name, rules, FORWARD)
 
 
 def to_latin(text: str, lang: str, include_arabic: bool = False) -> str:
@@ -185,29 +223,12 @@ def to_latin(text: str, lang: str, include_arabic: bool = False) -> str:
         RuntimeError: Propagated from :func:`_require_icu` when
             PyICU is not installed.
     """
-    supported = get_supported_languages()
-
-    if lang not in supported or "latin" not in supported[lang]:
-        available = [code for code, fmts in supported.items() if "latin" in fmts]
+    rule_file = rule_file_for(lang, "latin")
+    if rule_file is None:
         raise ValueError(
             f"Latin transliteration not supported for '{lang}'. "
-            f"Available languages: {', '.join(sorted(available))}"
+            f"Available languages: {', '.join(languages_offering('latin'))}"
         )
-
-    possible_rules = [
-        f"{lang}_lat2023.rules",
-        f"{lang}_lat.rules",
-        f"{lang}_latin.rules",
-    ]
-    rule_file = None
-
-    for rule in possible_rules:
-        if (_RULE_DIR / rule).exists():
-            rule_file = rule
-            break
-
-    if not rule_file:
-        raise ValueError(f"No Latin rules file found for language '{lang}'")
 
     trans = _icu_trans(rule_file)
     if include_arabic:
@@ -234,18 +255,12 @@ def to_ipa(text: str, lang: str) -> str:
         RuntimeError: Propagated from :func:`_require_icu` when
             PyICU is not installed.
     """
-    supported = get_supported_languages()
-
-    if lang not in supported or "ipa" not in supported[lang]:
-        available = [code for code, fmts in supported.items() if "ipa" in fmts]
+    rule_file = rule_file_for(lang, "ipa")
+    if rule_file is None:
         raise ValueError(
             f"IPA transliteration not supported for '{lang}'. "
-            f"Available languages: {', '.join(sorted(available))}"
+            f"Available languages: {', '.join(languages_offering('ipa'))}"
         )
-
-    rule_file = f"{lang}_ipa.rules"
-    if not (_RULE_DIR / rule_file).exists():
-        raise ValueError(f"IPA rules file not found for language '{lang}'")
 
     trans = _icu_trans(rule_file)
     return ud.normalize("NFC", trans.transliterate(text))

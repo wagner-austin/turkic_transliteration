@@ -12,10 +12,10 @@ from collections.abc import Generator
 from pathlib import Path
 
 import pytest
-import sentencepiece as spm
 
 from turkic_translit.lid import _test_hooks
 from turkic_translit.pipeline import TurkicTransliterationPipeline
+from turkic_translit.tokenizer import sentencepiece_trainer
 
 ANSWERS = {
     "salem": [("__label__kk", 0.99)],
@@ -44,7 +44,7 @@ def tokenizer_model(tmp_path_factory: pytest.TempPathFactory) -> str:
         encoding="utf-8",
     )
     prefix = directory / "tiny"
-    spm.SentencePieceTrainer.train(
+    sentencepiece_trainer().train(
         input=str(corpus),
         model_prefix=str(prefix),
         vocab_size=32,

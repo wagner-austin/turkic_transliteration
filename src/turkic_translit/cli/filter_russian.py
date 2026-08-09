@@ -1,14 +1,15 @@
 #!/usr/bin/env python3
 import json
 import logging
-import os
 from typing import TextIO
 
 import click
 
+from .. import _test_hooks
 from ..error_service import init_error_service, set_correlation_id
 from ..lang_filter import PREDICTIONS_PER_TOKEN, RU_ONLY, is_russian_token
 from ..lid.factory import load_installed_classifier
+from ..logging_config import default_level
 from ..logging_config import setup as _log_setup
 
 logger = logging.getLogger(__name__)
@@ -83,21 +84,36 @@ def main(
     fallback_orth: bool,
     debug: bool,
 ) -> None:
-    """Filter or mask Russian tokens in text, with configurable detection settings.
+    """Drop or mask the Russian tokens in a stream of text.
 
-    Example usage:
-        python -m turkic_translit.cli.filter_russian --mode mask --thr 0.5 --margin 0.1 --fallback-orth < input.txt > output.txt
+    Args:
+        input: Stream to read, one line at a time.
+        output: Stream to write the filtered text to.
+        mode: ``drop`` removes a Russian token; ``mask`` replaces it
+            with ``<RU>`` so the position is preserved.
+        thr: Probability at or above which a token counts as Russian.
+        min_len: Tokens shorter than this are never classified, because
+            short strings carry too little signal to judge.
+        stoplist: Path to a file of words to exempt, one per line, or
+            ``None``. Used for target-language words that a classifier
+            confuses with Russian.
+        margin: How far below the top language Russian may rank and
+            still be accepted.
+        fallback_orth: Whether a token written wholly in Russian-only
+            Cyrillic letters counts as Russian regardless of the
+            threshold.
+        debug: Whether to write each token's top predictions to stderr
+            as JSON.
 
-    Options:
-        --thr: Confidence threshold for identifying Russian (0.0 to 1.0)
-        --margin: Maximum gap allowed when Russian is not the top language (0.0 to 1.0)
-        --fallback-orth: Apply pure-Cyrillic test regardless of threshold
-        --debug: Emit structured debug info (JSON) to stderr
+    Raises:
+        LidError: If the language-identification model is missing or its
+            weights cannot be read.
+        OSError: If the stoplist cannot be read.
     """
     # Configure logging and error service for direct module execution
-    _log_setup()
+    _log_setup(default_level())
     init_error_service()
-    set_correlation_id(os.getenv("TURKIC_CORRELATION_ID"))
+    set_correlation_id(_test_hooks.environment.get("TURKIC_CORRELATION_ID"))
 
     # Resolution is explicit and total: a missing or truncated model
     # raises with a code naming the model and the path, rather than being
@@ -135,7 +151,7 @@ def main(
         out = []
         for tok in line.strip().split():
             t = tok.lower()
-            if debug and len(t) >= min_len and not os.environ.get("GRADIO"):
+            if debug and len(t) >= min_len:
                 debug_token(tok)
 
             # Make the decision using the shared language filter

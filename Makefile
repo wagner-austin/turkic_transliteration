@@ -24,8 +24,13 @@ lint: install guard
 
 # Test: statement and branch coverage over src and scripts, 100% enforced by
 # the fail_under in pyproject.
+#
+# COVERAGE_PROCESS_START is what makes sitecustomize.py start coverage in
+# child processes. Several tests exercise the real console scripts by
+# spawning them; without this their execution is invisible and the report
+# calls that code untested.
 test: install
-	poetry run pytest -n auto --cov=src --cov=scripts --cov-branch --cov-report=term-missing
+	$$env:COVERAGE_PROCESS_START = "$(CURDIR)/pyproject.toml"; poetry run pytest -n auto --cov=src --cov=scripts --cov-branch --cov-report=term-missing
 
 check: lint test
 

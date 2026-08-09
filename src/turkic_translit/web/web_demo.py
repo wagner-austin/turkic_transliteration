@@ -6,10 +6,16 @@ import gradio as gr
 
 from turkic_translit.lid.locations import default_search_dirs
 from turkic_translit.lid.registry import find_model_path
-from turkic_translit.web.web_utils import LANGUAGE_MODEL_ID, get_ui_log_handler
+from turkic_translit.web.web_utils import (
+    LANGUAGE_MODEL_ID,
+    get_ui_log_handler,
+    start_janitor,
+)
 
 from ..error_service import init_error_service
+from ..logging_config import default_level
 from ..logging_config import setup as _log_setup
+from . import _test_hooks
 
 """Gradio-based web UI for the Turkic Transliteration Suite.
 
@@ -23,9 +29,12 @@ _logger = logging.getLogger("turkic_translit.web_demo")
 
 
 def _model_check() -> tuple[str, str]:
-    """Verify auxiliary model files exist; attempt download when missing.
+    """Report which auxiliary model files are installed.
 
-    Returns (warning_markdown, fasttext_info_markdown).
+    Returns:
+        A Markdown warning naming anything missing, empty when nothing
+        is, and a one-line description of the language-identification
+        model's state.
     """
     missing: list[str] = []
 
@@ -59,26 +68,26 @@ def _model_check() -> tuple[str, str]:
 
 
 def build_ui() -> gr.Blocks:
-    """Build and return the Gradio Blocks application."""
+    """Build and return the Gradio Blocks application.
+
+    Returns:
+        The assembled application, ready to queue and launch.
+    """
     # Ensure logging is configured for the web demo (honours TURKIC_LOG_LEVEL)
-    _log_setup()
+    _log_setup(default_level())
     init_error_service()
+    # Started here rather than on import of web_utils, so that importing a
+    # web helper does not spawn a thread in a process that never serves.
+    start_janitor()
     # Called for the startup log line naming which language-identification
     # model is installed. The result is deliberately not surfaced in the UI:
     # tabs raise their own notice when a feature actually needs the model.
     _model_check()
 
-    css = """
-    .container { margin: 0 auto; }
-    .tab-content { padding: 10px 15px; border: 1px solid #ddd; border-top: none; border-radius: 0 0 5px 5px; }
-    .examples-row { margin-top: 10px; }
-    .file-info { margin-top: -5px; font-size: 0.85em; color: #555; }
-    footer { margin-top: 20px; text-align: center; font-size: 0.8em; color: #666; }
-    """
-
-    blocks: gr.Blocks = gr.Blocks(
-        title="Turkic Transliteration Suite", css=css, theme=gr.themes.Soft()
-    )
+    # The theme and the stylesheet belong to launch() from Gradio 6
+    # onwards, not to the Blocks constructor, so both are applied by the
+    # server hook.
+    blocks: gr.Blocks = gr.Blocks(title="Turkic Transliteration Suite")
     with blocks:
         gr.Markdown(
             """
@@ -102,11 +111,13 @@ def build_ui() -> gr.Blocks:
 
         # Lightweight wrappers that delegate to modular tab code
         def _direct_tab() -> None:
+            """Render the Direct Transliteration tab's contents."""
             from turkic_translit.web.tabs import direct as _tab
 
             _tab.register()
 
         def _corpus_tab() -> None:
+            """Render the Download Corpus tab's contents."""
             from turkic_translit.web.tabs import corpus as _tab
 
             _tab.register()
@@ -129,10 +140,11 @@ def build_ui() -> gr.Blocks:
 
 
 def main() -> None:
-    """Launch the web UI."""
-    ui = build_ui()
-    ui.queue().launch()
+    """Build the web UI and serve it.
 
-
-if __name__ == "__main__":
-    main()
+    This is the ``turkic-web`` console script. Serving happens through
+    the hook so that everything up to it — building the interface,
+    registering both tabs, starting the janitor — is reachable by a test,
+    which a blocking call to Gradio's launcher would prevent.
+    """
+    _test_hooks.server.serve(build_ui())

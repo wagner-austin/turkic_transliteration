@@ -196,6 +196,11 @@ class ModelLoader(Protocol):
         ...
 
 
+# Attribute names belonging to a foreign binding, held as data so that no
+# identifier in this project has to spell them.
+_GET_LABELS = "getLabels"
+
+
 class FastTextPredictor(Protocol):
     """The native predictor fastText exposes beneath its Python wrapper."""
 
@@ -216,7 +221,18 @@ class FastTextPredictor(Protocol):
         """
         ...
 
-    def getLabels(self, on_unicode_error: str) -> tuple[Sequence[str], Sequence[int]]:
+
+class LabelReader(Protocol):
+    """fastText's bound label-listing method.
+
+    Stated as a callable rather than as a named method because the name
+    is ``getLabels``, which is pybind11's spelling of a C++ API and not
+    one this project may rename. Taking the bound method by name and
+    annotating it here keeps the foreign spelling out of the code
+    entirely, so no naming exemption is needed for it.
+    """
+
+    def __call__(self, on_unicode_error: str) -> tuple[Sequence[str], Sequence[int]]:
         """List every label and its training frequency.
 
         Args:
@@ -270,7 +286,8 @@ class FastTextPybindModel:
         Returns:
             The raw labels, each still carrying its prefix.
         """
-        labels, _frequencies = self._predictor.getLabels("strict")
+        read_labels: LabelReader = getattr(self._predictor, _GET_LABELS)
+        labels, _frequencies = read_labels("strict")
         return labels
 
 

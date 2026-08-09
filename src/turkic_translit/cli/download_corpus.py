@@ -17,11 +17,11 @@ is written into the manifest beside the corpus.
 from __future__ import annotations
 
 import logging
-import os
 from pathlib import Path
 
 import click
 
+from turkic_translit import _test_hooks
 from turkic_translit.corpus.catalogue import available_languages, source_reachable
 from turkic_translit.corpus.errors import CorpusError
 from turkic_translit.corpus.filtering import (
@@ -59,8 +59,7 @@ def cli(log_level: str) -> None:
     Args:
         log_level: Verbosity applied to every command in this group.
     """
-    os.environ["TURKIC_LOG_LEVEL"] = log_level.upper()
-    configure_logging()
+    configure_logging(log_level.upper())
 
 
 @cli.command("list-sources")
@@ -212,7 +211,7 @@ def download(
             language=lang,
             output_path=Path(out),
             max_lines=max_lines,
-            access_token=os.getenv("HF_TOKEN"),
+            access_token=_test_hooks.environment.get("HF_TOKEN"),
             lid_filter=lid_filter,
         )
     except (CorpusError, LidError, FieldError) as exc:
