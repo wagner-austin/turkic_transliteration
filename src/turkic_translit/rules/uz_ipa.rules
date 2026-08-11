@@ -47,9 +47,12 @@ tS  > t͡s ;
 # ‹yo / yu / ya / ye› sequences (mostly in loans)
 # ---------------------------------------------------------------------------
 
-yo  > jo ;
-Yo  > jo ;
-YO  > jo ;
+# The vowel here is the one plain <o> carries, not the one <oʻ>
+# does: Ido gives yol 'mane' as /jɔl/ (p. 154). Writing <o> instead
+# put the close vowel on every <yo> in the corpus.
+yo  > jɔ ;
+Yo  > jɔ ;
+YO  > jɔ ;
 
 yu  > ju ;
 Yu  > ju ;

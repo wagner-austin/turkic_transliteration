@@ -63,7 +63,8 @@ $V_cyr } е > je ;
 # Other iotated vowels
 # ---------------------------------------------------------------------------
 
-Ё > jo ;  ё > jo ;
+# Matches О/о above, not Ў/ў: the Cyrillic ё carries the open vowel.
+Ё > jɔ ;  ё > jɔ ;
 Ю > ju ;  ю > ju ;
 Я > ja ;  я > ja ;
 
@@ -78,8 +79,11 @@ $V_cyr } е > je ;
 Ғ > ʁ ;  ғ > ʁ ;      # gʻ
 Д > d ;  д > d ;
 
-# ‹Ж ж› corresponds to Latin ‹j›, phonemic affricate
-Ж > d͡ʃ ; ж > d͡ʃ ;
+# ‹Ж ж› corresponds to Latin ‹j›, phonemic affricate. The second
+# element is voiced: a voiced stop tied to a voiceless fricative is
+# not a producible segment, and the Latin rules already write the
+# voiced affricate for the same phoneme.
+Ж > d͡ʒ ; ж > d͡ʒ ;
 
 З > z ;  з > z ;
 
