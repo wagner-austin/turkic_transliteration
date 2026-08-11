@@ -25,7 +25,10 @@ import pytest
 from turkic_translit.core import _RULE_DIR, to_ipa
 from turkic_translit.rule_provenance import read_rule_source
 
-INHERITS_SOURCE = "https://doi.org/10.1017/S0025100300004588"
+INHERITS_SOURCE = {
+    "tr": "https://doi.org/10.1017/S0025100300004588",
+    "kk": "https://doi.org/10.1017/S0025100319000185",
+}
 
 TIE_BAR = "͡"
 LENGTH_MARK = "ː"
@@ -76,20 +79,54 @@ def segments_of(text: str) -> set[str]:
     return {char for char in text if char.isalpha() or ud.category(char) == "Mn"}
 
 
-def test_the_declared_source_is_the_one_the_rules_cite() -> None:
-    """The Turkish inventory below comes from the paper the rules name."""
-    declared = read_rule_source(_RULE_DIR / "tr_ipa.rules")
+# Kazakh, from McCollum & Chen's consonant chart (p. 277), the
+# non-native segments their text names on the same page, and the
+# eleven-vowel inventory of p. 281 with its two diphthongs written as the
+# single vowels these rules produce.
+KAZAKH_INVENTORY = frozenset(
+    "pbtdkɡqmnŋrszʃʒχʁwjl"  # consonants
+    "fvh"  # non-native, p. 277
+    "ɑoəʊæeɵɪʏiu"  # vowels, p. 281
+)
 
-    assert declared["identifier"] == INHERITS_SOURCE
-    assert declared["year"] == 1992
+KAZAKH_SENTENCES: tuple[str, ...] = (
+    "Бір күні солтүстік жел мен күн екеуі араларында кім мықты екенін шеше алмай "
+    "бәсікелеседі.",
+    "Дәл осы мезетте жол бойында шапанға оранып келе жатқан жолаушыны кезіктіреді.",
+    "Екеуіне ой келеді, кім де кім жолаушыға үстіндегі шапанын шешкізе алса, сол мықты "
+    "деген шешімге келеді.",
+    "Солтүстік жел бар күшімен жел үрлей бастайды, ол қатты үрлеген сайын жолаушы "
+    "шапанына орана түседі.",
+)
+
+INVENTORIES = {
+    "tr": (TURKISH_INVENTORY, TURKISH_SENTENCES),
+    "kk": (KAZAKH_INVENTORY, KAZAKH_SENTENCES),
+}
 
 
-@pytest.mark.parametrize("sentence", TURKISH_SENTENCES)
-def test_turkish_output_stays_inside_the_published_inventory(sentence: str) -> None:
-    """Real Turkish text produces no segment the source does not list."""
-    produced = segments_of(to_ipa(sentence, "tr"))
+@pytest.mark.parametrize("language", sorted(INHERITS_SOURCE))
+def test_the_declared_source_is_the_one_the_rules_cite(language: str) -> None:
+    """Each inventory below comes from the paper that language's rules name."""
+    declared = read_rule_source(_RULE_DIR / f"{language}_ipa.rules")
 
-    assert produced <= TURKISH_INVENTORY | SUPRASEGMENTAL
+    assert declared["identifier"] == INHERITS_SOURCE[language]
+
+
+@pytest.mark.parametrize(
+    ("language", "sentence"),
+    [
+        (language, sentence)
+        for language, (_inventory, sentences) in sorted(INVENTORIES.items())
+        for sentence in sentences
+    ],
+)
+def test_output_stays_inside_the_published_inventory(language: str, sentence: str) -> None:
+    """Real text produces no segment the language's source does not list."""
+    inventory, _sentences = INVENTORIES[language]
+    produced = segments_of(to_ipa(sentence, language))
+
+    assert produced <= inventory | SUPRASEGMENTAL
     assert produced, "a sentence of real text should produce segments"
 
 
