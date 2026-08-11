@@ -27,6 +27,9 @@ INHERITS_SOURCE = "https://doi.org/10.1017/S0025100300004588"
 # adjustment made to force a match.
 DECLARED_DEVIATIONS: tuple[tuple[str, str, str], ...] = (
     ("ɫ", "l", "the rules carry one lateral; the velarized dental rule is not enabled"),
+    # The source's symbol was read off a 1992 scan and confirmed against
+    # the page by a second reader, since the two glyphs are easy to
+    # confuse and enlarging a scan of that vintage does not settle it.
     ("œ", "ø", "the rules write the front rounded mid vowel with the close-mid symbol"),
     ("g", "ɡ", "the journal typesets the voiced velar plosive as U+0067; IPA is U+0261"),
 )

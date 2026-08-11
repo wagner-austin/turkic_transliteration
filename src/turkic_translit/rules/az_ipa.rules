@@ -6,6 +6,22 @@
 # Source-Container: Journal of the International Phonetic Association 47(2): 207-212
 # Source-Id: https://doi.org/10.1017/S0025100317000184
 #
+# SCOPE: the cited Illustration does not describe the variety these rules
+# implement, and the difference is not only orthographic. It states that it
+# is "based on the urban variety of Tabriz dialectal region" (p. 207), whose
+# speakers write Azerbaijani in Arabic script, while these rules map the
+# Latin alphabet of the Baku standard. Its consonant chart (p. 208) gives
+# four affricates, including a phonemic alveolar pair the Baku standard
+# lacks, and parenthesises the palatal and velar plosives. Both readings
+# were confirmed against the pages by a second reader.
+#
+# The segmental inventory the two varieties share is what these rules take
+# from it; the orthography and the Tabriz-specific segments are supplied by
+# the Baku-oriented reference below. No Illustration of North Azerbaijani
+# exists, so no single source grounds these rules the way one grounds each
+# of the other languages here. That gap is real and is recorded rather than
+# papered over.
+#
 # Additional reference: Standard Baku-oriented descriptions of orthography & pronunciation
 #                       (e.g., Siegel, Essentials of Azerbaijani).
 #

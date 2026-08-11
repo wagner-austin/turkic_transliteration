@@ -82,7 +82,9 @@ def segments_of(text: str) -> set[str]:
 # Kazakh, from McCollum & Chen's consonant chart (p. 277), the
 # non-native segments their text names on the same page, and the
 # eleven-vowel inventory of p. 281 with its two diphthongs written as the
-# single vowels these rules produce.
+# single vowels these rules produce. The front rounded mid vowel there is
+# the barred o, not the slashed one; confirmed against the page by a
+# second reader, the two being easy to confuse.
 KAZAKH_INVENTORY = frozenset(
     "pbtdkɡqmnŋrszʃʒχʁwjl"  # consonants
     "fvh"  # non-native, p. 277
