@@ -252,9 +252,7 @@ class SelfReferentialExpectationRule:
             module_derived = self._names_derived_from_transliteration(
                 tree, recurse=False, seed=frozenset()
             )
-            for function in [
-                node for node in ast.walk(tree) if isinstance(node, ast.FunctionDef)
-            ]:
+            for function in [node for node in ast.walk(tree) if isinstance(node, ast.FunctionDef)]:
                 derived = self._names_derived_from_transliteration(
                     function, recurse=True, seed=frozenset(module_derived)
                 )
@@ -330,13 +328,14 @@ class SelfReferentialExpectationRule:
                     if isinstance(target, ast.Name):
                         derived.add(target.id)
         for node in nodes:
-            if isinstance(node, ast.For) and isinstance(node.iter, ast.Call):
-                if any(
-                    isinstance(arg, ast.Name) and arg.id in derived for arg in node.iter.args
-                ):
-                    for name in ast.walk(node.target):
-                        if isinstance(name, ast.Name):
-                            derived.add(name.id)
+            if (
+                isinstance(node, ast.For)
+                and isinstance(node.iter, ast.Call)
+                and any(isinstance(arg, ast.Name) and arg.id in derived for arg in node.iter.args)
+            ):
+                for name in ast.walk(node.target):
+                    if isinstance(name, ast.Name):
+                        derived.add(name.id)
         return derived
 
     def _offending_assertions(

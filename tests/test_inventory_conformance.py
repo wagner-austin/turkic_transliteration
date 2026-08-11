@@ -28,6 +28,8 @@ from turkic_translit.rule_provenance import read_rule_source
 INHERITS_SOURCE = {
     "tr": "https://doi.org/10.1017/S0025100300004588",
     "kk": "https://doi.org/10.1017/S0025100319000185",
+    "fi": "https://urn.fi/URN:ISBN:9789514289842",
+    "az": "https://doi.org/10.1017/S0025100317000184",
 }
 
 TIE_BAR = "͡"
@@ -58,8 +60,7 @@ TURKISH_SENTENCES: tuple[str, ...] = (
     "Ne var ki, rüzgar sertleştikçe yolcu da paltosuna daha çok sarındı ve sonunda "
     "kuzey rüzgarı esmekten vazgeçti.",
     "Sonra güneş sıcak bir şekilde parladı ve yolcu az sonra paltosunu çıkardı.",
-    "Böylece kuzey rüzgarı, güneşin ikisi arasında daha güçlü olduğunu kabul etmek "
-    "zorunda kaldı.",
+    "Böylece kuzey rüzgarı, güneşin ikisi arasında daha güçlü olduğunu kabul etmek zorunda kaldı.",
 )
 
 
@@ -92,8 +93,7 @@ KAZAKH_INVENTORY = frozenset(
 )
 
 KAZAKH_SENTENCES: tuple[str, ...] = (
-    "Бір күні солтүстік жел мен күн екеуі араларында кім мықты екенін шеше алмай "
-    "бәсікелеседі.",
+    "Бір күні солтүстік жел мен күн екеуі араларында кім мықты екенін шеше алмай бәсікелеседі.",
     "Дәл осы мезетте жол бойында шапанға оранып келе жатқан жолаушыны кезіктіреді.",
     "Екеуіне ой келеді, кім де кім жолаушыға үстіндегі шапанын шешкізе алса, сол мықты "
     "деген шешімге келеді.",
@@ -101,9 +101,51 @@ KAZAKH_SENTENCES: tuple[str, ...] = (
     "шапанына орана түседі.",
 )
 
+# Finnish, from the vowel inventory of p. 20 and the consonant groups of
+# Figure 2 (p. 25). The book declines to state a single consonant count
+# because the paradigm varies by speaker; the set below is the maximum
+# paradigm, groups (1) to (5), or 17 phonemes. The dental place the book
+# marks on the coronal plosives is left off here, as the rule file
+# declares.
+FINNISH_INVENTORY = frozenset(
+    "ptkshmnlrʋj"  # group (1), common to all varieties
+    "ŋdfbɡʃ"  # groups (2) to (5), by decreasing generality
+    "ieyøæɑou"  # vowels, p. 20
+)
+
+# Runeberg's Maamme in Cajander's Finnish translation, first stanza. A
+# native text with no loan stratum, so every segment it produces should
+# be a Finnish one.
+FINNISH_SENTENCES: tuple[str, ...] = (
+    "Oi maamme, Suomi, synnyinmaa, soi, sana kultainen!",
+    "Ei laaksoa, ei kukkulaa, ei vettä rantaa rakkaampaa,",
+    "kuin kotimaa tää pohjoinen, maa kallis isien!",
+)
+
+# Azerbaijani, from Mokari & Werner's consonant chart (p. 2) and the nine
+# vowels their text states on p. 3. The chart describes Tabriz and these
+# rules target Baku, so it is wider than what they emit in two places:
+# the alveolar affricate pair and the palatal voiceless plosive. The rule
+# file records that gap and the language's own test pins it; here the
+# chart is taken as published, which is the weaker and safer direction.
+AZERBAIJANI_INVENTORY = frozenset(
+    "pbtdcɟkɡmnɾfvszʃʒxɣhlj"  # consonants, p. 2
+    "æɑoeœɯuiy"  # vowels, p. 3
+)
+
+AZERBAIJANI_SENTENCES: tuple[str, ...] = (
+    "Şimal yeli ilə Günəş mübahisə edirdilər ki, hansı daha güclüdür.",
+    "O zaman bir isti əbaya bürünmüş səyahətçi oradan keçirdi.",
+    "O zaman Şimal yeli bəcərdiyi qədər əsməyə başladı.",
+    "Amma hər nə qədər artıq əsdikcə, səyahətçi də əbasını dərəsinə bürüyürdü.",
+    "Sonra Günəş isti şəfəqlənməyə başladı və bilavasitə səyahətçi əbasını çıxartdı.",
+)
+
 INVENTORIES = {
     "tr": (TURKISH_INVENTORY, TURKISH_SENTENCES),
     "kk": (KAZAKH_INVENTORY, KAZAKH_SENTENCES),
+    "fi": (FINNISH_INVENTORY, FINNISH_SENTENCES),
+    "az": (AZERBAIJANI_INVENTORY, AZERBAIJANI_SENTENCES),
 }
 
 

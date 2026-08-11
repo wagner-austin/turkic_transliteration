@@ -28,14 +28,11 @@
 # Simplified: no vowel length, no stress, no aspiration marking, no dental vs. alveolar
 # distinctions, no automatic final devoicing, no systematic palatal/velar allophony.
 
-# ---------------------------------------------------------------------------
-
-# 0. MACROS  (IPA target symbols; used in contexts below)
-
-$V   = [ i y e œ æ ɑ o u ɯ ];   # all vowels
-$BV  = [ ɑ o u ɯ ];             # back vowels
-$FV  = [ i y e œ æ ];           # front vowels
-$RV  = [ o œ u y ];             # rounded vowels
+# The map below is context-free. Azerbaijani has fronting and rounding
+# harmony (p. 4), but the orthography writes every vowel, so a
+# grapheme-to-phoneme transform never has to compute a harmonic value and
+# nothing here needs the harmony classes of Table 1. They were once
+# declared as macros no rule referred to, and have been removed.
 
 # ---------------------------------------------------------------------------
 

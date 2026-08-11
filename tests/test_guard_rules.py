@@ -28,6 +28,7 @@ from scripts.guard import (
     _is_broad_exception,
     _is_suppress,
     _iter_py_files,
+    _iter_rule_files,
     _parse_except_header,
     _run_comments_rule,
     _run_exceptions_rule,
@@ -125,6 +126,27 @@ def test_a_missing_scanned_directory_is_not_an_error(tmp_path: Path) -> None:
     path.touch()
 
     assert [p.name for p in _iter_py_files(tmp_path)] == ["only.py"]
+
+
+def test_rule_files_are_collected_separately_from_python(tmp_path: Path) -> None:
+    """Rule files are not Python, so the walk that finds them is its own.
+
+    The provenance rule reads the header of every ``.rules`` file, and
+    would silently check nothing if this walk returned an empty list.
+    """
+    rules_dir = tmp_path / "src" / "turkic_translit" / "rules"
+    rules_dir.mkdir(parents=True)
+    for name in ("zz_ipa.rules", "zz_lat.rules", "notes.txt"):
+        (rules_dir / name).touch()
+
+    found = [path.name for path in _iter_rule_files(tmp_path)]
+
+    assert found == ["zz_ipa.rules", "zz_lat.rules"]
+
+
+def test_a_project_without_a_rules_directory_is_not_an_error(tmp_path: Path) -> None:
+    """The walk yields nothing rather than raising."""
+    assert list(_iter_rule_files(tmp_path)) == []
 
 
 def test_importing_any_from_typing_is_reported() -> None:

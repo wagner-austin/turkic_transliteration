@@ -11,7 +11,9 @@
 #   - no explicit [i]~[ɯ] alternation
 #   - no diphthongs, no length, no optional allophones in the core map
 
-$V = [ɑ æ e i y ø o u];        # vowel macro (phonemic set used here)
+# The map below is context-free, so it declares no macros. The seven
+# vowels above are asserted as an inventory in the tests instead of being
+# restated here as a set no rule refers to.
 
 # ---------------------------------------------------------------------------
 

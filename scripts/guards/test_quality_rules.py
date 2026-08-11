@@ -502,7 +502,16 @@ class _TranslitPatternVisitor(ast.NodeVisitor):
     A domain call is any invocation of a transliteration or
     language-identification entry point. A value assertion is any
     comparison that pins a result against an expected value, whether by
-    equality, membership, or an ``assertEqual``-family method.
+    equality, membership, containment, or an ``assertEqual``-family
+    method.
+
+    Containment is here because of the inventory tests. A published
+    phonological description states which segments a language has, and
+    the check that output stays inside that set needs no expected value
+    for any particular word — which is exactly why it cannot be
+    circular. It pins the result against the source no less than an
+    equality does. ``assert len(x) > 0`` is not admitted by this: the
+    weak-assertion rules reject it separately.
     """
 
     _DOMAIN_CALLS: ClassVar[frozenset[str]] = frozenset(
@@ -527,6 +536,8 @@ class _TranslitPatternVisitor(ast.NodeVisitor):
         ast.NotEq,
         ast.In,
         ast.NotIn,
+        ast.LtE,
+        ast.GtE,
     )
 
     def __init__(self) -> None:

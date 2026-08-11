@@ -16,14 +16,14 @@ anyone can consult.
 
 import unicodedata as ud
 
+import pytest
+
+from turkic_translit.core import to_ipa
+
 # The archived article, whose Table 3 grounds the harmony behaviour these
 # rows exercise. The supplementary Appendix is not archived, so no row
 # here is presented as a value read from a source.
 INHERITS_SOURCE = "https://doi.org/10.5334/labphon.247"
-
-import pytest
-
-from turkic_translit.core import to_ipa
 
 # -------------------------------------------------------------------------
 # Orthographic word  →  IPA  (canonicalised)

@@ -15,7 +15,6 @@
 # ---------------------------------------------------------------------------
 
 $Apo    = [ʼ ' ‘ ’ ʻ ʾ] ;          # apostrophe-like marks used in oʻ, gʻ, loans
-$V_orth = [a e i o oʻ u] ;         # Latin vowel letters (for contexts only)
 
 # ---------------------------------------------------------------------------
 # Multi-character sequences and digraphs
