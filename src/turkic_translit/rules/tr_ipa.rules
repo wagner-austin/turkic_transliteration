@@ -1,8 +1,10 @@
 # Turkish → IPA transliteration rules (tr_ipa.rules)
 #
-# Source: Zimmer, K. & Orgun, O. (1992). "Turkish".
-#         Journal of the International Phonetic Association, 22(1-2): 43-45.
-#         DOI: https://doi.org/10.1017/S0025100300004588
+# Source-Authors: Zimmer, K. & Orgun, O.
+# Source-Year: 1992
+# Source-Title: Turkish
+# Source-Container: Journal of the International Phonetic Association 22(1-2): 43-45
+# Source-Id: https://doi.org/10.1017/S0025100300004588
 #
 # Additional reference: Berkeley TELL transcription sheet
 #
@@ -16,8 +18,19 @@ $BVsrc = [a ı o u A I O U];                   # back  vowels
 # ─────────────────────────────────────────────────────────────────────────────
 # 1.  SOFT-G  (Ğ/ğ   "yumuşak g")
 # Per TELL: "vowel length when syllable-final and silence when syllable-initial"
+#
+# Syllable position is decided by what FOLLOWS. Turkish syllabifies VCV as
+# V.CV, so a soft-g between vowels is an onset and TELL gives it silence;
+# one before a consonant or a word boundary is a coda and lengthens the
+# vowel before it. Zimmer & Orgun agree on the phonetics: lengthening
+# "when word-final or followed by a consonant", and "elsewhere when
+# intervocalic, it is phonetically zero" (p. 44).
 
-# 1 a. syllable-final lengthening (after vowel)
+# 1 a. syllable-initial (a vowel follows): silence
+ğ } $Vsrc > ;
+Ğ } $Vsrc > ;
+
+# 1 b. syllable-final (after a vowel, nothing else matched): lengthening
 $Vsrc { ğ } > ː ;
 $Vsrc { Ğ } > ː ;
 

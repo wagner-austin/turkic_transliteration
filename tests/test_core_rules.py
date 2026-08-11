@@ -211,3 +211,41 @@ def test_output_is_normalised_to_composed_form() -> None:
     result = to_ipa("мектеп", "kk")
 
     assert result == unicodedata.normalize("NFC", result)
+
+
+COMBINING_BREVE = "\u0306"
+COMBINING_DIAERESIS = "\u0308"
+SOFT_G_COMPOSED = "da\u011f"
+SOFT_G_DECOMPOSED = "dag" + COMBINING_BREVE
+
+
+def test_decomposed_input_transliterates_as_its_composed_form() -> None:
+    """A decomposed letter is mapped, not left as a base plus its mark.
+
+    The rule files spell precomposed letters, so decomposed input matched
+    no rule: Turkish soft g arrived as ``g`` plus a combining breve, the
+    base letter was rewritten, and the breve survived into the output as
+    a segment no Turkic inventory contains.
+    """
+    composed = to_ipa(SOFT_G_COMPOSED, "tr")
+    decomposed = to_ipa(SOFT_G_DECOMPOSED, "tr")
+
+    assert composed == "da\u02d0"
+    assert decomposed == composed
+    assert COMBINING_BREVE not in decomposed
+
+
+def test_decomposed_input_reaches_the_latin_rules_composed() -> None:
+    """The Latin path normalises its input for the same reason.
+
+    The decomposed form is derived with NFD rather than written out, so
+    the test cannot accidentally compare two different letters.
+    """
+    import unicodedata
+
+    word = "\u0430\u0439\u0434\u044b\u04a3"
+    decomposed = unicodedata.normalize("NFD", word)
+
+    assert decomposed != word
+    assert to_latin(decomposed, "kk") == to_latin(word, "kk")
+    assert COMBINING_BREVE not in to_latin(decomposed, "kk")

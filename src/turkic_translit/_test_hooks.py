@@ -579,8 +579,71 @@ class RecordingInstaller:
         self.installed.append((interpreter, wheel))
 
 
+class RuleText(Protocol):
+    """Reader for the text of a rule file."""
+
+    def read(self, path: Path) -> str:
+        """Return the full contents of one rule file.
+
+        Args:
+            path: Absolute path to a ``.rules`` file.
+
+        Returns:
+            The file's text, decoded as UTF-8.
+        """
+        ...
+
+
+class FileRuleText:
+    """Rule text read from the filesystem."""
+
+    def read(self, path: Path) -> str:
+        """Read a rule file from disk.
+
+        Args:
+            path: Absolute path to a ``.rules`` file.
+
+        Returns:
+            The file's text, decoded as UTF-8.
+        """
+        return path.read_text(encoding="utf-8")
+
+
+class MappingRuleText:
+    """Rule text answering from a fixed mapping of path to contents.
+
+    A real implementation of :class:`RuleText`, not a mock: it records
+    nothing and offers no assertion helpers, so a test using it can only
+    check the value the code under test produced.
+
+    Args:
+        texts: Mapping of path to file contents. A path absent from the
+            mapping raises, because a rule file the code asks for and
+            the test did not supply is a mistake in the test.
+    """
+
+    def __init__(self, texts: Mapping[Path, str]) -> None:
+        """Store the mapping backing this reader."""
+        self._texts = dict(texts)
+
+    def read(self, path: Path) -> str:
+        """Return the stored contents for ``path``.
+
+        Args:
+            path: Path whose contents were supplied.
+
+        Returns:
+            The stored text.
+
+        Raises:
+            KeyError: If the test supplied no text for this path.
+        """
+        return self._texts[path]
+
+
 clock: Clock = SystemClock()
 icu: IcuProvider = InstalledIcu()
+rule_text: RuleText = FileRuleText()
 environment: Environment = ProcessEnvironment()
 interpreter: Interpreter = RunningInterpreter()
 releases: ReleaseIndex = GitHubReleaseIndex()
@@ -599,10 +662,13 @@ __all__ = [
     "InstalledIcu",
     "Installer",
     "Interpreter",
+    "FileRuleText",
     "MappingEnvironment",
+    "MappingRuleText",
     "PipInstaller",
     "ProcessEnvironment",
     "RecordingClock",
+    "RuleText",
     "RecordingErrorReporter",
     "RecordingInstaller",
     "ReleaseIndex",

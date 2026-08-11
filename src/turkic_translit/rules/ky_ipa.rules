@@ -1,8 +1,10 @@
 # Kyrgyz → IPA transliteration rules (ky_ipa.rules)
 #
-# Source: McCollum, A. G. (2020). "Vowel harmony and positional variation in Kyrgyz".
-#         Laboratory Phonology, 11(1): article 25.
-#         DOI: https://doi.org/10.5334/labphon.247
+# Source-Authors: McCollum, A. G.
+# Source-Year: 2020
+# Source-Title: Vowel harmony and positional variation in Kyrgyz
+# Source-Container: Laboratory Phonology 11(1): article 25
+# Source-Id: https://doi.org/10.5334/labphon.247
 #
 # Features: Includes long vowel representations (double letters → ː)
 # License: CC-BY 4.0 (source article)

@@ -231,10 +231,15 @@ def to_latin(text: str, lang: str, include_arabic: bool = False) -> str:
         )
 
     trans = _icu_trans(rule_file)
+    # The rule files spell precomposed letters in NFC, so decomposed input
+    # matches no rule and its base letter is rewritten while the combining
+    # mark survives: NFD "ğ" leaves "ɡ" plus U+0306 rather than the mapped
+    # segment. Normalizing on entry makes the two input forms agree.
+    source = ud.normalize("NFC", text)
     if include_arabic:
         ar = _icu_trans("ar_lat.rules")
-        text = ar.transliterate(text)
-    out = trans.transliterate(text)
+        source = ar.transliterate(source)
+    out = trans.transliterate(source)
     return ud.normalize("NFC", out)
 
 
@@ -263,4 +268,6 @@ def to_ipa(text: str, lang: str) -> str:
         )
 
     trans = _icu_trans(rule_file)
-    return ud.normalize("NFC", trans.transliterate(text))
+    # NFC on the way in for the same reason as :func:`to_latin`: the rules
+    # match precomposed letters only.
+    return ud.normalize("NFC", trans.transliterate(ud.normalize("NFC", text)))

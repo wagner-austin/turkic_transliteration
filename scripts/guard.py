@@ -33,6 +33,11 @@ from pathlib import Path
 
 from scripts.guards import RuleReport, Violation
 from scripts.guards.docstring_rules import DocstringRule
+from scripts.guards.provenance_rules import (
+    RuleSourceRule,
+    SelfReferentialExpectationRule,
+    TestSourceInheritanceRule,
+)
 from scripts.guards.test_quality_rules import (
     PatchingRule,
     TransliterationTestQualityRule,
@@ -57,6 +62,24 @@ def _iter_py_files(root: Path) -> Generator[Path, None, None]:
         dir_path = root / subdir
         if dir_path.is_dir():
             yield from sorted(dir_path.rglob("*.py"))
+
+
+def _iter_rule_files(root: Path) -> Generator[Path, None, None]:
+    """Yield every transliteration rule file the guards apply to.
+
+    Rule files are not Python and so are invisible to
+    :func:`_iter_py_files`, but they carry the source citation the
+    provenance rule checks, so they are collected separately.
+
+    Args:
+        root: Project root to scan beneath.
+
+    Yields:
+        Each ``.rules`` file under the rules directory.
+    """
+    rules_dir = root / "src" / "turkic_translit" / "rules"
+    if rules_dir.is_dir():
+        yield from sorted(rules_dir.rglob("*.rules"))
 
 
 def _iter_tokens(text: str) -> Generator[tokenize.TokenInfo, None, None]:
@@ -553,10 +576,16 @@ def run_guards(root: Path) -> int:
     translit_test_quality_rule = TransliterationTestQualityRule()
     patching_rule = PatchingRule()
     docstring_rule = DocstringRule()
+    rule_source_rule = RuleSourceRule()
+    test_source_rule = TestSourceInheritanceRule()
+    self_referential_rule = SelfReferentialExpectationRule()
     weak_assertion_violations = weak_assertion_rule.run(all_files)
     translit_test_quality_violations = translit_test_quality_rule.run(all_files)
     patching_violations = patching_rule.run(all_files)
     docstring_violations = docstring_rule.run(all_files)
+    rule_source_violations = rule_source_rule.run(list(_iter_rule_files(root)))
+    test_source_violations = test_source_rule.run(all_files)
+    self_referential_violations = self_referential_rule.run(all_files)
 
     reports = [
         RuleReport(name="typing", violations=len(typing_violations)),
@@ -568,6 +597,11 @@ def run_guards(root: Path) -> int:
         RuleReport(name="translit-test-quality", violations=len(translit_test_quality_violations)),
         RuleReport(name="patching", violations=len(patching_violations)),
         RuleReport(name="docstrings", violations=len(docstring_violations)),
+        RuleReport(name="rule-provenance", violations=len(rule_source_violations)),
+        RuleReport(name="test-provenance", violations=len(test_source_violations)),
+        RuleReport(
+            name="self-referential-expectation", violations=len(self_referential_violations)
+        ),
     ]
 
     all_violations = (
@@ -580,6 +614,9 @@ def run_guards(root: Path) -> int:
         + translit_test_quality_violations
         + patching_violations
         + docstring_violations
+        + rule_source_violations
+        + test_source_violations
+        + self_referential_violations
     )
 
     print("Guard rule summary:")

@@ -17,6 +17,7 @@ from tests.foreign import (
     replace_panphon_resource_locator,
 )
 from turkic_translit.core import to_ipa
+from turkic_translit.lid.classifier import LidClassifier
 from turkic_translit.lid.factory import load_installed_classifier
 from turkic_translit.lid.locations import default_search_dirs
 from turkic_translit.lid.registry import find_model_path
@@ -226,7 +227,79 @@ def test_fasttext_lid() -> None:
     assert prediction["probability"] > 0.5
 
 
-# 5. Test SentencePiece training in web interface
+CORPUS_MODEL_ID = "lid218e"
+
+# Each line is written in the script the corresponding OSCAR slice is
+# actually sourced in, because the point of a script-aware classifier is
+# that the script is part of the answer.
+SCRIPT_AWARE_CASES = [
+    ("tur_Latn", "Türkiye Cumhuriyeti'nin başkenti Ankara şehridir."),
+    ("azj_Latn", "Azərbaycan Respublikasının paytaxtı Bakı şəhəridir."),
+    ("kaz_Cyrl", "Қазақстан Республикасының астанасы Астана қаласы болып табылады."),
+    ("kir_Cyrl", "Кыргыз Республикасынын борбору Бишкек шаары."),
+    ("uzn_Latn", "Ozbekiston Respublikasining poytaxti Toshkent shahridir."),
+    ("uig_Arab", "شىنجاڭ ئۇيغۇر ئاپتونوم رايونى جۇڭگونىڭ غەربىدە جايلاشقان."),
+    ("fin_Latn", "Suomen tasavallan pääkaupunki on Helsinki ja siellä asuu paljon ihmisiä."),
+]
+
+
+def _installed_corpus_classifier() -> LidClassifier:
+    """Load the corpus-building classifier, or skip if it is absent.
+
+    The weights are 1.18 GB and are not distributed with the package, so
+    every test here is opt-in: present on a machine that has built a
+    corpus, skipped everywhere else.
+
+    Returns:
+        The loaded classifier.
+    """
+    if find_model_path(CORPUS_MODEL_ID, default_search_dirs()) is None:
+        pytest.skip(f"{CORPUS_MODEL_ID} weights are not installed")
+    return load_installed_classifier(CORPUS_MODEL_ID)
+
+
+# 5. Test the script-aware classifier that builds the corpora
+@pytest.mark.parametrize(("expected_label", "text"), SCRIPT_AWARE_CASES)
+def test_lid218e_identifies_each_corpus_language(expected_label: str, text: str) -> None:
+    """Real lid218e weights label every corpus language and its script.
+
+    This is the one thing the hook-backed unit tests cannot establish.
+    They answer from a table, so they prove the registry, the resolver
+    and the prefix stripping are wired correctly while saying nothing
+    about the model those parts exist to reach. The corpora behind the
+    published results were filtered by these weights at ``p >= 0.95``,
+    so the threshold is asserted too rather than merely the ranking.
+    """
+    prediction = _installed_corpus_classifier().classify(text)
+
+    assert prediction["label"] == expected_label
+    assert prediction["probability"] >= 0.95
+
+
+def test_lid218e_cannot_label_cyrillic_uzbek() -> None:
+    """Cyrillic Uzbek is unreachable, and confidently mislabelled.
+
+    ``uzb_Cyrl`` is absent from the label set, so no threshold can
+    recover Cyrillic Uzbek: the model does not degrade to low confidence
+    but assigns a different language above the corpus threshold, which
+    is why those lines are dropped silently rather than flagged. This is
+    a documented property of the corpus rather than a defect, and it is
+    pinned here so that a future model revision adding the label fails
+    this test instead of changing the corpus unnoticed.
+    """
+    classifier = _installed_corpus_classifier()
+
+    labels = classifier.known_labels()
+    assert "uzn_Latn" in labels
+    assert "uzb_Cyrl" not in labels
+
+    prediction = classifier.classify("Ўзбекистон Республикасининг пойтахти Тошкент шаҳридир.")
+
+    assert prediction["label"] != "uzn_Latn"
+    assert prediction["probability"] >= 0.95
+
+
+# 6. Test SentencePiece training in web interface
 def test_web_sentencepiece_training() -> None:
     """
     Test the SentencePiece training functionality used in the web interface.
