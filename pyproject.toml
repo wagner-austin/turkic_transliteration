@@ -130,6 +130,7 @@ turkic-translit = "turkic_translit.cli:main"
 turkic-pyicu-install = "turkic_translit.pyicu_install:main"
 turkic-filter-russian = "turkic_translit.cli.filter_russian:main"
 turkic-download-corpus = "turkic_translit.cli.download_corpus:cli"
+turkic-clean-corpus = "turkic_translit.cli.clean_corpus:cli"
 turkic-build-spm = "turkic_translit.cli.build_spm:main"
 turkic-leven = "turkic_translit.cli.run_leven:main"
 turkic-web = "turkic_translit.web.web_demo:main"
@@ -147,7 +148,7 @@ package-dir = {"" = "src"}
 
 [tool.setuptools.package-data]
 "turkic_translit" = ["py.typed", "rules/*.rules"]
-"turkic_translit.corpus" = ["corpora.yaml"]
+"turkic_translit.corpus" = ["corpora.yaml", "symbol_map.csv"]
 
 [tool.mypy]
 python_version = "3.11"

@@ -42,6 +42,7 @@ def test_the_project_declares_console_scripts() -> None:
     """The table exists, so the parametrised tests below are not vacuous."""
     assert [name for name, _target in SCRIPTS] == [
         "turkic-build-spm",
+        "turkic-clean-corpus",
         "turkic-download-corpus",
         "turkic-eval-lm",
         "turkic-filter-russian",

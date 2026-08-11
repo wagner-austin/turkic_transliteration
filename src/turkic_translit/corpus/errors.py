@@ -12,6 +12,8 @@ from typing import Final
 
 ERR_UNKNOWN_SOURCE: Final = "TURKIC_CORPUS_001_UNKNOWN_SOURCE"
 ERR_STREAM_FAILED: Final = "TURKIC_CORPUS_002_STREAM_FAILED"
+ERR_SYMBOL_MAP_MALFORMED: Final = "TURKIC_CORPUS_003_SYMBOL_MAP_MALFORMED"
+ERR_NO_CORPORA: Final = "TURKIC_CORPUS_005_NO_CORPORA"
 
 
 class CorpusError(Exception):
@@ -63,10 +65,49 @@ class CorpusStreamError(CorpusError):
         self.detail = detail
 
 
+class SymbolMapMalformedError(CorpusError):
+    """Raised when a symbol map cannot be read as a table of decisions.
+
+    Args:
+        origin: Name of the CSV.
+        detail: What about it could not be read.
+    """
+
+    def __init__(self, origin: str, detail: str) -> None:
+        """Name the file and the way it is malformed."""
+        super().__init__(
+            ERR_SYMBOL_MAP_MALFORMED,
+            f"{origin} is not a readable symbol map: {detail}",
+        )
+        self.origin = origin
+        self.detail = detail
+
+
+class NoCorporaError(CorpusError):
+    """Raised when a cleaning run is given nothing to clean.
+
+    Args:
+        directory: Where corpora were looked for.
+    """
+
+    def __init__(self, directory: str) -> None:
+        """Name the directory that held no corpus."""
+        super().__init__(
+            ERR_NO_CORPORA,
+            f"no corpus to clean in {directory}; equalising a corpus against "
+            f"an empty set of others has no meaning",
+        )
+        self.directory = directory
+
+
 __all__ = [
+    "ERR_NO_CORPORA",
     "ERR_STREAM_FAILED",
+    "ERR_SYMBOL_MAP_MALFORMED",
     "ERR_UNKNOWN_SOURCE",
     "CorpusError",
     "CorpusStreamError",
+    "NoCorporaError",
+    "SymbolMapMalformedError",
     "UnknownCorpusSourceError",
 ]
