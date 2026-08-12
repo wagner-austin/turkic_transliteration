@@ -33,7 +33,7 @@ GOLD = {
     "бал": "bɑl",
     "бел": "bel",
     "көл": "køl",
-    "жыл": "ʒɯl",
+    "жыл": "d͡ʒɯl",
     # disyllabic roots (Appendix)
     "молдо": "moldo",
     "илим": "ilim",
@@ -46,8 +46,8 @@ GOLD = {
     "балды": "bɑldɯ",
     "көлдө": "køldø",
     "көлдү": "køldy",
-    "жылда": "ʒɯldɑ",
-    "жылды": "ʒɯldɯ",
+    "жылда": "d͡ʒɯldɑ",
+    "жылды": "d͡ʒɯldɯ",
 }
 
 
@@ -61,7 +61,7 @@ def _canonical(ipa: str) -> str:
         The same transcription in the glyphs the rules emit.
     """
     return (
-        ipa.replace("ʤ", "dʒ")
+        ipa.replace("ʤ", "d͡ʒ")
         .replace("ʦ", "t͡s")
         .replace("ʧ", "t͡ʃ")
         .replace("q", "k")

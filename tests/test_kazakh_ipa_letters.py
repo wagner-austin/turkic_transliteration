@@ -33,7 +33,14 @@ TIE_BAR = "͡"
 COLLAPSED_DIPHTHONGS: tuple[tuple[str, str, str], ...] = (
     ("ie", "e", "the front mid diphthong is written as its offglide alone"),
     ("ij", "i", "the close front diphthong is written without its glide"),
+    ("uw", "u", "the back diphthong is written without its glide"),
 )
+
+# The eleven-vowel inventory proposed on p. 281, quoted so that /uw/ being
+# a vowel is recorded rather than assumed. <у> spells both this vowel and
+# the consonant /w/ of the p. 277 chart, which is why the rule for it is
+# contextual; writing the consonant everywhere left су 'water' as [sw].
+VOWEL_INVENTORY = ("ɑ", "o", "ə", "ʊ", "æ", "e", "ɵ", "ɪ", "ʏ", "ij", "uw")
 
 TYPESET_SUBSTITUTIONS: tuple[tuple[str, str, str], ...] = (
     ("g", "ɡ", "the journal typesets the voiced velar plosive as U+0067; IPA is U+0261"),
@@ -128,6 +135,41 @@ def test_published_diphthong_is_written_as_a_single_vowel(
     assert gloss != ""
     assert TIE_BAR in ud.normalize("NFD", published), "this keyword carries no diphthong"
     assert to_ipa(cyrillic, "kk") == as_this_project_writes_it(published)
+
+
+def test_u_is_the_vowel_after_a_consonant_and_the_glide_next_to_one() -> None:
+    """<у> spells two things, so one unconditional rule cannot serve both.
+
+    The consonant chart on p. 277 gives /w/ with уақ /wɑq/ and тау /tɑw/,
+    both positions adjacent to a vowel. The vowel inventory on p. 281
+    gives /uw/, which <у> also spells. The rules wrote the consonant
+    everywhere until 2026-08-12, which left су 'water' as [sw] and
+    университет as [wniversitet]: syllables with no vowel in them.
+    """
+    assert to_ipa("уақ", "kk") == "wɑq"
+    assert to_ipa("тау", "kk") == "tɑw"
+
+    assert to_ipa("су", "kk") == as_this_project_writes_it("suw")
+    assert to_ipa("ту", "kk") == as_this_project_writes_it("tuw")
+    assert to_ipa("оқу", "kk") == as_this_project_writes_it("oquw")
+
+
+def test_the_collapsed_diphthongs_are_the_ones_the_inventory_lists() -> None:
+    """Every diphthong this file collapses is a vowel the source proposes.
+
+    Guards against the collapse list growing to absorb a mismatch: a pair
+    may only be simplified if it answers to a phoneme p. 281 proposes.
+
+    Either end may be the inventory member. The source lists /ij/ and
+    /uw/ as vowels outright, so there the diphthong is what it names. For
+    the front mid vowel it lists /e/ and then writes the keyword as
+    [ti͡es], so there the collapsed form is the phoneme and the diphthong
+    is its realisation.
+    """
+    for diphthong, ours, _reason in COLLAPSED_DIPHTHONGS:
+        assert diphthong in VOWEL_INVENTORY or ours in VOWEL_INVENTORY, (
+            f"neither {diphthong!r} nor {ours!r} is a vowel the source proposes"
+        )
 
 
 def test_the_dental_diacritic_is_dropped_rather_than_transcribed() -> None:

@@ -9,10 +9,31 @@
 # Simplified: no diphthongs, no dental diacritics, no optional allophones.
 
 # ---------------------------------------------------------------------------
-# One-to-one grapheme → phone map (no diphthongs, no dental marks)
+# <у> spells two different things
 #
-# Note: У/у is always [w] in Kazakh per McCollum & Chen (2021)
-# Consonant inventory: w — уақ /wɑq/ 'time' — тау /tɑw/ 'mountain'
+# McCollum & Chen give /w/ in the consonant inventory, with уақ /wɑq/
+# 'time' and тау /tɑw/ 'mountain', and they also give /uw/ in the
+# eleven-vowel inventory /ɑ o ə ʊ æ e ɵ ɪ ʏ ij uw/, with ту /tuw/ 'flag'.
+# Both are written <у>, so a single unconditional rule cannot be right:
+# writing /w/ everywhere leaves су 'water' as [sw], a syllable with no
+# vowel in it.
+#
+# The letter is the consonant next to a vowel and the vowel elsewhere.
+# The vowel is collapsed to its first element under the no-diphthong
+# policy this file declares, which is the same treatment /ij/ and /ie/
+# already get from И and Е.
+#
+# The left context is matched against text this file has already
+# transliterated, so it lists output vowels; the right context is matched
+# against the Cyrillic that has not been converted yet.
+$Vsrc = [А а Ә ә Е е Ё ё И и І і О о Ө ө Ұ ұ Ү ү Ы ы Э э Ю ю Я я];
+$Vout = [ɑ æ e ə ɪ i o ɵ ʊ ʏ u];
+
+$Vout { У > w ;   $Vout { у > w ;
+У } $Vsrc > w ;   у } $Vsrc > w ;
+
+# ---------------------------------------------------------------------------
+# One-to-one grapheme → phone map (no diphthongs, no dental marks)
 А > ɑ ;  а > ɑ ;
 Ә > æ ;  ә > æ ;
 Б > b ;  б > b ;
@@ -38,7 +59,7 @@
 Р > r ;  р > r ;
 С > s ;  с > s ;
 Т > t ;  т > t ;
-У > w ;  у > w ;
+У > u ;  у > u ;   # the vowel /uw/, collapsed; /w/ is handled above
 Ұ > ʊ ;  ұ > ʊ ;
 Ү > ʏ ;  ү > ʏ ;
 Ф > f ;  ф > f ;
@@ -55,6 +76,20 @@
 Э > e ;  э > e ;
 Ю > ju ; ю > ju ;
 Я > ja ; я > ja ;
+
+# ---------------------------------------------------------------------------
+# Letters outside the Kazakh alphabet that reach the corpus in quoted or
+# mixed-script material. Without a rule they passed through as Cyrillic
+# into what is supposed to be IPA. Each takes the value our own sourced
+# rule file gives it for the language that owns it.
+# ---------------------------------------------------------------------------
+Ѳ > θ ;  ѳ > θ ;    # FITA, Greek theta loans; ky_ipa.rules
+Ҳ > h ;  ҳ > h ;    # Uzbek; uzc_ipa.rules (Ido 2025)
+Ҥ > ŋ ;  ҥ > ŋ ;    # EN WITH TAIL, velar nasal; ky_ipa.rules
+# U+045E is SHORT U, Belarusian /w/. Uzbek repurposes the letter for /o/
+# and uzc_ipa.rules writes it that way; outside Uzbek it keeps its own
+# value, as ky_ipa.rules also has it.
+Ў > w ;  ў > w ;
 
 # ---------------------------------------------------------------------------
 # Optional phonetic refinements — keep commented to omit allophones
