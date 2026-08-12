@@ -14,8 +14,13 @@ from __future__ import annotations
 from typing import Final
 from urllib.request import Request
 
+from turkic_translit import __version__
+
+# Read from the installed package rather than written out here. The
+# version used to be a literal in this string, which meant a release bump
+# left the agent announcing the previous one, and nothing could notice.
 USER_AGENT: Final[str] = (
-    "turkic-translit/0.3.9 "
+    f"turkic-translit/{__version__} "
     "(+https://github.com/wagner-austin/turkic-transliteration; "
     "austinwagner@msn.com)"
 )
