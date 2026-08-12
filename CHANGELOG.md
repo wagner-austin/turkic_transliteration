@@ -2,6 +2,81 @@
 
 All notable changes to the Turkic Transliteration project will be documented in this file.
 
+## [0.5.0] - 2026-08-12
+
+0.4.0 was tagged but never published to PyPI, so anyone upgrading from
+0.3.9 receives both releases' changes at once. Read the 0.4.0 section
+below as well.
+
+### Fixed a regression shipped in 0.3.7, 0.3.8 and 0.3.9
+
+**Kyrgyz and Uzbek Cyrillic deleted vowels.** Anyone who installed the
+tool after 2026-05-20 should upgrade and regenerate.
+
+```
+0.3.9   тау  ->  twu        0.5.0   тау  ->  tɑw
+        ауа  ->  wuɑ                ауа  ->  ɑwɑ
+        маек ->  mjeek              маек ->  mɑjek
+```
+
+The glide and iotation rules were written with the right-context bracket
+where the left one was meant, so rather than rewriting the letter they
+named they replaced the vowel in front of it. In 0.3.6 the same rules
+tested against a set of IPA vowels, which the Cyrillic input could never
+match, so they did nothing at all; a later change to the Cyrillic set
+made them match, and they began to fire. Every vowel before `<е>` in
+Uzbek Cyrillic collapsed to the same three characters, so `ае`, `ие`,
+`ое`, `уе` and five more all produced `jee`.
+
+A left context is matched against text that has already been
+transliterated, so these sets have to name IPA. That is now stated in
+each file and enforced: a left context containing a character of the
+source script fails the build.
+
+### Rule corrections
+
+* **Kyrgyz** `<ж>` was the fricative. McCollum (2020) Table 3 supplies
+  two roots containing it, *жыл* 'year' and *жол* 'road', and prints the
+  affricate in both. Table 1 does list the fricative, but as a phoneme of
+  the language rather than as the value of this letter — it is what the
+  letter is in Russian. Kazakh is where the fricative is correct, so the
+  error also made the two languages alike on a segment that separates
+  them.
+* **Kazakh** `<у>` was the glide everywhere. McCollum & Chen (2021) give
+  /w/ in the consonant chart, with *уақ* and *тау*, and also /uw/ in the
+  eleven-vowel inventory on p. 281, with *ту* 'flag'. One letter spells
+  both, so an unconditional rule cannot serve it: the glide everywhere
+  left *су* 'water' as `[sw]`, a syllable with no vowel in it. It is now
+  the glide next to a vowel and the vowel elsewhere, collapsed as the
+  file already collapses /ij/ and /ie/.
+* **Kyrgyz** `<ц>` still emitted a withdrawn precomposed ligature after
+  the others were converted in 0.4.0, because the test named four of them
+  by hand and this was the fifth. The symbol map gains the matching row,
+  since corpora published before now carry it.
+* **Seventeen Cyrillic letters** had no rule in the file for a language
+  whose corpus contains them, so they passed through as Cyrillic into
+  output that is supposed to be IPA. Each now takes the value this
+  project's own sourced rule file gives it for the language that owns the
+  letter; where Kazakh and Kyrgyz disagree the choice is written down
+  rather than made silently.
+
+### Added
+
+* Guards stated over the whole rule set rather than as lists kept by
+  hand, since a hand-kept list is what let the fifth ligature through:
+  the withdrawn ligatures as a codepoint range, the Cyrillic check as
+  coverage of the union of every alphabet in the project, and a left
+  context may not name the source script. One needs no source to
+  adjudicate and would have caught the Kazakh defect on its own — no word
+  may lose its only vowel.
+
+### Note for anyone with data from an earlier version
+
+A corpus or transcription made with 0.3.x or 0.4.0 is not reproducible
+from 0.5.0. Record the version **and** a hash of the rule files used:
+during 0.3.7 to 0.3.9 the repository and the published release disagreed,
+so the version number alone did not identify the rules.
+
 ## [0.4.0] - 2026-08-11
 
 The rule files changed behaviour in this release. A corpus transliterated
