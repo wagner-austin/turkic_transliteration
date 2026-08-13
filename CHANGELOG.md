@@ -2,6 +2,20 @@
 
 All notable changes to the Turkic Transliteration project will be documented in this file.
 
+## [0.5.1] - 2026-08-12
+
+### Added
+
+* `turkic-clean-corpus --harmonize-dir/--harmonize-output-dir`: rewrite
+  evaluation texts with the symbol map and nothing else — no filtering,
+  no deduplication, no equalisation — so files whose line structure must
+  survive (perception passages with section headers and markers) can
+  share the training corpora's symbol space. The corpus-cleaning pair
+  becomes optional; give either pair or both, and a half-given pair is
+  refused. Verified byte-identical against the LSTM experiment's own
+  snippet harmonisation across all seven perception files, which lets
+  that experiment retire its private copy of the cleaning pipeline.
+
 ## [0.5.0] - 2026-08-12
 
 0.4.0 was tagged but never published to PyPI, so anyone upgrading from

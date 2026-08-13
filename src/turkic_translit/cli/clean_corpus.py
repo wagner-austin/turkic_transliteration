@@ -21,7 +21,13 @@ from turkic_translit.corpus.clean import (
     clean_corpora,
     encode_clean_report,
 )
-from turkic_translit.corpus.symbols import PACKAGED_SYMBOL_MAP, read_symbol_map
+from turkic_translit.corpus.symbols import (
+    PACKAGED_SYMBOL_MAP,
+    SymbolRule,
+    apply_substitutions,
+    read_symbol_map,
+    substitutions_for,
+)
 from turkic_translit.logging_config import default_level
 from turkic_translit.logging_config import setup as configure_logging
 
@@ -78,6 +84,34 @@ def discover(input_dir: Path, pattern: str) -> dict[str, Path]:
     return found
 
 
+def harmonize(
+    inputs: dict[str, Path], output_dir: Path, rules: tuple[SymbolRule, ...]
+) -> list[str]:
+    """Rewrite files with the symbol map applied and nothing else done.
+
+    For evaluation texts that must stay line-for-line intact: no filtering,
+    no deduplication, no equalisation. Each file gets its language's
+    substitutions and keeps its name, so section headers and markers
+    survive for whatever parses the file downstream.
+
+    Args:
+        inputs: Language code to the file for that language.
+        output_dir: Where the harmonised files are written.
+        rules: Rows of a symbol map.
+
+    Returns:
+        The language codes written, in sorted order.
+    """
+    output_dir.mkdir(parents=True, exist_ok=True)
+    written = []
+    for language in sorted(inputs):
+        text = inputs[language].read_text(encoding="utf-8")
+        harmonised = apply_substitutions(text, substitutions_for(rules, language))
+        (output_dir / inputs[language].name).write_text(harmonised, encoding="utf-8")
+        written.append(language)
+    return written
+
+
 def render(report: CleanReport) -> str:
     """Lay out a run report for a terminal.
 
@@ -107,20 +141,32 @@ def render(report: CleanReport) -> str:
 @click.option(
     "--input-dir",
     type=click.Path(exists=True, file_okay=False, path_type=Path),
-    required=True,
+    default=None,
     help="Directory holding the raw transliterated corpora.",
 )
 @click.option(
     "--output-dir",
     type=click.Path(file_okay=False, path_type=Path),
-    required=True,
+    default=None,
     help="Where to write the cleaned corpora and the run report.",
+)
+@click.option(
+    "--harmonize-dir",
+    type=click.Path(exists=True, file_okay=False, path_type=Path),
+    default=None,
+    help="Directory of evaluation texts to rewrite with the symbol map only.",
+)
+@click.option(
+    "--harmonize-output-dir",
+    type=click.Path(file_okay=False, path_type=Path),
+    default=None,
+    help="Where to write the harmonised evaluation texts.",
 )
 @click.option(
     "--pattern",
     default="*.txt",
     show_default=True,
-    help="Glob selecting corpus files within the input directory.",
+    help="Glob selecting files within either input directory.",
 )
 @click.option(
     "--symbol-map",
@@ -144,39 +190,69 @@ def render(report: CleanReport) -> str:
     help="Drop lines with a smaller fraction of transcription characters.",
 )
 def cli(
-    input_dir: Path,
-    output_dir: Path,
+    input_dir: Path | None,
+    output_dir: Path | None,
+    harmonize_dir: Path | None,
+    harmonize_output_dir: Path | None,
     pattern: str,
     symbol_map: Path,
     min_line_chars: int,
     min_ipa_ratio: float,
 ) -> None:
-    """Clean, harmonise and equalise a set of transliterated corpora.
+    """Clean training corpora, harmonise evaluation texts, or both.
+
+    Corpus cleaning filters, deduplicates and equalises; harmonisation
+    applies the symbol map and nothing else, for evaluation texts whose
+    line structure must survive. Each mode takes a directory pair, and at
+    least one pair must be given.
 
     Args:
         input_dir: Directory holding the raw corpora.
         output_dir: Where the cleaned corpora and report are written.
-        pattern: Glob selecting corpus files.
+        harmonize_dir: Directory of evaluation texts to harmonise.
+        harmonize_output_dir: Where the harmonised texts are written.
+        pattern: Glob selecting files in either input directory.
         symbol_map: CSV of symbol decisions.
         min_line_chars: Shortest line to keep.
         min_ipa_ratio: Lowest transcription-character ratio to keep.
 
     Raises:
-        click.ClickException: When the input directory holds no corpus
-            matching the pattern, or the names are ambiguous.
+        click.ClickException: When a directory pair is half-given, no pair
+            is given at all, a directory holds nothing matching the
+            pattern, or a file name is ambiguous about its language.
     """
     configure_logging(default_level())
-    inputs = discover(input_dir, pattern)
-    if not inputs:
-        message = f"no file matching {pattern!r} in {input_dir}"
-        raise click.ClickException(message)
+    if (input_dir is None) != (output_dir is None):
+        raise click.ClickException("corpus cleaning needs both --input-dir and --output-dir")
+    if (harmonize_dir is None) != (harmonize_output_dir is None):
+        raise click.ClickException(
+            "harmonising needs both --harmonize-dir and --harmonize-output-dir"
+        )
+    if input_dir is None and harmonize_dir is None:
+        raise click.ClickException(
+            "nothing to do: give --input-dir/--output-dir, "
+            "--harmonize-dir/--harmonize-output-dir, or both"
+        )
 
     rules = read_symbol_map(symbol_map)
-    report = clean_corpora(inputs, output_dir, rules, min_line_chars, min_ipa_ratio)
 
-    (output_dir / REPORT_NAME).write_text(
-        json.dumps(encode_clean_report(report), indent=2, ensure_ascii=False),
-        encoding="utf-8",
-    )
-    click.echo(render(report))
-    click.echo(f"report: {output_dir / REPORT_NAME}")
+    if input_dir is not None and output_dir is not None:
+        inputs = discover(input_dir, pattern)
+        if not inputs:
+            message = f"no file matching {pattern!r} in {input_dir}"
+            raise click.ClickException(message)
+        report = clean_corpora(inputs, output_dir, rules, min_line_chars, min_ipa_ratio)
+        (output_dir / REPORT_NAME).write_text(
+            json.dumps(encode_clean_report(report), indent=2, ensure_ascii=False),
+            encoding="utf-8",
+        )
+        click.echo(render(report))
+        click.echo(f"report: {output_dir / REPORT_NAME}")
+
+    if harmonize_dir is not None and harmonize_output_dir is not None:
+        texts = discover(harmonize_dir, pattern)
+        if not texts:
+            message = f"no file matching {pattern!r} in {harmonize_dir}"
+            raise click.ClickException(message)
+        written = harmonize(texts, harmonize_output_dir, rules)
+        click.echo(f"harmonised: {', '.join(written)}")

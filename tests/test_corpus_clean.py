@@ -18,7 +18,14 @@ from pathlib import Path
 import pytest
 from click.testing import CliRunner
 
-from turkic_translit.cli.clean_corpus import REPORT_NAME, cli, discover, language_of, render
+from turkic_translit.cli.clean_corpus import (
+    REPORT_NAME,
+    cli,
+    discover,
+    harmonize,
+    language_of,
+    render,
+)
 from turkic_translit.core import _RULE_DIR
 from turkic_translit.corpus.clean import (
     ALLOWED_CHARS,
@@ -473,6 +480,118 @@ def test_the_command_refuses_an_empty_directory(tmp_path: Path) -> None:
 
     result = CliRunner().invoke(
         cli, ["--input-dir", str(raw), "--output-dir", str(tmp_path / "clean")]
+    )
+
+    assert result.exit_code != 0
+    assert "no file matching" in result.output
+
+
+# ---------------------------------------------------------------------------
+# Harmonisation: the symbol map with nothing else done
+# ---------------------------------------------------------------------------
+
+
+def test_harmonising_rewrites_symbols_and_touches_nothing_else(tmp_path: Path) -> None:
+    """Evaluation texts keep every line; only the symbols change.
+
+    The corpus pipeline drops short lines and deduplicates, which would
+    destroy a perception file's section headers and numeric markers. This
+    mode exists so those files can share the corpus's symbol space while
+    keeping their structure line for line.
+    """
+    raw = tmp_path / "eval"
+    raw.mkdir()
+    original = "KYRGYZ\nTEXT 1: s\u0251l\u0251m\n\n1\n" + LONG.replace("j", "\u02a7") + "\n1\n"
+    (raw / "perception_ky.txt").write_text(original, encoding="utf-8")
+    out = tmp_path / "harmonised"
+
+    written = harmonize(discover(raw, "*.txt"), out, read_symbol_map(PACKAGED_SYMBOL_MAP))
+
+    result = (out / "perception_ky.txt").read_text(encoding="utf-8")
+    assert written == ["ky"]
+    assert "\u02a7" not in result
+    assert "t\u0361\u0283" in result
+    assert len(result.splitlines()) == len(original.splitlines())
+    assert result.splitlines()[0] == "KYRGYZ"
+    assert result.splitlines()[3] == "1"
+
+
+def test_the_command_harmonises_without_cleaning(tmp_path: Path) -> None:
+    """The harmonise pair alone is a complete, report-free run."""
+    raw = tmp_path / "eval"
+    raw.mkdir()
+    (raw / "perception_kk.txt").write_text(LONG + "\n", encoding="utf-8")
+    out = tmp_path / "harmonised"
+
+    result = CliRunner().invoke(
+        cli,
+        ["--harmonize-dir", str(raw), "--harmonize-output-dir", str(out)],
+    )
+
+    assert result.exit_code == 0, result.output
+    assert "harmonised: kk" in result.output
+    assert (out / "perception_kk.txt").exists()
+    assert not (out / REPORT_NAME).exists()
+
+
+def test_the_command_runs_both_modes_in_one_invocation(tmp_path: Path) -> None:
+    """Corpora are cleaned and evaluation texts harmonised together."""
+    raw = write_corpora(tmp_path, {"ky": [LONG], "kk": [LONG + " qosymsha"]})
+    eval_dir = tmp_path / "eval"
+    eval_dir.mkdir()
+    (eval_dir / "perception_ky.txt").write_text("short\n", encoding="utf-8")
+
+    result = CliRunner().invoke(
+        cli,
+        [
+            "--input-dir",
+            str(raw),
+            "--output-dir",
+            str(tmp_path / "clean"),
+            "--harmonize-dir",
+            str(eval_dir),
+            "--harmonize-output-dir",
+            str(tmp_path / "harmonised"),
+        ],
+    )
+
+    assert result.exit_code == 0, result.output
+    assert (tmp_path / "clean" / REPORT_NAME).exists()
+    # The harmonised file keeps its too-short line; only cleaning filters.
+    harmonised = tmp_path / "harmonised" / "perception_ky.txt"
+    assert harmonised.read_text(encoding="utf-8") == "short\n"
+
+
+def test_a_half_given_directory_pair_is_refused(tmp_path: Path) -> None:
+    """One directory of a pair is a mistake, not a request."""
+    raw = tmp_path / "raw"
+    raw.mkdir()
+
+    for arguments, complaint in (
+        (["--input-dir", str(raw)], "needs both --input-dir and --output-dir"),
+        (["--harmonize-dir", str(raw)], "needs both --harmonize-dir"),
+    ):
+        result = CliRunner().invoke(cli, arguments)
+        assert result.exit_code != 0
+        assert complaint in result.output
+
+
+def test_the_command_with_no_directories_is_refused() -> None:
+    """A run that would do nothing must say so rather than succeed."""
+    result = CliRunner().invoke(cli, [])
+
+    assert result.exit_code != 0
+    assert "nothing to do" in result.output
+
+
+def test_harmonising_an_empty_directory_is_refused(tmp_path: Path) -> None:
+    """No matching files is a mistake, not a quiet no-op."""
+    raw = tmp_path / "eval"
+    raw.mkdir()
+
+    result = CliRunner().invoke(
+        cli,
+        ["--harmonize-dir", str(raw), "--harmonize-output-dir", str(tmp_path / "out")],
     )
 
     assert result.exit_code != 0
