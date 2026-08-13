@@ -1,0 +1,53 @@
+name: Publish to PyPI
+
+# One push releases everything. Bump the version in pyproject.toml,
+# commit, tag, and push:
+#
+#     git push && git push --tags
+#
+#   1. This workflow builds the sdist and wheel from the tag and
+#      publishes them to PyPI through trusted publishing (OIDC). No API
+#      token exists anywhere — not in secrets, not on a laptop.
+#   2. sync-to-hf-space, triggered by the same push to main, polls PyPI
+#      until the version appears and then bumps the Space's pin, so the
+#      demo rebuilds on the new release without being touched.
+#
+# workflow_dispatch exists to publish a version whose tag predates this
+# workflow, or to retry after a transient failure.
+#
+# One-time setup on pypi.org (manage project turkic-translit ->
+# Publishing -> Add a new publisher -> GitHub):
+#   owner: wagner-austin
+#   repository: turkic_transliteration
+#   workflow name: release.yml
+#   environment name: pypi
+
+on:
+  push:
+    tags:
+      - "v*"
+  workflow_dispatch:
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    environment: pypi
+    permissions:
+      id-token: write # the OIDC token PyPI trusts instead of a password
+      contents: read
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Build sdist and wheel
+        run: |
+          python -m pip install --upgrade build
+          python -m build
+
+      - name: Publish to PyPI
+        uses: pypa/gh-action-pypi-publish@release/v1
