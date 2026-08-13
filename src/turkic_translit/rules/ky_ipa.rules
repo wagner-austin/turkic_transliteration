@@ -31,6 +31,12 @@ $Vout { е > je ;
 # as the value of this letter: it is the fricative of Russian loans, which
 # these rules do not distinguish orthographically. Mapping <ж> to it is
 # the Russian value of the letter, not the Kyrgyz one.
+#
+# Not particular to McCollum's consultant: Kara (2003: 11, Lincom) gives
+# the affricate in his consonant table, and it continues Common Turkic
+# word-initial *y-, whose affrication is the textbook isogloss separating
+# Kyrgyz from Kazakh (jyl : ʒəl : d͡ʒɯl). Writing the fricative here had
+# erased the very contrast between the two languages this letter carries.
 ДЖ > d͡ʒ ;  дж > d͡ʒ ;
 
 # ---------------------------------------------------------------------------
