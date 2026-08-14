@@ -10,18 +10,13 @@
 # vowel centralisation, or sandhi / glottalisation). Quantity is handled purely
 # by doubled letters → long segments (ː).
 #
-# Corroborated against Karlsson, F. (2018) Finnish: A Comprehensive
-# Grammar, Routledge (ISBN 978-1-138-82103-3), ch. 2. His letter table
-# (p. 16) assigns every letter this file's value, including ʋ for <v>
-# and ɑ for <a>; his ng/nk statement (p. 14) is these context rules —
-# rengas [reŋːɑs] and Helsinki [helsiŋki] are his printed examples —
-# and "distinctively long sounds are always written with two identical
-# letters" (p. 21) is the doubling map below, with printed forms up to
-# aatteellinen [ɑːtːeːlːinen]. His h allophones [ɦ x ç] (pp. 16-17) are
-# the ones declared out of scope above. Fourteen of his printed words
-# are pinned in test_finnish_karlsson_words.py. No JIPA Illustration of
-# Finnish exists; this grammar and the cited monograph are independent
-# descriptions that agree.
+# Corroborated: Karlsson, F. (2018) Finnish: A Comprehensive Grammar,
+# Routledge (ISBN 978-1-138-82103-3), ch. 2: letter table with ʋ and ɑ
+# (p. 16); ng/nk as in the context rules below, rengas [reŋːɑs] and
+# Helsinki [helsiŋki] (p. 14); doubled letters as length (p. 21). His h
+# allophones [ɦ x ç] are the ones declared out of scope above. Fourteen
+# printed words pinned in test_finnish_karlsson_words.py. No JIPA
+# Illustration of Finnish exists.
 
 # 0.  MACROS  (symbols in the source alphabet, case-sensitive)
 

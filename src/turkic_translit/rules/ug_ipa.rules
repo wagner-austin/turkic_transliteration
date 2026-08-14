@@ -11,15 +11,12 @@
 #   - no explicit [i]~[ɯ] alternation
 #   - no diphthongs, no length, no optional allophones in the core map
 #
-# Corroborated against Yakup, A. (2021) 'Uyghur', in Johanson & Csató
-# (eds.), The Turkic Languages, 2nd ed., Routledge, 409-427
-# (https://doi.org/10.4324/9781003243809-26). His inventory is this
-# file's: eight short vowels a ä e i o ö u ü (p. 410) and the consonant
-# table p b t d k g ḳ ɣ, č ǰ, (f) v s z š (ž) χ h, m n ŋ, l r y
-# (p. 410). His tiɣ [tɯɣ] (p. 410) shows the [i]~[ɯ] alternation this
-# file declines to model, the same finding as McCollum's. The heavier
-# verification for this language is empirical: the Montreal Forced
-# Aligner dictionary agreement in test_uyghur_mfa_agreement.py.
+# Corroborated: Yakup, A. (2021) 'Uyghur', in Johanson & Csató (eds.),
+# The Turkic Languages, 2nd ed., Routledge, 409-427
+# (https://doi.org/10.4324/9781003243809-26): the same vowels a ä e i o
+# ö u ü and consonant table (p. 410); his tiɣ [tɯɣ] is the [i]~[ɯ]
+# alternation left unmodelled here. Empirical check:
+# test_uyghur_mfa_agreement.py.
 
 # The map below is context-free, so it declares no macros. The seven
 # vowels above are asserted as an inventory in the tests instead of being

@@ -39,9 +39,8 @@ $Vsrc { Ğ } > ː ;
 #
 # Corroborated: Csató & Johanson (2021, 'Turkish', The Turkic Languages,
 # 2nd ed., Routledge, 195-217, https://doi.org/10.4324/9781003243809-13)
-# print ‹dağ› [dɑː] 'mountain' and ‹düğme› [dyːmε] 'button' (p. 195),
-# which are exactly what rules 1a/1b produce. Both pairs are pinned in
-# test_turkish_routledge_words.py.
+# print ‹dağ› [dɑː] and ‹düğme› [dyːmε] (p. 195), one word per context
+# above. Pinned in test_turkish_routledge_words.py.
 
 # ─────────────────────────────────────────────────────────────────────────────
 # 2.  DIRECT ORTHOGRAPHY → IPA MAP  (one-to-one segmental rules)

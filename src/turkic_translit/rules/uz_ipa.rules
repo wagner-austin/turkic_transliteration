@@ -10,17 +10,13 @@
 # Segmental only: no stress, no vowel deletion, no automatic /i ~ ɘ/ split.
 # Orthography: Official Uzbek Latin (sh, ch, ng, gʻ, oʻ).
 #
-# Corroborated against Boeschoten, H. (2021) 'Uzbek', in Johanson & Csató
+# Corroborated: Boeschoten, H. (2021) 'Uzbek', in Johanson & Csató
 # (eds.), The Turkic Languages, 2nd ed., Routledge, 388-408
 # (https://doi.org/10.4324/9781003243809-25). His consonant table
-# (p. 390) is this file's: stops p b t d k g ḳ, fricatives f s z š ž γ χ
-# h, affricates č ǰ, nasals m n ŋ. His labialized back å [ɒ] is the open
-# value plain <o> carries here, and his account of the spelling merging
-# front and back pairs (и/ü, о/ö, p. 389) is the reduction Ido's
-# inventory and this file's single i and u already encode. One
-# divergence, recorded rather than papered over: Boeschoten lists the
-# labial fricative as w where Ido (2025), the cited source, gives /v/;
-# this file follows its source.
+# (p. 390) matches this file; his å [ɒ] is the open value of plain <o>;
+# the spelling's front/back mergers (p. 389) are the reduction Ido's
+# inventory encodes. One divergence: he lists the labial as w where Ido
+# (2025) gives /v/; this file follows Ido.
 
 # ---------------------------------------------------------------------------
 # Macros (orthographic)
