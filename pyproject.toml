@@ -202,6 +202,8 @@ allowed-confusables = [
     "ı", "ʻ",
     # Guillemets, the linguistic convention for citing an orthographic form
     "‹", "›",
+    # Greek gamma as Ragagnin's Turcological transcription prints it
+    "γ",
     # Arabic-script letters used by the Uyghur rules
     "ا", "ھ", "ە",
 ]

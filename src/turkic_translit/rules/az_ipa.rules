@@ -16,14 +16,21 @@
 # were confirmed against the pages by a second reader.
 #
 # The segmental inventory the two varieties share is what these rules take
-# from it; the orthography and the Tabriz-specific segments are supplied by
-# the Baku-oriented reference below. No Illustration of North Azerbaijani
-# exists, so no single source grounds these rules the way one grounds each
-# of the other languages here. That gap is real and is recorded rather than
-# papered over.
+# from it. No Illustration of North Azerbaijani exists, so no instrumental
+# description grounds these rules the way one grounds each of the other
+# languages here. That gap is real and is recorded rather than papered
+# over.
 #
-# Additional reference: Standard Baku-oriented descriptions of orthography & pronunciation
-#                       (e.g., Siegel, Essentials of Azerbaijani).
+# Corroborated against the variety-matched description: Ragagnin, E.
+# (2021) 'Azeri', in Johanson & Csató (eds.), The Turkic Languages, 2nd
+# ed., Routledge, 242-261 (https://doi.org/10.4324/9781003243809-17).
+# Its standard "is based on the dialect of the capital Baku" (p. 242), it
+# has the nine vowel phonemes these rules emit (p. 243), and its
+# affricates are the postalveolar pair: the alveolar pair of the Tabriz
+# chart is there a dialectal development, "vs. standard Azeri čay and
+# geǰä" (p. 244). Its four spelled words and five special-character
+# equations are pinned in test_azerbaijani_ragagnin_words.py — the first
+# source-printed spellings available for this file.
 #
 # Simplified: no vowel length, no stress, no aspiration marking, no dental vs. alveolar
 # distinctions, no automatic final devoicing, no systematic palatal/velar allophony.

@@ -22,6 +22,9 @@ What the source does state unconditionally is the inventory, and that is
 what is checked here, together with the two Tabriz-specific segments
 which must stay out of the output. Neither claim needs an expected value
 for any particular word, so neither can be circular.
+
+Word-level checks against a variety-matched description became possible
+later and live in test_azerbaijani_ragagnin_words.py.
 """
 
 from __future__ import annotations
