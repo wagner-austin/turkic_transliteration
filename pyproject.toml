@@ -204,6 +204,8 @@ allowed-confusables = [
     "‹", "›",
     # Greek gamma as Ragagnin's Turcological transcription prints it
     "γ",
+    # IPA primary-stress mark as Karlsson's printed forms carry it
+    "ˈ",
     # Arabic-script letters used by the Uyghur rules
     "ا", "ھ", "ە",
 ]
