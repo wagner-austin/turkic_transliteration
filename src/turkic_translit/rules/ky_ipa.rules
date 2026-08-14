@@ -37,10 +37,20 @@ $Vout { е > je ;
 # word-initial *y-, whose affrication is the textbook isogloss separating
 # Kyrgyz from Kazakh (jyl : ʒəl : d͡ʒɯl). Writing the fricative here had
 # erased the very contrast between the two languages this letter carries.
+# Karakoç & Kalieva (2021, 'Kirghiz', The Turkic Languages, 2nd ed.,
+# Routledge, 370-387, https://doi.org/10.4324/9781003243809-24) also
+# write the letter as ǰ throughout — ǰaː ‹жаа-› 'to rain', ǰöː ‹жɵɵ› 'by
+# foot' (p. 370) — and their chapter's Kazakh sibling calls the affricate
+# dialectal there, so the isogloss holds from both sides.
 ДЖ > d͡ʒ ;  дж > d͡ʒ ;
 
 # ---------------------------------------------------------------------------
 # long vowels written with double letters  ◄ NEW
+# Corroborated: Karakoç & Kalieva (2021: 370) give standard Kirghiz 14
+# vowel types, 8 short and 6 long, the long ones "orthographically
+# written with digraphs" — e.g. ‹жаак› ǰaːḳ 'cheek', ‹соо› soː 'alive',
+# ‹сүйүү› süyüː 'love'. *iː and *ïː are lacking, which is why the two
+# digraphs below for и/і have no long readings to carry.
 АА > ɑː ; аа > ɑː ;
 ЕЕ > eː ; ее > eː ;
 ИИ > iː ; ии > iː ;

@@ -36,6 +36,12 @@ $Vsrc { Ğ } > ː ;
 # There is no word-initial case to handle: no Turkish word begins with
 # the letter, which is why rule 1 b can take "after a vowel" as its only
 # condition.
+#
+# Corroborated: Csató & Johanson (2021, 'Turkish', The Turkic Languages,
+# 2nd ed., Routledge, 195-217, https://doi.org/10.4324/9781003243809-13)
+# print ‹dağ› [dɑː] 'mountain' and ‹düğme› [dyːmε] 'button' (p. 195),
+# which are exactly what rules 1a/1b produce. Both pairs are pinned in
+# test_turkish_routledge_words.py.
 
 # ─────────────────────────────────────────────────────────────────────────────
 # 2.  DIRECT ORTHOGRAPHY → IPA MAP  (one-to-one segmental rules)

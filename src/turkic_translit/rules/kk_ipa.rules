@@ -7,6 +7,19 @@
 # Source-Id: https://doi.org/10.1017/S0025100319000185
 #
 # Simplified: no diphthongs, no dental diacritics, no optional allophones.
+#
+# Corroborated against the variety-matched handbook description: Abish, A.
+# (2021) 'Kazakh and Karakalpak', in Johanson & Csató (eds.), The Turkic
+# Languages, 2nd ed., Routledge, 337-353
+# (https://doi.org/10.4324/9781003243809-22). It gives standard Kazakh ž
+# and š for <ж> and <ш> and calls the word-initial affricates ǰ and č
+# "Typical of Chinese Altay variants" (p. 338) — the fricative value here
+# is the standard's, and the affricate the letter carries in Kyrgyz is,
+# in Kazakh, dialectal. It describes <у> as the groups ụw/ụ̈w, mostly
+# pronounced ụː/ụ̈ː finally (p. 337), which is the /uw/ this file's
+# contextual rules implement and collapse. Its near-high lax ị, ị̈, ụ, ụ̈
+# are the ɪ ə ʊ ʏ written below. Word pairs it prints in both scripts
+# are pinned in test_kazakh_routledge_words.py.
 
 # ---------------------------------------------------------------------------
 # <у> spells two different things
