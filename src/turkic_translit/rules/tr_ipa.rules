@@ -85,11 +85,9 @@ Z > z ;  z > z ;
 # distinguished them would have to compute the distinction from the
 # surrounding vowels rather than read it off the spelling.
 #
-# These rules do not: <l> is the plain lateral everywhere, which is one
-# of the three declared departures from the Illustration. It is a real
-# loss of a phonemic contrast, not a notational choice, and it is
-# recorded here and in the inventory test rather than left as a
-# commented-out rule that reads like unfinished work.
+# These rules do not: <l> is the plain lateral everywhere, one of the
+# three declared departures from the Illustration. The lost contrast is
+# pinned in the inventory test.
 
 # ─────────────────────────────────────────────────────────────────────────────
 # ADDITIONS 2025-12-02: Missing chars found in OSCAR corpus audit
