@@ -1,0 +1,509 @@
+# Sample of the Montreal Forced Aligner uyghur_cv dictionary (MIT),
+# github.com/MontrealCorpusTools/mfa-models, provided by Connor Mayer
+# 2026-08-13. Every 45th word of the sorted cleaned dictionary; when a
+# word has several pronunciations, all are kept separated by ' | '.
+# Checked against ug_ipa.rules at 22,629/22,630 agreement over the
+# full dictionary on 2026-08-13.
+ئا	a
+ئاتائانام	a t a a n a m
+ئاتسام	a t s a m
+ئاتىنىڭ	a t i n i ŋ
+ئاخىرلاشقاندا	a χ i r l a ʃ q a n d a
+ئادەتتىكى	a d ɛ t t i k i
+ئارامبەخش	a r a m b ɛ χ ʃ
+ئارسلانلار	a r s l a n l a r
+ئارىلاشتۇردى	a r i l a ʃ t u r d i
+ئازابىگۆر	a z a b i ɡ ø r
+ئاستائاستا	a s t a a s t a
+ئاسپىرانتلىقنى	a s p i r a n t l i q n i
+ئاشنىڭ	a ʃ n i ŋ
+ئاغرىقىغا	a ʁ r i q i ʁ a
+ئاقلىقى	a q l i q i
+ئالارمەن	a l a r m ɛ n
+ئالتەيەتتە	a l t ɛ j ɛ t t ɛ
+ئالدىڭ	a l d i ŋ
+ئالماشتۇرۇپ	a l m a ʃ t u r u p
+ئالىمىدە	a l i m i d ɛ
+ئامانەتنى	a m a n ɛ t n i
+ئانتىروپولوگىيەدە	a n t i r o p o l o ɡ i j ɛ d ɛ
+ئاياغلىشىشى	a j a ʁ l i ʃ i ʃ i
+ئايرىلساڭمۇ	a j r i l s a ŋ m u
+ئايلانغۇچە	a j l a n ʁ u t͡ʃ ɛ
+ئاپئاق	a p a q
+ئاپىسىنىڭ	a p i s i n i ŋ
+ئاچلىقتىن	a t͡ʃ l i q t i n
+ئاڭلاشنىڭمۇ	a ŋ l a ʃ n i ŋ m u
+ئاڭلىماي	a ŋ l i m a j
+ئاۋازىمنىڭ	a w a z i m n i ŋ
+ئوتتا	o t t a
+ئوخشاش	o χ ʃ a ʃ
+ئوردا	o r d a
+ئورۇن	o r u n
+ئوغرىسى	o ʁ r i s i
+ئوقنىڭ	o q n i ŋ
+ئوقۇرمەنلىرىڭنى	o q u r m ɛ n l i r i ŋ n i
+ئوقۇمىغان	o q u m i ʁ a n
+ئولتۇرساق	o l t u r s a q
+ئوننىڭ	o n n i ŋ
+ئويلاپتىمەن	o j l a p t i m ɛ n
+ئويناقلاپ	o j n a q l a p
+ئويۇننى	o j u n n i
+ئوۋچى	o w t͡ʃ i
+ئىجارىگە	i d͡ʒ a r i ɡ ɛ
+ئىرادىسىگە	i r a d i s i ɡ ɛ
+ئىززەتتە	i z z ɛ t t ɛ
+ئىسراپچىلىققا	i s r a p t͡ʃ i l i q q a
+ئىسپاتلىماقچى	i s p a t l i m a q t͡ʃ i
+ئىشلىتىدىغان	i ʃ l i t i d i ʁ a n
+ئىشلەتسە	i ʃ l ɛ t s ɛ
+ئىشنىڭ	i ʃ n i ŋ
+ئىشچانلىق	i ʃ t͡ʃ a n l i q
+ئىككىدە	i k k i d ɛ
+ئىللىتالمىدى	i l l i t a l m i d i
+ئىلگىرىلەشنى	i l ɡ i r i l ɛ ʃ n i
+ئىنتىقام	i n t i q a m
+ئىنچىكىلىك	i n t͡ʃ i k i l i k
+ئىچسە	i t͡ʃ s ɛ
+ئىچىممۇ	i t͡ʃ i m m u
+ئۆتسە	ø t s ɛ
+ئۆتكەي	ø t k ɛ j
+ئۆتەلمەي	ø t ɛ l m ɛ j
+ئۆزبېكىستاندا	ø z b e k i s t a n d a
+ئۆزگىرىشىدىن	ø z ɡ i r i ʃ i d i n
+ئۆزۈڭچە	ø z y ŋ t͡ʃ ɛ
+ئۆكۈنچ	ø k y n t͡ʃ
+ئۆلچەشكە	ø l t͡ʃ ɛ ʃ k ɛ
+ئۆلەۋاتقان	ø l ɛ w a t q a n
+ئۆيلەنسە	ø j l ɛ n s ɛ
+ئۆچكەندىن	ø t͡ʃ k ɛ n d i n
+ئۆگىنىپ	ø ɡ i n i p
+ئۇتتۇ	u t t u
+ئۇراي	u r a j
+ئۇرۇپ	u r u p
+ئۇسسۇلغا	u s s u l ʁ a
+ئۇلار	u l a r
+ئۇنتۇشتىن	u n t u ʃ t i n
+ئۇنچىلىك	u n t͡ʃ i l i k
+ئۇيغۇرچىڭىز	u j ʁ u r t͡ʃ i ŋ i z
+ئۇچرىشىشلىرىدا	u t͡ʃ r i ʃ i ʃ l i r i d a
+ئۇچۇرىشىۋەرگەنكىن	u t͡ʃ u r i ʃ i w ɛ r ɡ ɛ n k i n
+ئۈزۈشىنى	y z y ʃ i n i
+ئۈلپىتىڭ	y l p i t i ŋ
+ئۈنۈمى	y n y m i
+ئېتىزلىقتىكى	e t i z l i q t i k i
+ئېتەر	e t ɛ r
+ئېرىقلاردا	e r i q l a r d a
+ئېسىمدە	e s i m d ɛ
+ئېغىزدىن	e ʁ i z d i n
+ئېلان	e l a n
+ئېلىۋېلىپ	e l i w e l i p
+ئېيتسا	e j t s a
+ئېينىشتېيننىڭ	e j n i ʃ t e j n n i ŋ
+ئېڭىكىنى	e ŋ i k i n i
+ئەت	ɛ t
+ئەتىياز	ɛ t i j a z
+ئەدىپىڭنى	ɛ d i p i ŋ n i
+ئەركىنجاننىمۇ	ɛ r k i n d͡ʒ a n n i m u
+ئەستۇللا	ɛ s t u l l a
+ئەسىردىكى	ɛ s i r d i k i
+ئەقىلسىزلىقلىرىمنى	ɛ q i l s i z l i q l i r i m n i
+ئەلدە	ɛ l d ɛ
+ئەمگىكىنى	ɛ m ɡ i k i n i
+ئەندۇۋا	ɛ n d u w a
+ئەيىب	ɛ j i b
+ئەگرى	ɛ ɡ r i
+ئەۋەتكۈم	ɛ w ɛ t k y m
+امېرىكىنىڭكى	a m e r i k i n i ŋ k i
+باجىنگىرىنى	b a d͡ʒ i n ɡ i r i n i
+بارغاندەك	b a r ʁ a n d ɛ k
+بارنى	b a r n i
+باسقۇچىدا	b a s q u t͡ʃ i d a
+باشلاندى	b a ʃ l a n d i
+باغجانلاپ	b a ʁ d͡ʒ a n l a p
+باقالماس	b a q a l m a s
+باقمىغىلى	b a q m i ʁ i l i
+بالىجانلىق	b a l i d͡ʒ a n l i q
+بالىمۇ	b a l i m u
+بايقىيالايسىز	b a j q i j a l a j s i z
+بوراندىن	b o r a n d i n
+بوشلۇقۇمدا	b o ʃ l u q u m d a
+بولالمايسەن	b o l a l m a j s ɛ n
+بولسۇن	b o l s u n
+بولغۇچە	b o l ʁ u t͡ʃ ɛ
+بولمىغانىكەن	b o l m i ʁ a n i k ɛ n
+بولۇق	b o l u q
+بويسۇنىدۇ	b o j s u n i d u
+بوۋايغا	b o w a j ʁ a
+بىردەم	b i r d ɛ m
+بىرىنىڭكى	b i r i n i ŋ k i
+بىلدۈرمەس	b i l d y r m ɛ s
+بىلمەيۋاتقان	b i l m ɛ j w a t q a n
+بىلىندى	b i l i n d i
+بىلەلمىدىم	b i l ɛ l m i d i m
+بىۋاسىتە	b i w a s i t ɛ
+بۆلۈنگەننى	b ø l y n ɡ ɛ n n i
+بۇرۇنىسىدا	b u r u n i s i d a
+بۇلاپ	b u l a p
+بۇيا	b u j a
+بېخىلنىڭ	b e χ i l n i ŋ
+بېرىپ	b e r i p
+بېرەلەپ	b e r ɛ l ɛ p
+بېشىنىڭ	b e ʃ i n i ŋ
+بېلىقنى	b e l i q n i
+بەدىنىدىن	b ɛ d i n i d i n
+بەرمەكچى	b ɛ r m ɛ k t͡ʃ i
+بەزەن	b ɛ z ɛ n
+بەلگىلەپتۇ	b ɛ l ɡ i l ɛ p t u
+تاختاي	t a χ t a j
+تارتىمەن	t a r t i m ɛ n
+تارىخنى	t a r i χ n i
+تاشلاش	t a ʃ l a ʃ
+تاغلار	t a ʁ l a r
+تالالىق	t a l a l i q
+تاماشىسىنى	t a m a ʃ i s i n i
+تاياق	t a j a q
+تاپانچىڭىز	t a p a n t͡ʃ i ŋ i z
+تاۋارلىرىنى	t a w a r l i r i n i
+توختىمىدى	t o χ t i m i d i
+توساتتىن	t o s a t t i n
+توغرىسىدىكى	t o ʁ r i s i d i k i
+توقۇۋاتسىمۇ	t o q u w a t s i m u
+تولۇققا	t o l u q q a
+تونۇشقىنىمغا	t o n u ʃ q i n i m ʁ a
+توينى	t o j n i
+توڭلاپ	t o ŋ l a p
+تىرىكىنى	t i r i k i n i
+تىقىلار	t i q i l a r
+تىلشۇناسلىققا	t i l ʃ u n a s l i q q a
+تىلىنىمۇ	t i l i n i m u
+تىيىن	t i j i n
+تۆكۈلسە	t ø k y l s ɛ
+تۆھمەت	t ø h m ɛ t
+تۇتقىلى	t u t q i l i
+تۇرار	t u r a r
+تۇرغىنىنى	t u r ʁ i n i n i
+تۇرىسەن	t u r i s ɛ n
+تۇرۇۋالدى	t u r u w a l d i
+تۇلپار	t u l p a r
+تۇيۇلۇپ	t u j u l u p
+تۈرمەلچەك	t y r m ɛ l t͡ʃ ɛ k
+تۈكۈرۈكنى	t y k y r y k n i
+تۈگىمىگەن	t y ɡ i m i ɡ ɛ n
+تېتىيدۇ	t e t i j d u
+تېرەك	t e r ɛ k
+تېشىنى	t e ʃ i n i
+تېنى	t e n i
+تېگىدىكى	t e ɡ i d i k i
+تەتقىقاتىدا	t ɛ t q i q a t i d a
+تەربىيەلىنىپ	t ɛ r b i j ɛ l i n i p
+تەرىپلەپ	t ɛ r i p l ɛ p
+تەسىر	t ɛ s i r
+تەشەببۇسىمىز	t ɛ ʃ ɛ b b u s i m i z
+تەكشۈرۈشتىن	t ɛ k ʃ y r y ʃ t i n
+تەمكىن	t ɛ m k i n
+تەپتى	t ɛ p t i
+تەڭپۇڭلۇقنى	t ɛ ŋ p u ŋ l u q n i
+تەۋرەۋاتىمىز	t ɛ w r ɛ w a t i m i z
+جانانغا	d͡ʒ a n a n ʁ a
+جاپپار	d͡ʒ a p p a r
+جىسمىغا	d͡ʒ i s m i ʁ a
+جىنسلىق	d͡ʒ i n s l i q
+جۈپتۈم	d͡ʒ y p t y m
+جەزبىسىگە	d͡ʒ ɛ z b i s i ɡ ɛ
+خاتا	χ a t a
+خارلىماس	χ a r l i m a s
+خاننىڭ	χ a n n i ŋ
+خوراز	χ o r a z
+خىرە	χ i r ɛ
+خىمىيەلىك	χ i m i j ɛ l i k
+خۇشاللىقمۇ	χ u ʃ a l l i q m u
+خېتىنى	χ e t i n i
+خەلقتىن	χ ɛ l q t i n
+خەۋەرلىرى	χ ɛ w ɛ r l i r i
+دارۋىننىڭ	d a r w i n n i ŋ
+داپچى	d a p t͡ʃ i
+دوختۇرخانا	d o χ t u r χ a n a
+دوستلىرىم	d o s t l i r i m
+دولقۇنلارغا	d o l q u n l a r ʁ a
+دىلىم	d i l i m
+دۆۋىلىرى	d ø w i l i r i
+دۈشمىنىمۇ	d y ʃ m i n i m u
+دېسىڭىز	d e s i ŋ i z
+دېيىشكىنى	d e j i ʃ k i n i
+دېگىنىڭىز	d e ɡ i n i ŋ i z
+دېھقاننىڭ	d e h q a n n i ŋ
+دەرىجىلىك	d ɛ r i d͡ʒ i l i k
+دەزى	d ɛ z i
+دەيدىغىنىم	d ɛ j d i ʁ i n i m
+دەۋادا	d ɛ w a d a
+راستتىنلا	r a s t t i n l a
+راۋۇرۇس	r a w u r u s
+رىسالەتكە	r i s a l ɛ t k ɛ
+رەئىس	r ɛ i s
+رەقەملىك	r ɛ q ɛ m l i k
+رەھمىتى	r ɛ h m i t i
+زورلۇقنى	z o r l u q n i
+زىيارەتچىنى	z i j a r ɛ t t͡ʃ i n i
+زېمىنغا	z e m i n ʁ a
+زەينىدىن	z ɛ j n i d i n
+ساختا	s a χ t a
+ساشانىڭ	s a ʃ a n i ŋ
+ساقلىيالايدۇ	s a q l i j a l a j d u
+سالسىڭىز	s a l s i ŋ i z
+سانتىمېتىرغا	s a n t i m e t i r ʁ a
+سايراشلىرى	s a j r a ʃ l i r i
+ساڭگىلاتقىنىچە	s a ŋ ɡ i l a t q i n i t͡ʃ ɛ
+سوئالغا	s o a l ʁ a
+سورىدىم	s o r i d i m
+سوغۇقراق	s o ʁ u q r a q
+سوۋغا	s o w ʁ a
+سىزدىن	s i z d i n
+سىفەنگە	s i f ɛ n ɡ ɛ
+سىممېترىك	s i m m e t r i k
+سىيرىپ	s i j r i p
+سۆزلىسەڭچۇ	s ø z l i s ɛ ŋ t͡ʃ u
+سۆزلەشكەن	s ø z l ɛ ʃ k ɛ n
+سۆككەنلەر	s ø k k ɛ n l ɛ r
+سۆھبىتىنىڭ	s ø h b i t i n i ŋ
+سۇنۇۋېتىپ	s u n u w e t i p
+سۈرسەم	s y r s ɛ m
+سۈيىنى	s y j i n i
+سېخىيلىق	s e χ i j l i q
+سېلىۋالغان	s e l i w a l ʁ a n
+سەدپارە	s ɛ d p a r ɛ
+سەمىمىيلىك	s ɛ m i m i j l i k
+سەپەرۋەرلىككە	s ɛ p ɛ r w ɛ r l i k k ɛ
+شاختىنشاخقا	ʃ a χ t i n ʃ a χ q a
+شارچە	ʃ a r t͡ʃ ɛ
+شاۋقۇننىڭ	ʃ a w q u n n i ŋ
+شىرە	ʃ i r ɛ
+شۇرقىراپ	ʃ u r q i r a p
+شۇڭلاشقا	ʃ u ŋ l a ʃ q a
+شەرمەندە	ʃ ɛ r m ɛ n d ɛ
+شەپىسىنى	ʃ ɛ p i s i n i
+غايىسىدىن	ʁ a j i s i d i n
+غۇرتتىدە	ʁ u r t t i d ɛ
+غېنىمۇ	ʁ e n i m u
+غەيرىيلىك	ʁ ɛ j r i j l i k
+فىلىمنى	f i l i m n i
+قاتناشتۇرۇشقا	q a t n a ʃ t u r u ʃ q a
+قارالغان	q a r a l ʁ a n
+قارغىش	q a r ʁ i ʃ
+قارىشىڭلار	q a r i ʃ i ŋ l a r
+قازاقىستان	q a z a q i s t a n
+قاغا	q a ʁ a
+قالايمىقان	q a l a j m i q a n
+قالغانلىقىنى	q a l ʁ a n l i q i n i
+قالىمىز	q a l i m i z
+قانتەرىدىن	q a n t ɛ r i d i n
+قايتالايمەن	q a j t a l a j m ɛ n
+قايسىبىر	q a j s i b i r
+قاپتىكەنمەن	q a p t i k ɛ n m ɛ n
+قاچقىنى	q a t͡ʃ q i n i
+قورال	q o r a l
+قورقىمەن	q o r q i m ɛ n
+قوزغىلىدىغان	q o z ʁ i l i d i ʁ a n
+قوشۇلمايمەن	q o ʃ u l m a j m ɛ n
+قوغۇشۇن	q o ʁ u ʃ u n
+قولىدىن	q o l i d i n
+قوندۇرماس	q o n d u r m a s
+قويغاندۇ	q o j ʁ a n d u
+قويىتى	q o j i t i
+قويۇۋەتتىم	q o j u w ɛ t t i m
+قىرغاقتا	q i r ʁ a q t a
+قىزغىنلىقى	q i z ʁ i n l i q i
+قىزىقىمەن	q i z i q i m ɛ n
+قىستۇرۇۋېتەتتى	q i s t u r u w e t ɛ t t i
+قىلار	q i l a r
+قىلدىمۇ	q i l d i m u
+قىلغىلى	q i l ʁ i l i
+قىلمىدى	q i l m i d i
+قىلىشنى	q i l i ʃ n i
+قىلىپمۇ	q i l i p m u
+قىيادەك	q i j a d ɛ k
+قۇتقۇزدى	q u t q u z d i
+قۇرئاننى	q u r a n n i
+قۇسۇپ	q u s u p
+قۇم	q u m
+قۇچاقلىدى	q u t͡ʃ a q l i d i
+قېرىشىپ	q e r i ʃ i p
+قېلىشتى	q e l i ʃ t i
+قەتئىي	q ɛ t i j
+قەرزى	q ɛ r z i
+قەلىمى	q ɛ l i m i
+كاتىپ	k a t i p
+كاساڭغا	k a s a ŋ ʁ a
+كامالەتكە	k a m a l ɛ t k ɛ
+كرىستال	k r i s t a l
+كومپيۇتېرنى	k o m p j u t e r n i
+كىتابخانلارنىڭ	k i t a b χ a n l a r n i ŋ
+كىرىدىغان	k i r i d i ʁ a n
+كىرگىچە	k i r ɡ i t͡ʃ ɛ
+كىشىلىك	k i ʃ i l i k
+كىيدۈرىدۇ	k i j d y r i d u
+كىيىۋېتىپ	k i j i w e t i p
+كۆتۈرۈلدى	k ø t y r y l d i
+كۆرسىتەر	k ø r s i t ɛ r
+كۆرمەيمەن	k ø r m ɛ j m ɛ n
+كۆرۈشمەكتە	k ø r y ʃ m ɛ k t ɛ
+كۆرۈنۈشىدۇر	k ø r y n y ʃ i d u r
+كۆزدىن	k ø z d i n
+كۆزۈممۇ	k ø z y m m u
+كۆلچەك	k ø l t͡ʃ ɛ k
+كۆيگىنى	k ø j ɡ i n i
+كۆپىيەلەيدۇ	k ø p i j ɛ l ɛ j d u
+كۆڭلىكۆكسى	k ø ŋ l i k ø k s i
+كۇرسكەنتۇق	k u r s k ɛ n t u q
+كۈز	k y z
+كۈلگەندەكلا	k y l ɡ ɛ n d ɛ k l a
+كۈندەك	k y n d ɛ k
+كۈنۈمنى	k y n y m n i
+كۈچۈكلەر	k y t͡ʃ y k l ɛ r
+كېتىڭ	k e t i ŋ
+كېرەكمىكى	k e r ɛ k m i k i
+كېلىشتۈرۈپ	k e l i ʃ t y r y p
+كېلەر	k e l ɛ r
+كېچىدىلا	k e t͡ʃ i d i l a
+كەتسۇن	k ɛ t s u n
+كەتمەنچىلەر	k ɛ t m ɛ n t͡ʃ i l ɛ r
+كەشىنى	k ɛ ʃ i n i
+كەلسۇنكەلمىسۇن	k ɛ l s u n k ɛ l m i s u n
+كەلگەنسىز	k ɛ l ɡ ɛ n s i z
+كەينىڭدىن	k ɛ j n i ŋ d i n
+كەچۈرسىمۇ	k ɛ t͡ʃ y r s i m u
+لايبىرەرىما	l a j b i r ɛ r i m a
+لىرىكا	l i r i k a
+لەززەتلىك	l ɛ z z ɛ t l i k
+ماتور	m a t o r
+ماراشماقتا	m a r a ʃ m a q t a
+ماسلىق	m a s l i q
+ماللارنىڭ	m a l l a r n i ŋ
+مايماقلىرىنى	m a j m a q l i r i n i
+ماڭىسىلەر	m a ŋ i s i l ɛ r
+موم	m o m
+مىزانى	m i z a n i
+مىللەتتىن	m i l l ɛ t t i n
+مىنۇتمۇ	m i n u t m u
+مۇئەللىملەر	m u ɛ l l i m l ɛ r
+مۇرادمەقسىتىگە	m u r a d m ɛ q s i t i ɡ ɛ
+مۇساپىلىرىنى	m u s a p i l i r i n i
+مۇشەققەتكە	m u ʃ ɛ q q ɛ t k ɛ
+مۇناپىق	m u n a p i q
+مۇھەببىتىمۇ	m u h ɛ b b i t i m u
+مۈڭگۈزمۈڭگۈز	m y ŋ ɡ y z m y ŋ ɡ y z
+مېڭىشتى	m e ŋ i ʃ t i
+مېھىرشەپقەت	m e h i r ʃ ɛ p q ɛ t
+مەدەنىيىتىنى	m ɛ d ɛ n i j i t i n i
+مەزمۇنلارمۇ	m ɛ z m u n l a r m u
+مەسىسىنىڭ	m ɛ s i s i n i ŋ
+مەغرۇرلۇقىدىن	m ɛ ʁ r u r l u q i d i n
+مەمتىلىگە	m ɛ m t i l i ɡ ɛ
+مەنىلەر	m ɛ n i l ɛ r
+مەھسۇلاتلارنى	m ɛ h s u l a t l a r n i
+مەۋھۇم	m ɛ w h u m
+ناشتىلىققا	n a ʃ t i l i q q a
+ناھايىتى	n a h a j i t i
+نىسبىدە	n i s b i d ɛ
+نۆكەرلەر	n ø k ɛ r l ɛ r
+نۇقتىلىق	n u q t i l i q
+نېمەمكەندۇق	n e m ɛ m k ɛ n d u q
+نەرىدە	n ɛ r i d ɛ
+نەي	n ɛ j
+ويغىتاممايدۇ	o j ʁ i t a m m a j d u
+ياتاقلىرىغا	j a t a q l i r i ʁ a
+ياخشىلىقمۇ	j a χ ʃ i l i q m u
+ياردىمىدە	j a r d i m i d ɛ
+يارىماپتۇ	j a r i m a p t u
+ياساپتۇدەك	j a s a p t u d ɛ k
+ياشاۋاتقاندەك	j a ʃ a w a t q a n d ɛ k
+ياشىغۇچە	j a ʃ i ʁ u t͡ʃ ɛ
+ياقسۇن	j a q s u n
+ياللانما	j a l l a n m a
+يامغۇردا	j a m ʁ u r d a
+يانىسەن	j a n i s ɛ n
+ياڭراتتى	j a ŋ r a t t i
+يوشۇرساڭ	j o ʃ u r s a ŋ
+يوقلۇق	j o q l u q
+يوللىدۇق	j o l l i d u q
+يوپۇرماقلار	j o p u r m a q l a r
+يىغار	j i ʁ a r
+يىغىسىنى	j i ʁ i s i n i
+يىلتىز	j i l t i z
+يىپلار	j i p l a r
+يۆتكەپ	j ø t k ɛ p
+يۇرتىمىزدا	j u r t i m i z d a
+يۇلقۇنۇۋىدى	j u l q u n u w i d i
+يۈرمەيتتى	j y r m ɛ j t t i
+يۈرەتتى	j y r ɛ t t i
+يۈزىگە	j y z i ɡ ɛ
+يۈگۈرۈپتۇ	j y ɡ y r y p t u
+يېتىمكىنا	j e t i m k i n a
+يېرىنى	j e r i n i
+يېشى	j e ʃ i
+يېقىنلاپ	j e q i n l a p
+يېنىغا	j e n i ʁ a
+يېپىنچاقلاپ	j e p i n t͡ʃ a q l a p
+يېگۈچىسى	j e ɡ y t͡ʃ i s i
+يەتمىش	j ɛ t m i ʃ
+يەشسىلە	j ɛ ʃ s i l ɛ
+يەڭگەن	j ɛ ŋ ɡ ɛ n
+پاتمايدۇ	p a t m a j d u
+پاراسىتى	p a r a s i t i
+پارلاپ	p a r l a p
+پالاكەت	p a l a k ɛ t
+پاھ	p a h
+پوچتىخانىغا	p o t͡ʃ t i χ a n i ʁ a
+پىشىدۇ	p i ʃ i d u
+پىيادە	p i j a d ɛ
+پۇتى	p u t i
+پۇل	p u l
+پۈگىتىنى	p y ɡ i t i n i
+پەدىدە	p ɛ d i d ɛ
+پەزىلەتلىرىنى	p ɛ z i l ɛ t l i r i n i
+پەيتلەرنى	p ɛ j t l ɛ r n i
+چاغقىچە	t͡ʃ a ʁ q i t͡ʃ ɛ
+چاقىرتىپتۇ	t͡ʃ a q i r t i p t u
+چاندۇرماپتۇ	t͡ʃ a n d u r m a p t u
+چاپىنىڭنى	t͡ʃ a p i n i ŋ n i
+چوققىلاردۇر	t͡ʃ o q q i l a r d u r
+چوڭلۇق	t͡ʃ o ŋ l u q
+چىرايلىقنى	t͡ʃ i r a j l i q n i
+چىشلەيدىغان	t͡ʃ i ʃ l ɛ j d i ʁ a n
+چىقتۇق	t͡ʃ i q t u q
+چىقىدىغان	t͡ʃ i q i d i ʁ a n
+چىقىمەن	t͡ʃ i q i m ɛ n
+چىگىت	t͡ʃ i ɡ i t
+چۆمدۈم	t͡ʃ ø m d y m
+چۇۋۇلاتتى	t͡ʃ u w u l a t t i
+چۈشىدىغانلىقىغا	t͡ʃ y ʃ i d i ʁ a n l i q i ʁ a
+چۈشۈشتەك	t͡ʃ y ʃ y ʃ t ɛ k
+چۈمۈلىدەك	t͡ʃ y m y l i d ɛ k
+چېلىناتتى	t͡ʃ e l i n a t t i
+چېچەن	t͡ʃ e t͡ʃ ɛ n
+چەمبەرلەر	t͡ʃ ɛ m b ɛ r l ɛ r
+گوركىيغا	ɡ o r k i j ʁ a
+گۆشكە	ɡ ø ʃ k ɛ
+گۇۋاھلىققا	ɡ u w a h l i q q a
+گۈللىرى	ɡ y l l i r i
+گېنېراتورنى	ɡ e n e r a t o r n i
+گەپنىمۇ	ɡ ɛ p n i m u
+ھارغىن	h a r ʁ i n
+ھاشاراتلارنى	h a ʃ a r a t l a r n i
+ھالۋىدىن	h a l w i d i n
+ھايال	h a j a l
+ھاۋانى	h a w a n i
+ھويلىنى	h o j l i n i
+ھۆلقۇرۇق	h ø l q u r u q
+ھېسابتا	h e s a b t a
+ھېكايىسى	h e k a j i s i
+ھېچكىمنى	h e t͡ʃ k i m n i
+ھەرقانداق	h ɛ r q a n d a q
+ھەرە	h ɛ r ɛ
+ھەمدە	h ɛ m d ɛ
+ھەيدەشكە	h ɛ j d ɛ ʃ k ɛ
+ۆزلىكىدىن	ø z l i k i d i n
+ۋادىسىدىكى	w a d i s i d i k i
+ۋاقلاردىغۇ	w a q l a r d i ʁ u
+ۋوگزالنىڭ	w o ɡ z a l n i ŋ
+ۋەدىسى	w ɛ d i s i
+ۋەكىل	w ɛ k i l
