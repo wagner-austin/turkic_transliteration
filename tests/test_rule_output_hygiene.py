@@ -23,6 +23,11 @@ import unicodedata as ud
 import pytest
 
 from turkic_translit.core import _RULE_DIR, to_ipa
+from turkic_translit.corpus.inventory import (
+    APOSTROPHES,
+    seam_inputs,
+    source_alphabets,
+)
 from turkic_translit.rule_provenance import read_rule_source
 
 # U+02A3..U+02A8, the affricate ligatures the IPA withdrew in 1989 in
@@ -161,6 +166,23 @@ def test_no_left_context_is_written_in_the_source_script(lang: str) -> None:
     assert not offenders, f"{lang} has left contexts in Cyrillic: {offenders}"
 
 
+@pytest.mark.parametrize("lang", CYRILLIC_LANGUAGES)
+def test_iotated_letters_carry_the_same_vowel_glyph_as_the_plain_letter(lang: str) -> None:
+    """<я> and <ё> are <й> plus the vowel, in the vowel's own glyph.
+
+    The Kazakh and Kyrgyz files wrote <я> with ASCII a while <а> maps
+    to ɑ, which put a second low-vowel character into native words like
+    аяқ — a purely notational split the models would read as phonology.
+    Stated as a composition so the letter and its digraph cannot drift
+    apart again, in any of the Cyrillic languages.
+
+    Args:
+        lang: The Cyrillic-script language whose rule file is checked.
+    """
+    assert to_ipa("я", lang) == to_ipa("й", lang) + to_ipa("а", lang)
+    assert to_ipa("ё", lang) == to_ipa("й", lang) + to_ipa("о", lang)
+
+
 def test_the_glide_and_iotation_rules_actually_fire() -> None:
     """The contextual rules do what their comments say they do.
 
@@ -197,92 +219,23 @@ def test_no_word_loses_its_only_vowel() -> None:
             assert set(to_ipa(word, lang)) & vowels != set(), f"{lang} {word} lost its vowel"
 
 
-# Every language's source alphabet, for the seam sweep below. The
-# Cyrillic languages share the letter set above; the Latin alphabets are
-# the official ones the rule files implement; the Uyghur letters are
-# derived from the rule file itself, so a newly mapped letter is swept
-# without this dict being edited.
-APOSTROPHES = ("'", "ʻ", "’", "ʼ")
-
-
-def source_alphabets() -> dict[str, str]:
-    """The input alphabet the seam sweep feeds each language.
-
-    Returns:
-        Language code to its letters, covering every rule file.
-    """
-    ug_source = (_RULE_DIR / "ug_ipa.rules").read_text(encoding="utf-8")
-    ug_letters = "".join(
-        sorted({c for c in ug_source if ud.name(c, "").startswith("ARABIC LETTER")})
-    )
-    return {
-        "kk": CYRILLIC_LETTERS,
-        "ky": CYRILLIC_LETTERS,
-        "uzc": CYRILLIC_LETTERS,
-        "az": "abcçdeəfgğhxıijkqlmnoöprsştuüvyz",
-        "tr": "abcçdefgğhıijklmnoöprsştuüvyz",
-        "uz": "abdefghijklmnopqrstuvxyz",
-        "fi": "abcdefghijklmnopqrstuvwxyzåäö",
-        "ug": ug_letters,
-    }
-
-
-def multi_char_rule_heads(lang: str) -> list[str]:
-    """The multi-character left-hand sides a rule file declares.
-
-    Read from the file itself, so a newly added digraph is swept without
-    this test being edited. A ``$Apo`` reference expands to every
-    apostrophe variant; heads using contexts or other macros are skipped,
-    because a bare concatenation cannot exercise them faithfully.
-
-    Args:
-        lang: The language whose rule file is read.
-
-    Returns:
-        Every literal multi-character head, expanded.
-    """
-    heads: list[str] = []
-    for line in (_RULE_DIR / f"{lang}_ipa.rules").read_text(encoding="utf-8").splitlines():
-        rule = line.split("#")[0]
-        if ">" not in rule or "{" in rule or "}" in rule:
-            continue
-        left = rule.split(">")[0].strip()
-        if left.endswith("$Apo"):
-            base = left.removesuffix("$Apo").strip()
-            if base and "$" not in base:
-                heads.extend(base + mark for mark in APOSTROPHES)
-            continue
-        if left and "$" not in left and len(left) > 1:
-            heads.append(left)
-    return heads
-
-
-def seam_inputs(lang: str, letters: str) -> list[str]:
-    """Letter pairs plus every letter set against every multi-char head.
-
-    Pairs trigger digraph and context rules against each other. The
-    head combinations put each multi-character rule directly before and
-    after every letter, which is where a shorter rule can steal a
-    character from the rule behind it — the Uzbek <ngʻ> defect was the
-    letter n followed by the head gʻ.
-
-    Args:
-        lang: The language the inputs are for.
-        letters: Its source alphabet.
-
-    Returns:
-        The input strings to sweep.
-    """
-    heads = multi_char_rule_heads(lang)
-    pairs = [a + b for a in letters for b in letters]
-    before = [a + head for a in letters for head in heads]
-    after = [head + a for head in heads for a in letters]
-    return pairs + before + after
+# The sweep's alphabets and inputs come from the package's own
+# inventory module, which the cleaner also uses to separate
+# transcription from passthrough, so test and pipeline cannot drift
+# apart. The Cyrillic set it serves for kk, ky and uzc is asserted
+# below to be the one this file's own coverage test uses.
 
 
 def test_alphabet_sweep_covers_every_rule_file() -> None:
-    """The sweep's alphabet dict covers exactly the rule files present."""
+    """The inventory's alphabet dict covers exactly the rule files present."""
     assert set(source_alphabets()) == set(LANGUAGES)
+
+
+def test_the_inventory_serves_the_cyrillic_letters_this_file_checks() -> None:
+    """One Cyrillic letter set, shared by the sweep and the coverage test."""
+    assert source_alphabets()["kk"] == CYRILLIC_LETTERS
+    assert source_alphabets()["ky"] == CYRILLIC_LETTERS
+    assert source_alphabets()["uzc"] == CYRILLIC_LETTERS
 
 
 @pytest.mark.parametrize("lang", LANGUAGES)
@@ -297,10 +250,9 @@ def test_no_source_mark_or_letter_survives_any_letter_pair(lang: str) -> None:
     Args:
         lang: The language whose rule file is swept.
     """
-    letters = source_alphabets()[lang]
     source_script = "ARABIC" if lang == "ug" else "CYRILLIC"
     offenders = {}
-    for text in seam_inputs(lang, letters):
+    for text in seam_inputs(lang):
         out = to_ipa(text, lang)
         stranded = [c for c in out if c in APOSTROPHES or ud.name(c, "").startswith(source_script)]
         if stranded:

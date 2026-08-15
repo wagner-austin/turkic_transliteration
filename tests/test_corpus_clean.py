@@ -11,6 +11,7 @@ and the language that set it are checked explicitly.
 
 from __future__ import annotations
 
+import hashlib
 import json
 from collections.abc import Mapping
 from pathlib import Path
@@ -47,6 +48,7 @@ from turkic_translit.corpus.errors import (
     NoCorporaError,
     SymbolMapMalformedError,
 )
+from turkic_translit.corpus.inventory import emitted_characters
 from turkic_translit.corpus.symbols import (
     PACKAGED_SYMBOL_MAP,
     apply_substitutions,
@@ -66,8 +68,14 @@ KEPT_ROW = "keep,all,q,,CONTRAST,a uvular plosive is phonemic in Kazakh,McCollum
 
 SMALL_MAP = "\n".join([HEADER, LIGATURE_ROW, TURKISH_ROW, KEPT_ROW]) + "\n"
 
-# Long enough to clear the default minimum line length.
-LONG = "sɑlɑmɑtsɯzbɯ dunijø qɑndɑj kyn bugyn bolup"
+# Long enough to clear the default minimum line length, and written
+# entirely in characters both the Kazakh and the Kyrgyz rules can emit,
+# so the token filter keeps every word for either language.
+LONG = "sɑlɑmɑt bɑlɑ ʒoldɑ turɑt eki kun ʒɑj bolup"
+
+# The emitted set the unit tests hand the sanitiser directly: the test
+# line's own characters, plus the affricate the symbol-map test writes.
+EMITTED = frozenset(LONG + "t͡ʃ")
 
 
 def write_corpora(root: Path, corpora: dict[str, list[str]]) -> Path:
@@ -218,13 +226,32 @@ def test_an_empty_line_has_no_ratio() -> None:
 
 def test_stray_characters_become_spaces_rather_than_vanishing() -> None:
     """Deleting a character would fuse its neighbours into a false sequence."""
-    assert sanitize_line("sɑl☺ɑm") == "sɑl ɑm"
+    assert sanitize_line("sɑl☺ɑm", EMITTED) == ("sɑl ɑm", 0, 1)
     assert "☺" not in ALLOWED_CHARS
 
 
 def test_sanitising_collapses_the_spaces_it_creates() -> None:
     """A run of junk leaves one space, not one per character."""
-    assert sanitize_line("sɑl☺☺☺ɑm") == "sɑl ɑm"
+    assert sanitize_line("sɑl☺☺☺ɑm", EMITTED) == ("sɑl ɑm", 0, 3)
+
+
+def test_a_token_with_a_letter_the_rules_cannot_emit_is_dropped_whole() -> None:
+    """Foreign material goes as a word, not as fragments of one.
+
+    Stripping the c out of a quoted brand name would leave a fragment
+    that reads as a native word; dropping the token removes the quote
+    and nothing else.
+    """
+    assert sanitize_line("sɑlɑm facebook eki", EMITTED) == ("sɑlɑm eki", 1, 0)
+
+
+def test_punctuation_and_digits_are_stripped_to_spaces() -> None:
+    """Corpus style is removed; the phoneme stream stays intact."""
+    line, dropped, replaced = sanitize_line("sɑlɑm, eki 45.", EMITTED)
+
+    assert line == "sɑlɑm eki"
+    assert dropped == 0
+    assert replaced == 4
 
 
 def test_each_filter_is_counted_separately() -> None:
@@ -236,7 +263,7 @@ def test_each_filter_is_counted_separately() -> None:
         "これはとても長い日本語のテキストでありフィルタを通過しません",  # low ratio
     ]
 
-    kept, stats = clean_lines(lines, {}, DEFAULT_MIN_LINE_CHARS, DEFAULT_MIN_IPA_RATIO)
+    kept, stats = clean_lines(lines, {}, DEFAULT_MIN_LINE_CHARS, DEFAULT_MIN_IPA_RATIO, EMITTED)
 
     assert kept == [LONG]
     assert stats["lines_in"] == 4
@@ -250,10 +277,11 @@ def test_a_line_shortened_past_the_minimum_by_sanitising_is_dropped() -> None:
     """The length test runs again afterwards, because sanitising shortens."""
     line = "sɑlɑm" + "☺" * 40
 
-    kept, stats = clean_lines([line], {}, DEFAULT_MIN_LINE_CHARS, 0.0)
+    kept, stats = clean_lines([line], {}, DEFAULT_MIN_LINE_CHARS, 0.0, EMITTED)
 
     assert kept == []
     assert stats["dropped_short"] == 1
+    assert stats["chars_replaced"] == 40
 
 
 def test_the_symbol_map_runs_before_the_filters() -> None:
@@ -262,10 +290,9 @@ def test_the_symbol_map_runs_before_the_filters() -> None:
     Ordering the stages the other way would filter on notation this
     project is in the middle of removing.
     """
-    kept, _stats = clean_lines([LONG.replace("j", "ʧ")], {"ʧ": "t͡ʃ"}, 1, 1.0)
+    kept, _stats = clean_lines([LONG.replace("j", "ʧ")], {"ʧ": "t͡ʃ"}, 1, 1.0, EMITTED)
 
-    assert kept
-    assert "t͡ʃ" in kept[0]
+    assert kept == [LONG.replace("j", "t͡ʃ")]
 
 
 def test_truncation_keeps_whole_lines() -> None:
@@ -279,7 +306,7 @@ def test_every_corpus_is_cut_to_the_smallest(tmp_path: Path) -> None:
     raw = write_corpora(
         tmp_path,
         {
-            "ky": [LONG, LONG + " qosumsha", LONG + " ekinchi"],
+            "ky": [LONG, LONG + " ekint͡ʃi", LONG + " birdi"],
             "kk": [LONG],
         },
     )
@@ -340,7 +367,7 @@ def test_a_corpus_that_loses_everything_still_writes_a_file(tmp_path: Path) -> N
 
 def test_statistics_round_trip() -> None:
     """A statistics record encodes and decodes to itself."""
-    _kept, stats = clean_lines([LONG], {}, DEFAULT_MIN_LINE_CHARS, DEFAULT_MIN_IPA_RATIO)
+    _kept, stats = clean_lines([LONG], {}, DEFAULT_MIN_LINE_CHARS, DEFAULT_MIN_IPA_RATIO, EMITTED)
 
     assert decode_clean_stats(encode_clean_stats(stats)) == stats
 
@@ -374,6 +401,7 @@ def test_decoding_a_report_with_a_bad_ratio_fails() -> None:
                 "min_ipa_ratio": "0.95",
                 "equalized_char_budget": 0,
                 "budget_language": "ky",
+                "rules_fingerprint": {},
                 "languages": {},
             }
         )
@@ -386,6 +414,7 @@ def test_decoding_a_report_whose_languages_are_not_mappings_fails() -> None:
         "min_ipa_ratio": 0.95,
         "equalized_char_budget": 0,
         "budget_language": "ky",
+        "rules_fingerprint": {},
     }
 
     with pytest.raises(TypeError, match="mapping"):
@@ -393,6 +422,72 @@ def test_decoding_a_report_whose_languages_are_not_mappings_fails() -> None:
 
     with pytest.raises(TypeError, match="statistics"):
         decode_clean_report({**base, "languages": {"ky": 3}})
+
+
+def test_decoding_a_report_whose_fingerprint_is_not_a_mapping_fails() -> None:
+    """The fingerprint is a record of files to digests, not a scalar."""
+    with pytest.raises(TypeError, match="rules_fingerprint"):
+        decode_clean_report(
+            {
+                "min_line_chars": 30,
+                "min_ipa_ratio": 0.95,
+                "equalized_char_budget": 0,
+                "budget_language": "ky",
+                "rules_fingerprint": 3,
+                "languages": {},
+            }
+        )
+
+
+def test_the_report_fingerprints_the_rules_the_run_depended_on(tmp_path: Path) -> None:
+    """Each rule file and the applied map are hashed into the report.
+
+    The digests are recomputed here from the same bytes, so the report
+    can be checked against the rules that exist now rather than trusted.
+    """
+    raw = write_corpora(tmp_path, {"ky": [LONG], "kk": [LONG, LONG + " more"]})
+
+    report = clean_corpora(
+        {"ky": raw / "oscar_ky_ipa.txt", "kk": raw / "oscar_kk_ipa.txt"},
+        tmp_path / "clean",
+        (),
+    )
+
+    fingerprint = report["rules_fingerprint"]
+    assert set(fingerprint) == {"kk_ipa.rules", "ky_ipa.rules", "symbol_map"}
+    expected = hashlib.sha256((_RULE_DIR / "ky_ipa.rules").read_bytes()).hexdigest()
+    assert fingerprint["ky_ipa.rules"] == expected
+
+
+def test_foreign_tokens_are_dropped_and_counted_end_to_end(tmp_path: Path) -> None:
+    """A quoted foreign word leaves the corpus whole, and the report says so."""
+    raw = write_corpora(tmp_path, {"ky": [LONG + " facebook"], "kk": [LONG]})
+    out = tmp_path / "clean"
+
+    report = clean_corpora(
+        {"ky": raw / "oscar_ky_ipa.txt", "kk": raw / "oscar_kk_ipa.txt"}, out, ()
+    )
+
+    cleaned = (out / "oscar_ky_ipa.txt").read_text(encoding="utf-8")
+    assert "facebook" not in cleaned
+    assert report["languages"]["ky"]["dropped_foreign_tokens"] == 1
+    assert report["languages"]["kk"]["dropped_foreign_tokens"] == 0
+
+
+def test_a_cleaned_corpus_holds_only_what_the_rules_can_emit(tmp_path: Path) -> None:
+    """The vocabulary property, stated over the file that was written."""
+    raw = write_corpora(
+        tmp_path,
+        {"ky": [LONG + ", 45 % (facebook)"], "kk": [LONG + " eki 7."]},
+    )
+    out = tmp_path / "clean"
+
+    clean_corpora({"ky": raw / "oscar_ky_ipa.txt", "kk": raw / "oscar_kk_ipa.txt"}, out, ())
+
+    for language in ("ky", "kk"):
+        text = (out / f"oscar_{language}_ipa.txt").read_text(encoding="utf-8")
+        allowed = emitted_characters(language) | {" ", "\n"}
+        assert set(text) <= allowed, f"{language} kept {set(text) - allowed}"
 
 
 @pytest.mark.parametrize(
@@ -451,7 +546,7 @@ def test_the_command_cleans_a_directory_and_writes_a_report(tmp_path: Path) -> N
     """End to end, through the console entry point, on real files."""
     raw = write_corpora(
         tmp_path,
-        {"ky": [LONG.replace("j", "ʧ"), LONG], "kk": [LONG, LONG + " qosymsha"]},
+        {"ky": [LONG.replace("j", "ʧ"), LONG], "kk": [LONG, LONG + " ekint͡ʃi"]},
     )
     out = tmp_path / "clean"
 
@@ -536,7 +631,7 @@ def test_the_command_harmonises_without_cleaning(tmp_path: Path) -> None:
 
 def test_the_command_runs_both_modes_in_one_invocation(tmp_path: Path) -> None:
     """Corpora are cleaned and evaluation texts harmonised together."""
-    raw = write_corpora(tmp_path, {"ky": [LONG], "kk": [LONG + " qosymsha"]})
+    raw = write_corpora(tmp_path, {"ky": [LONG], "kk": [LONG + " ekint͡ʃi"]})
     eval_dir = tmp_path / "eval"
     eval_dir.mkdir()
     (eval_dir / "perception_ky.txt").write_text("short\n", encoding="utf-8")

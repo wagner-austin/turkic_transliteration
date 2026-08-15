@@ -63,6 +63,11 @@ DECLARED_CONTRASTS: dict[str, tuple[dict[str, str], str]] = {
         "three analyses of the high unrounded vowel: central ə (McCollum & Chen "
         "2021), back ɯ (McCollum 2020), central ɨ (Ido 2025)",
     ),
+    "я": (
+        {"kk": "jɑ", "ky": "jɑ", "uzc": "ja"},
+        "the glide plus each language's own low vowel: the contrast is the "
+        "same one declared for bare а above",
+    ),
     "a": (
         {"tr": "ɑ", "az": "ɑ", "uz": "a"},
         "Turkish a merges to ɑ in the symbol map; Uzbek's a stays distinct (Ido 2025)",
