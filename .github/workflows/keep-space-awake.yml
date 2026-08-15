@@ -1,0 +1,36 @@
+name: Keep the Space awake
+
+# A free Hugging Face Space sleeps after 48 hours without a visitor, and
+# the next visitor pays for the wake-up. That is tolerable on
+# huggingface.co, where a loading screen is expected, and poor inside an
+# iframe on another site, where it reads as the page being broken.
+#
+# One request a day keeps the Space under the idle threshold. It asks
+# for headers only, so nothing is transferred beyond the response line.
+#
+# This is not a health check and must not become one: it says nothing
+# about whether the demo works. The sync workflow is what verifies a
+# build, and it fails loudly when one breaks.
+
+on:
+  schedule:
+    # 09:00 UTC, which is early morning in California — a visit before
+    # the day's readers rather than after them.
+    - cron: "0 9 * * *"
+  workflow_dispatch:
+
+jobs:
+  visit:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Ask the Space for its headers
+        run: |
+          URL="https://austinwagner-turkic-transliteration-demo.hf.space/"
+          status=$(curl -sS -o /dev/null -w "%{http_code}" --max-time 120 "$URL")
+          echo "The Space answered $status."
+          # A sleeping Space answers while it wakes, and a waking one can
+          # answer 503 for a moment. Neither is a failure of this job,
+          # whose only purpose is to have visited.
+          if [ "$status" = "000" ]; then
+            echo "::warning::No response from the Space within two minutes."
+          fi
