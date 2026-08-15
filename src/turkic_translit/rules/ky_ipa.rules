@@ -102,7 +102,9 @@ $Vout { у > w ;
 Ь > ʲ ;  ь > ʲ ;
 Э > e ;  э > e ;
 Ю > ju ; ю > ju ;
-Я > ja ; я > ja ;
+# The vowel is the one plain <а> carries: writing ASCII a put a second
+# low-vowel glyph in the corpus for words like аял.
+Я > jɑ ; я > jɑ ;
 Ў > w ;  ў > w ;
 
 # ---------------------------------------------------------------------------

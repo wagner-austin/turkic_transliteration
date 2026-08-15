@@ -84,7 +84,9 @@ $Vout { У > w ;   $Vout { у > w ;
 Ь > ʲ ;  ь > ʲ ;
 Э > e ;  э > e ;
 Ю > ju ; ю > ju ;
-Я > ja ; я > ja ;
+# The vowel is the one plain <а> carries: writing ASCII a put a second
+# low-vowel glyph in the corpus for words like аяқ.
+Я > jɑ ; я > jɑ ;
 
 # ---------------------------------------------------------------------------
 # Letters outside the Kazakh alphabet that reach the corpus in quoted or
