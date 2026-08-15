@@ -64,7 +64,10 @@ REQUIREMENTS_NAME = "requirements.txt"
 
 GRADIO = "gradio"
 
-USAGE = "usage: python -m scripts.hf_space (--space <directory> | --print-version)"
+USAGE = (
+    "usage: python -m scripts.hf_space "
+    "(--space <directory> | --print-version | --print-sdk-version)"
+)
 
 # The Space installs nothing this package does not already declare, so
 # the file names the package and stops. The previous one also listed
@@ -332,12 +335,20 @@ def main(argv: Sequence[str], root: Path = PROJECT_ROOT) -> int:
             only place that touches process state.
         root: Repository to read from. Defaults to this checkout.
 
+    The two printing options exist so that the workflow reads the
+    version and the SDK through this parser rather than through a
+    second one written in YAML.
+
     Returns:
         0 when the requested work was done, and 2 when the command line
-        named neither piece of work.
+        named none of it.
     """
     if "--print-version" in argv:
         print(package_version((root / PYPROJECT).read_text(encoding="utf-8")))
+        return 0
+
+    if "--print-sdk-version" in argv:
+        print(front_matter_value((root / CARD).read_text(encoding="utf-8"), "sdk_version"))
         return 0
 
     space = option_value(argv, "--space")

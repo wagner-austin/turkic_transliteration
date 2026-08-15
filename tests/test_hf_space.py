@@ -259,6 +259,18 @@ def test_the_version_can_be_asked_for_on_its_own(
     assert capsys.readouterr().out == "9.9.9\n"
 
 
+def test_the_sdk_version_can_be_asked_for_on_its_own(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    """The smoke job installs the Gradio the card names, read from here."""
+    root = build_repository(tmp_path / "repo")
+
+    status = hf_space.main(["--print-sdk-version"], root=root)
+
+    assert status == 0
+    assert capsys.readouterr().out == "6.17.3\n"
+
+
 def test_the_command_line_renders_into_the_named_directory(
     tmp_path: Path, capsys: pytest.CaptureFixture[str]
 ) -> None:

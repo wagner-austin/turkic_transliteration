@@ -14,10 +14,16 @@ name: Sync to Hugging Face Space
 # what ``tests/test_hf_space.py`` asserts and what the renderer refuses
 # to publish when it does not hold.
 #
-# The job then waits for the build it triggered and fails when that
-# build fails. The version before this one pushed and reported success
-# without looking, so a Space that could not install looked exactly
-# like a Space that could.
+# Two jobs run in order, and each closes a way the demo has actually
+# broken. ``smoke`` installs this commit's wheel and the card's SDK into
+# an environment holding nothing else, and builds the interface, which
+# is the only place an undeclared runtime dependency is visible. Only if
+# that passes does ``sync-space`` render the Space and push it.
+#
+# ``sync-space`` then waits for the build it triggered and fails when
+# that build fails. The version before this one pushed and reported
+# success without looking, so a Space that could not install looked
+# exactly like a Space that could — twice, for two different reasons.
 
 on:
   push:
@@ -36,7 +42,72 @@ env:
   SPACE_NAME: turkic-transliteration-demo
 
 jobs:
+  # Everything above is about the Space's configuration. This job is
+  # about its contents, and it exists because the configuration was
+  # eventually right and the demo still would not start.
+  #
+  # A dependency needed at runtime by something a dependency runs — the
+  # OSCAR loading script's zstandard — is invisible to an audit of this
+  # project's import statements, and invisible to the test suite, whose
+  # environment holds every dev extra and their transitive closure. It
+  # is visible in exactly one place: an install of this package and
+  # nothing else, which is what the Space performs and what this job
+  # reproduces. The wheel is built from this commit rather than pulled
+  # from PyPI, so the answer arrives before the release, not after it.
+  smoke:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout main repo
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      # PyICU builds from source on Linux, and every transliteration
+      # this package performs goes through it.
+      - name: Install the ICU headers PyICU compiles against
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libicu-dev pkg-config
+
+      - name: Build the wheel this commit would publish
+        run: |
+          python -m pip install --upgrade build packaging
+          python -m build --wheel
+
+      # The Space installs the package and the SDK its card names, so
+      # this installs the same two things into an environment holding
+      # neither dev extras nor anything this project did not ask for.
+      - name: Install it the way the Space installs it
+        run: |
+          SDK="$(python -m scripts.hf_space --print-sdk-version)"
+          echo "Installing the wheel alongside gradio[oauth,mcp]==$SDK"
+          python -m pip install dist/*.whl "gradio[oauth,mcp]==$SDK"
+
+      # Building the interface is what fetches the corpus catalogue and
+      # imports every tab, which is where the missing dependency
+      # surfaced. Run from a directory holding no source, so the import
+      # resolves to the installed package rather than to src/.
+      - name: Build the interface the Space serves
+        working-directory: /tmp
+        env:
+          # OSCAR-2301 is gated, and the catalogue lookup this triggers
+          # reads the token from the environment. Without it a rate
+          # limit or a refused listing would fail the job for a reason
+          # that has nothing to do with the package being tested.
+          HF_TOKEN: ${{ secrets.HF_TOKEN }}
+        run: |
+          python -c "
+          from turkic_translit.web.web_demo import build_ui
+
+          build_ui()
+          print('The interface built against the installed package alone.')
+          "
+
   sync-space:
+    needs: smoke
     runs-on: ubuntu-latest
     steps:
       - name: Checkout main repo
