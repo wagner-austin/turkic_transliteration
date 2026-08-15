@@ -97,6 +97,11 @@ O $Apo  > o ;
 g $Apo  > ʁ ;
 G $Apo  > ʁ ;
 
+# Any apostrophe the digraphs above did not consume is the tutuq
+# belgisi, the glottal stop: ba’zi, ta’sir. Cyrillic writes it ъ, and
+# the uzc rules give that letter the same value.
+$Apo > ʔ ;
+
 # ---------------------------------------------------------------------------
 # Vowels (simple one-to-one mapping)
 # ---------------------------------------------------------------------------

@@ -2,6 +2,27 @@
 
 All notable changes to the Turkic Transliteration project will be documented in this file.
 
+## [0.5.8] - 2026-08-15
+
+### Fixed
+
+**Latin Uzbek left the glottal stop untransliterated.** An apostrophe
+that the `oʻ` and `gʻ` rules did not consume is the tutuq belgisi, and
+it passed through into the output as a typographic mark rather than a
+phoneme: `ba’zi` gave `ba’zi`. Cyrillic Uzbek has always given the same
+sound its value — `uzc_ipa.rules` maps `ъ > ʔ` — so one language's two
+orthographies disagreed about a word they spell the same way, and the
+Latin side emitted a character no phoneme inventory contains. Ido (2025)
+p. 154 records the segment as /ʔ/ with minimal phonemic load, limited to
+Arabic loanwords written with an apostrophe after a letter. Both now
+give `baʔzi`.
+
+The rule had been fixed on the corpus-rebuild branch, so the corpora and
+models built there were correct while the released package was not — a
+divergence the manifest's rule fingerprint reports rather than leaves to
+be discovered. With this merged, all eight rule files match the digests
+recorded in the 2026-08-15 corpus manifest.
+
 ## [0.5.7] - 2026-08-15
 
 ### Fixed
