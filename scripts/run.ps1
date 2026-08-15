@@ -1,5 +1,12 @@
-# PowerShell script to run equivalent commands to the Makefile targets
-# for Windows users who don't have GNU Make installed
+# PowerShell equivalents of the Makefile targets, for Windows users who
+# do not have GNU Make installed.
+#
+# Each function runs what the Makefile runs, through Poetry, so the two
+# cannot disagree about what a target means. They had disagreed: this
+# script linted a deleted examples/ directory, checked formatting with
+# black — which this project does not use, and never has in the
+# Makefile — skipped the guards and Mypy entirely, and served the web UI
+# through a turkic_tools.py that no longer exists.
 
 param(
     [Parameter(Position=0)]
@@ -11,38 +18,49 @@ $ProjectRoot = Split-Path -Parent $PSScriptRoot
 
 function Show-Help {
     Write-Host "Available commands:"
-    Write-Host "  ./scripts/run.ps1 lint       - Run linting checks"
-    Write-Host "  ./scripts/run.ps1 format     - Auto-format code" 
-    Write-Host "  ./scripts/run.ps1 test       - Run tests"
+    Write-Host "  ./scripts/run.ps1 install    - Install dependencies with the dev extras"
+    Write-Host "  ./scripts/run.ps1 guard      - Run the guard rules"
+    Write-Host "  ./scripts/run.ps1 lint       - Guards, then Ruff, then strict Mypy"
+    Write-Host "  ./scripts/run.ps1 test       - Run the suite with 100% coverage enforced"
+    Write-Host "  ./scripts/run.ps1 check      - lint + test, the full gate"
     Write-Host "  ./scripts/run.ps1 clean      - Remove build artifacts"
-    Write-Host "  ./scripts/run.ps1 build      - Build distribution package"
-    Write-Host "  ./scripts/run.ps1 web        - Run the web UI example"
-    Write-Host "  ./scripts/run.ps1 demo       - Run the simple demo"
-    Write-Host "  ./scripts/run.ps1 full-demo  - Run the comprehensive demo"
+    Write-Host "  ./scripts/run.ps1 build      - Build the distribution package"
+    Write-Host "  ./scripts/run.ps1 web        - Serve the web demo"
+}
+
+function Invoke-Install {
+    Write-Host "Installing dependencies..."
+    poetry install --extras dev --no-ansi
+}
+
+function Invoke-Guard {
+    Write-Host "Running guard rules..."
+    poetry run python -m scripts.guard
+    if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 }
 
 function Invoke-Lint {
-    Write-Host "Running ruff linter..."
-    ruff check $ProjectRoot\src $ProjectRoot\tests $ProjectRoot\examples
-    
-    Write-Host "Checking formatting with black..."
-    black --check $ProjectRoot\src $ProjectRoot\tests $ProjectRoot\examples
-    
-    Write-Host "Running type checking with mypy..."
-    mypy --strict $ProjectRoot
-}
+    Invoke-Install
+    Invoke-Guard
 
-function Invoke-Format {
-    Write-Host "Formatting code with black..."
-    black $ProjectRoot\src $ProjectRoot\tests $ProjectRoot\examples
-    
-    Write-Host "Auto-fixing issues with ruff..."
-    ruff check --fix $ProjectRoot\src $ProjectRoot\tests $ProjectRoot\examples
+    Write-Host "Running Ruff..."
+    poetry run ruff check . --fix
+    poetry run ruff format .
+
+    Write-Host "Running Mypy..."
+    poetry run mypy src tests scripts
 }
 
 function Invoke-Test {
+    Invoke-Install
     Write-Host "Running tests..."
-    python -m pytest
+    $env:COVERAGE_PROCESS_START = "$ProjectRoot/pyproject.toml"
+    poetry run pytest -n auto --cov=src --cov=scripts --cov-branch --cov-report=term-missing
+}
+
+function Invoke-Check {
+    Invoke-Lint
+    Invoke-Test
 }
 
 function Invoke-Clean {
@@ -55,41 +73,32 @@ function Invoke-Clean {
     Remove-Item -Recurse -Force -ErrorAction SilentlyContinue $ProjectRoot\.pytest_cache
     Remove-Item -Recurse -Force -ErrorAction SilentlyContinue $ProjectRoot\.ruff_cache
     Remove-Item -Recurse -Force -ErrorAction SilentlyContinue $ProjectRoot\.mypy_cache
-    
+
     Get-ChildItem -Path $ProjectRoot -Filter "__pycache__" -Recurse -Directory | Remove-Item -Recurse -Force
     Get-ChildItem -Path $ProjectRoot -Filter "*.pyc" -Recurse -File | Remove-Item -Force
 }
 
 function Invoke-Build {
     Invoke-Clean
+    Invoke-Install
     Write-Host "Building distribution package..."
-    python -m build
+    poetry run python -m build
 }
 
 function Invoke-Web {
+    Invoke-Install
     Write-Host "Starting web UI..."
-    python $ProjectRoot\turkic_tools.py web
+    poetry run turkic-translit web
 }
 
-function Invoke-Demo {
-    Write-Host "Running simple demo..."
-    python $ProjectRoot\turkic_tools.py demo
-}
-
-function Invoke-FullDemo {
-    Write-Host "Running comprehensive demo..."
-    python $ProjectRoot\turkic_tools.py full-demo
-}
-
-# Execute the requested command
 switch ($Command) {
+    "install" { Invoke-Install }
+    "guard" { Invoke-Guard }
     "lint" { Invoke-Lint }
-    "format" { Invoke-Format }
     "test" { Invoke-Test }
+    "check" { Invoke-Check }
     "clean" { Invoke-Clean }
     "build" { Invoke-Build }
     "web" { Invoke-Web }
-    "demo" { Invoke-Demo }
-    "full-demo" { Invoke-FullDemo }
     default { Show-Help }
 }

@@ -1,9 +1,9 @@
 """Entry point for the Hugging Face Space.
 
-The Space serves through the same function the ``turkic-web`` console
-script calls, and for the same reason the Space's card and requirements
-are rendered from this repository: two paths that are meant to produce
-one interface will not keep producing one interface.
+The Space serves through the same function ``turkic-translit web``
+calls, and for the same reason the Space's card and requirements are
+rendered from this repository: two paths that are meant to produce one
+interface will not keep producing one interface.
 
 They had already diverged. This file built the interface and launched it
 itself, which skipped the theme and the stylesheet — Gradio 6 takes both

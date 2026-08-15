@@ -147,7 +147,7 @@ def build_ui() -> gr.Blocks:
 def main() -> None:
     """Build the web UI and serve it.
 
-    This is the ``turkic-web`` console script. Serving happens through
+    This is what ``turkic-translit web`` runs. Serving happens through
     the hook so that everything up to it — building the interface,
     registering both tabs, starting the janitor — is reachable by a test,
     which a blocking call to Gradio's launcher would prevent.

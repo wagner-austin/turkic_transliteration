@@ -9,11 +9,12 @@ explicitly:
 * :mod:`turkic_translit.web` — Gradio UI helpers.
 * :mod:`turkic_translit.lm` — Hugging Face LM utilities.
 * :mod:`turkic_translit.cli` — Click subcommand group (``turkic-translit``).
-* :mod:`turkic_translit.pyicu_install` — bootstrap installer.
+* :mod:`turkic_translit.corpus` — corpus streaming, cleaning and inventory.
 
-Keeping ``import turkic_translit`` cheap is what lets the
-``turkic-pyicu-install`` bootstrap tool succeed in environments
-where PyICU (and everything downstream) is still being installed.
+Keeping ``import turkic_translit`` cheap is what lets a caller import
+the package without paying for torch, and what lets the rule engine
+report a missing ICU at the first call that needs one rather than at
+an import nobody wrote.
 """
 
 from __future__ import annotations

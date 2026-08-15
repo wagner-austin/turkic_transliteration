@@ -70,8 +70,8 @@ def test_console_script_target_resolves(name: str, target: str) -> None:
 def test_console_script_reports_its_usage(name: str, target: str) -> None:
     """Every Click entry point answers ``--help`` with its own usage line.
 
-    ``turkic-pyicu-install`` is a plain function rather than a Click
-    command and is checked for resolution only, by the test above.
+    An entry point that is a plain function rather than a Click command
+    is checked for resolution only, by the test above.
 
     Args:
         name: The console script name.
