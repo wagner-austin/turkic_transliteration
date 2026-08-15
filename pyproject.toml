@@ -8,11 +8,9 @@ name = "turkic-translit"
 version = "0.5.8"
 description = "Deterministic Latin and IPA transliteration for Kazakh, Kyrgyz, Uzbek, Turkish, Azerbaijani, Uyghur, Finnish, plus tokenizer/glue scripts."
 authors = [ {name="Austin Wagner", email="austinwagner@msn.com"} ]
-# 3.10 is the real floor, and was already the floor everywhere except
-# here: the classifiers below advertise 3.10 and 3.11, and
-# turkic-pyicu-install refuses any interpreter outside cp310-cp313
-# because no PyICU wheel is built for one. Declaring 3.9 promised an
-# install that could not have worked.
+# 3.10 is the floor pyicu-wheels publishes for, and the floor the
+# classifiers below advertise. Declaring 3.9 promised an install that
+# could not have worked, since no ICU extension is built for one.
 requires-python = ">=3.10"
 readme = "README.md"
 license = "MIT"
@@ -134,8 +132,8 @@ dev = [
     # real rather than only through the protocol it satisfies.
     "sentry-sdk>=2.0",
     # transformers reads a SentencePiece-backed tokenizer's model through
-    # protobuf. Only tests/tiny_model.py builds one, to exercise the
-    # shared-vocabulary override in lm/tokenizer.py.
+    # protobuf. Only tests/tiny_model.py builds one, for the language-model
+    # tests; the shared-vocabulary override it used to serve is gone.
     "protobuf>=4.0",
 ]
 
