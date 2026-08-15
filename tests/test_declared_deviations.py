@@ -25,7 +25,7 @@ from tests import test_turkish_ipa_letters as tr_letters
 from tests import test_uyghur_mfa_agreement as ug_mfa
 from tests import test_uzbek_cyr_ipa_letters as uzc_letters
 from tests import test_uzbek_lat_ipa_letters as uz_letters
-from turkic_translit.testing import Deviation, unexercised_entries
+from turkic_translit.testing import Deviation, as_project_notation, unexercised_entries
 
 # Module name, its deviation tables, and every published transcription
 # its data supplies. The Uyghur data are the dictionary pronunciations of
@@ -98,6 +98,12 @@ def test_every_deviation_entry_is_exercised(
     """
     assert label != ""
     assert unexercised_entries(data, *tables) == ()
+
+
+def test_an_entry_without_a_reason_is_rejected() -> None:
+    """A deviation with no stated justification is refused at application."""
+    with pytest.raises(ValueError, match="has no reason"):
+        as_project_notation("tʃaj", (("tʃ", "t͡ʃ", ""),))
 
 
 def test_only_the_two_standard_table_names_exist() -> None:

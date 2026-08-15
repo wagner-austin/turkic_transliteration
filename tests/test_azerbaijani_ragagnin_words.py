@@ -98,7 +98,9 @@ def test_the_rule_file_names_the_corroborating_description() -> None:
 
 
 @pytest.mark.parametrize(("spelling", "turcological", "where"), WORDS, ids=[w for w, _, _ in WORDS])
-def test_word_matches_the_printed_transcription(spelling: str, turcological: str, where: str) -> None:
+def test_word_matches_the_printed_transcription(
+    spelling: str, turcological: str, where: str
+) -> None:
     """Each spelled word transliterates to the chapter's transcription.
 
     Args:
@@ -110,7 +112,9 @@ def test_word_matches_the_printed_transcription(spelling: str, turcological: str
     assert to_ipa(spelling, "az") == in_this_project_glyphs(turcological)
 
 
-@pytest.mark.parametrize(("letter", "turcological"), LETTER_EQUATIONS, ids=[a for a, _ in LETTER_EQUATIONS])
+@pytest.mark.parametrize(
+    ("letter", "turcological"), LETTER_EQUATIONS, ids=[a for a, _ in LETTER_EQUATIONS]
+)
 def test_special_character_equation_holds(letter: str, turcological: str) -> None:
     """Each special character maps to the value the chapter equates it with.
 

@@ -23,6 +23,7 @@ import unicodedata as ud
 import pytest
 
 from turkic_translit.core import _RULE_DIR, to_ipa
+from turkic_translit.rule_provenance import read_rule_source
 
 # U+02A3..U+02A8, the affricate ligatures the IPA withdrew in 1989 in
 # favour of two symbols joined by a tie bar. Written as a range so the
@@ -41,6 +42,15 @@ CYRILLIC_LETTERS = (
 )
 
 CYRILLIC_LANGUAGES = ("kk", "ky", "uzc")
+
+# The property tests need no source to adjudicate, but the contextual
+# pins below state expected strings, and those inherit from the sources
+# the exercised rule files declare. The binding is read from the files
+# themselves, so it cannot drift from them.
+INHERITS_SOURCE = {
+    lang: read_rule_source(_RULE_DIR / f"{lang}_ipa.rules")["identifier"]
+    for lang in CYRILLIC_LANGUAGES
+}
 
 
 def ipa_rule_languages() -> list[str]:
@@ -83,7 +93,7 @@ def test_no_cyrillic_letter_survives_into_the_output(lang: str) -> None:
         if any(ud.name(c, "").startswith("CYRILLIC") for c in to_ipa(letter, lang))
     }
 
-    assert not leaked, f"{lang} emits Cyrillic for {leaked}"
+    assert leaked == {}, f"{lang} emits Cyrillic for {leaked}"
 
 
 @pytest.mark.parametrize("lang", LANGUAGES)
@@ -184,7 +194,7 @@ def test_no_word_loses_its_only_vowel() -> None:
         ("uzc", ("сув", "салом")),
     ):
         for word in words:
-            assert set(to_ipa(word, lang)) & vowels, f"{lang} {word} lost its vowel"
+            assert set(to_ipa(word, lang)) & vowels != set(), f"{lang} {word} lost its vowel"
 
 
 def test_the_ligature_range_covers_the_symbols_it_claims_to() -> None:

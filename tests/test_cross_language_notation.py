@@ -12,11 +12,6 @@ from __future__ import annotations
 
 import pytest
 
-# The declared contrasts inherit their expectations from the per-language
-# rule sources named in each reason; the harmonization side is the
-# packaged symbol map, whose rows carry their own citations.
-INHERITS_SOURCE = "src/turkic_translit/corpus/symbol_map.csv"
-
 from turkic_translit.core import to_ipa
 from turkic_translit.corpus.symbols import (
     PACKAGED_SYMBOL_MAP,
@@ -24,6 +19,11 @@ from turkic_translit.corpus.symbols import (
     read_symbol_map,
     substitutions_for,
 )
+
+# The declared contrasts inherit their expectations from the per-language
+# rule sources named in each reason; the harmonization side is the
+# packaged symbol map, whose rows carry their own citations.
+INHERITS_SOURCE = "src/turkic_translit/corpus/symbol_map.csv"
 
 CYRILLIC = "абвгдежзийклмнопрстуфхчшщыэюя"
 CYRILLIC_LANGS = ("kk", "ky", "uzc")
@@ -65,8 +65,7 @@ DECLARED_CONTRASTS: dict[str, tuple[dict[str, str], str]] = {
     ),
     "a": (
         {"tr": "ɑ", "az": "ɑ", "uz": "a"},
-        "Turkish a merges to ɑ in the symbol map; Uzbek's a stays distinct "
-        "(Ido 2025)",
+        "Turkish a merges to ɑ in the symbol map; Uzbek's a stays distinct (Ido 2025)",
     ),
     "g": (
         {"tr": "ɡ", "az": "ɟ", "uz": "ɡ"},
@@ -112,9 +111,7 @@ def harmonized(letter: str, lang: str) -> str:
     [(CYRILLIC, CYRILLIC_LANGS), (LATIN, LATIN_LANGS)],
     ids=["cyrillic", "latin"],
 )
-def test_shared_letters_agree_unless_declared(
-    letters: str, langs: tuple[str, ...]
-) -> None:
+def test_shared_letters_agree_unless_declared(letters: str, langs: tuple[str, ...]) -> None:
     """Each shared letter is identical across the group or declared.
 
     Args:

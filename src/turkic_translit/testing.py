@@ -59,8 +59,5 @@ def unexercised_entries(
         The entries never applied to any datum.
     """
     return tuple(
-        entry
-        for table in tables
-        for entry in table
-        if not any(entry[0] in datum for datum in data)
+        entry for table in tables for entry in table if not any(entry[0] in datum for datum in data)
     )
