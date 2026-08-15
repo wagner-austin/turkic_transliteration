@@ -5,7 +5,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "turkic-translit"
-version = "0.5.6"
+version = "0.5.7"
 description = "Deterministic Latin and IPA transliteration for Kazakh, Kyrgyz, Uzbek, Turkish, Azerbaijani, Uyghur, Finnish, plus tokenizer/glue scripts."
 authors = [ {name="Austin Wagner", email="austinwagner@msn.com"} ]
 # 3.10 is the real floor, and was already the floor everywhere except

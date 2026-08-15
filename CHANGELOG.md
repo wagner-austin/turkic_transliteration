@@ -2,6 +2,52 @@
 
 All notable changes to the Turkic Transliteration project will be documented in this file.
 
+## [0.5.7] - 2026-08-15
+
+### Fixed
+
+**Kazakh and Kyrgyz wrote two glyphs for one low vowel.** `Я` and `я`
+mapped to `ja` with an ASCII `a`, while plain `А` and `а` map to `ɑ`, so
+a native word like Kazakh аяқ or Kyrgyz аял came out carrying both. A
+character-level model reads that split as a phonological contrast the
+language does not have, and it is invisible to inventory and script
+checks because both glyphs are legal IPA — the same shape as the
+train/eval notation defect recorded earlier for Cyrillic u. Both files
+now write `jɑ`, no rule in either emits ASCII `a`, and a hygiene test
+requires every iotated letter to equal the glide plus the plain vowel.
+
+**`ar_lat.rules` had three defects behind an uncited header.** The file
+now cites Duval & Janbaz (2006), the Latin-Script Uyghur standard whose
+Table 3 it implements, in machine-readable `Source-*` fields. The
+apostrophe that keeps `n`+`g`, `s`+`h` and `ng`+`h` from reading as
+digraphs was missing; the hamza carrier was not distinguished across its
+three positions (after a consonant and word-finally it is an apostrophe,
+between vowels it is nothing); and the rule for `ﻉ` had been swallowed
+by the rule for `ﺀ`, because a single apostrophe opens a quoted literal
+in ICU rule syntax rather than emitting a character.
+
+### Changed
+
+**Cleaning sanitises against what each language's rules can emit.** It
+replaced anything outside one fixed character list, which could not know
+what a given language actually produces, so quoted foreign material
+survived as fragments and punctuation survived as corpus style.
+`corpus/inventory.py` derives each language's emitted set by running its
+rules over every letter, every letter pair and every multi-character
+head against every letter — the sweep the hygiene tests already used, so
+the two cannot drift. A token carrying a letter the rules can never emit
+is dropped whole; everything else they cannot emit becomes a space.
+
+The manifest gains the counts that produces and a SHA-256 fingerprint of
+every rule file and of the symbol map the run applied, so a corpus can
+be checked against the rules that exist now rather than assumed to match
+them. `turkic-clean-corpus` prints the two new counts per language.
+
+### Added
+
+* A daily request to the Hugging Face Space, so it does not reach the
+  48-hour idle timeout and make its next visitor wait for a wake-up.
+
 ## [0.5.6] - 2026-08-15
 
 ### Changed
@@ -58,6 +104,26 @@ second. It is now `turkic-translit web`, listed where a new user looks.
   `ui` extra that has never existed, an install command using it, and
   `turkic_transliterate` as the PyPI name — which is the deprecated
   redirect package, not this one.
+
+* **Uzbek `ngʻ` and `yoʻ` were read as a digraph plus a stray mark.**
+  The apostrophe exists only as part of the letters `oʻ` and `gʻ`, so
+  `ngʻ` is `n` + `gʻ` (Cyrillic н-ғ, қўнғиз) and `yoʻ` is `y` + `oʻ`
+  (Cyrillic й-ў, йўл); the rules for the apostrophe-bearing letters now
+  stand ahead of the digraphs that would otherwise take the letters
+  apart. A seam sweep over every letter pair and every multi-character
+  rule head against every letter now runs for all eight rule files.
+
+* **Three classes of raw-web character reached the published corpora.**
+  An invisible format character inside a word blocked contextual rules
+  and later split the word; an Arabic presentation form spelled a native
+  Uyghur letter as a display codepoint the rules do not name, so whole
+  native words passed through untransliterated; and a page authored in
+  Windows-1254 but decoded as Windows-1252 arrived with Turkish `ı`,
+  `ş`, `ğ` and `İ` swapped for `ý`, `þ`, `ð` and `Ý`. Source text is now
+  normalised before transliteration: format characters and presentation
+  forms fall to Unicode itself, and the codepage swaps to `folds.csv`, a
+  table of verified repairs carrying the same columns, reader and
+  citation discipline as the symbol map.
 
 ## [0.5.5] - 2026-08-14
 
