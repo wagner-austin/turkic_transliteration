@@ -14,10 +14,10 @@ The project follows a standard Python package structure:
 │   └── turkic_translit/  # Main package
 │       ├── cli/      # Command-line tools
 │       ├── web/      # Gradio web UI
+│       ├── corpus/   # Corpus streaming, cleaning and inventory
 │       └── rules/    # Per-language transliteration rule files
 ├── tests/            # Test suite
-├── scripts/          # Dev and release utilities
-└── vendor/           # Pre-built PyICU wheels (Windows)
+└── scripts/          # Dev and release utilities
 ```
 
 ## Development Guidelines

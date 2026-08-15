@@ -110,7 +110,7 @@ What the rule format cannot express — recursive lookups, dictionary-based lexi
 
 Beyond the rule engine, the package integrates the two upstream components required to move from a raw web corpus to an IPA-normalized training set (Figure \ref{fig:pipeline}).
 
-\textbf{Corpus download.} The \texttt{turkic-download-corpus} CLI, backed by the HuggingFace \texttt{datasets} library, fetches per-language slices of OSCAR-2301 \citep{abadji-etal-2022-towards} — the Open Super-large Crawled Aggregated coRpus. OSCAR-2301 is Common Crawl web text after language classification and deduplication; it is the largest freely-licensed general-domain source for our target languages.
+\textbf{Corpus download.} The \texttt{turkic-download-corpus} CLI streams per-language slices of OSCAR-2301 directly from its Zstandard-compressed shards \citep{abadji-etal-2022-towards} — the Open Super-large Crawled Aggregated coRpus. OSCAR-2301 is Common Crawl web text after language classification and deduplication; it is the largest freely-licensed general-domain source for our target languages.
 
 \textbf{Language-ID filtering.} Raw OSCAR slices contain non-trivial cross-language contamination, particularly in Central Asian Turkic sub-corpora where Russian-language content is common. The package scores each line's per-language probability with a FastText classifier \citep{joulin2016bag, joulin2017bag} and drops lines below a per-language threshold, by default $p \geq 0.95$ for the target language. The released CLI resolves the compact 176-language \texttt{lid.176} model, which deploys cheaply at corpus scale and is the standard first-pass filter in low-resource language work.%
 % CO-AUTHOR NOTE: the corpora used in this paper were filtered with NLLB
