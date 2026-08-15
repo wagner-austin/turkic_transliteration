@@ -19,7 +19,7 @@ from tqdm import tqdm
 
 from turkic_translit import _test_hooks
 from turkic_translit.corpus.drivers import stream_source
-from turkic_translit.corpus.run import normalize_line
+from turkic_translit.corpus.normalize import normalize_line
 from turkic_translit.corpus.sources import get_source_spec
 
 __all__ = ["DatasetStream"]

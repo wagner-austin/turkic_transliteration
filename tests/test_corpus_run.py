@@ -19,7 +19,7 @@ from turkic_translit.corpus.manifest import (
     manifest_path_for,
     read_corpus_run_manifest,
 )
-from turkic_translit.corpus.run import PROGRESS_INTERVAL, download_corpus, normalize_line
+from turkic_translit.corpus.run import PROGRESS_INTERVAL, download_corpus
 from turkic_translit.lid import _test_hooks as lid_hooks
 from turkic_translit.lid.locations import default_search_dirs
 
@@ -70,19 +70,24 @@ def installed_weights() -> Generator[None, None, None]:
     lid_hooks.model_loader = loader
 
 
-def test_normalize_collapses_whitespace_and_applies_nfc() -> None:
-    """Tabs, newlines and runs of spaces become single spaces."""
-    assert normalize_line(" salom\tdunyo\n qalaysiz  ") == "salom dunyo qalaysiz"
+def test_the_run_normalizes_and_folds_each_line_as_it_arrives(tmp_path: Path) -> None:
+    """A downloaded corpus is born normalised and misencoding-repaired.
 
+    The Turkish fragment carries a soft hyphen inside a word and the
+    cp1254 mojibake the raw corpus was measured to hold; the file on
+    disk must carry neither.
+    """
+    original = corpus_hooks.dataset_texts
+    corpus_hooks.dataset_texts = corpus_hooks.MappingDatasetTextStreamer(
+        {"tr": ["sat\u00fdn al\u00add\u0131  \t \u00feekilde"]}
+    )
+    try:
+        output = tmp_path / "tr.txt"
+        download_corpus("oscar-2301", "tr", output, None, None, None)
+    finally:
+        corpus_hooks.dataset_texts = original
 
-def test_normalize_composes_decomposed_characters() -> None:
-    """A decomposed diacritic becomes one code point, so words compare equal."""
-    assert normalize_line("üch") == "üch"
-
-
-def test_normalize_reports_a_blank_fragment_as_empty() -> None:
-    """A fragment of pure whitespace normalises to the empty string."""
-    assert normalize_line("  \t\n ") == ""
+    assert output.read_text(encoding="utf-8") == "sat\u0131n ald\u0131 \u015fekilde\n"
 
 
 def test_unfiltered_run_writes_every_non_blank_line(oscar_lines: None, tmp_path: Path) -> None:

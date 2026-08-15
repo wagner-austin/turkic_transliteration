@@ -163,7 +163,7 @@ package-dir = {"" = "src"}
 
 [tool.setuptools.package-data]
 "turkic_translit" = ["py.typed", "rules/*.rules"]
-"turkic_translit.corpus" = ["corpora.yaml", "symbol_map.csv"]
+"turkic_translit.corpus" = ["corpora.yaml", "symbol_map.csv", "folds.csv"]
 
 [tool.mypy]
 python_version = "3.11"

@@ -17,6 +17,7 @@ from pathlib import Path
 
 import numpy as np
 import pytest
+import torch
 
 from tests.tiny_model import CORPUS, build_model, write_model_directory
 from turkic_translit.lm.similarity import (
@@ -251,8 +252,18 @@ def test_a_model_is_perfectly_similar_to_itself(model_dir: Path) -> None:
     assert representation_similarity(model, model, CORPUS) == pytest.approx(1.0, abs=1e-6)
 
 
-def test_two_models_are_less_similar_than_one_is_to_itself(model_dir: Path) -> None:
-    """Unrelated weights score below the identity case.
+def test_unrelated_models_embed_the_same_text_differently(model_dir: Path) -> None:
+    """Each model's own weights reach its representations, and CKA stays in range.
+
+    This test used to assert that two unrelated models score strictly
+    below one, which is not a property CKA has here: with six examples
+    and hundreds of random dimensions, both similarity matrices centre
+    to near-identity and the index sits at one up to float noise — the
+    many-features-few-examples regime the module docstring cites. What
+    the end-to-end path must guarantee is that the representations
+    really come from each model's weights (a broken extraction would
+    hand both models identical rows) and that the index respects its
+    bounds up to that noise.
 
     The second model is built from a configuration rather than reloaded:
     ``PreTrainedModel.init_weights`` is a no-op on a loaded model, so
@@ -262,11 +273,15 @@ def test_two_models_are_less_similar_than_one_is_to_itself(model_dir: Path) -> N
         model_dir: The written model directory.
     """
     model = LMModel.from_pretrained(str(model_dir))
+    torch.manual_seed(20260814)
     other = LMModel(build_model(len(model.tokenizer)), model.tokenizer)
 
+    ours = embed_sentences(model, CORPUS)
+    theirs = embed_sentences(other, CORPUS)
     together = representation_similarity(model, other, CORPUS)
 
-    assert 0.0 <= together < 1.0
+    assert float(np.abs(ours - theirs).max()) > 0.0
+    assert 0.0 <= together <= 1.0 + 1e-9
 
 
 def test_one_sentence_is_too_few_to_compare(model_dir: Path) -> None:

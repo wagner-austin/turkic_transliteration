@@ -9,7 +9,6 @@ every line in the file beside it.
 from __future__ import annotations
 
 import logging
-import unicodedata as ud
 from pathlib import Path
 from typing import Final
 
@@ -20,28 +19,17 @@ from turkic_translit.corpus.manifest import (
     manifest_path_for,
     write_corpus_run_manifest,
 )
+from turkic_translit.corpus.normalize import PACKAGED_FOLDS, normalize_line
 from turkic_translit.corpus.sources import get_source_spec
+from turkic_translit.corpus.symbols import (
+    apply_substitutions,
+    read_symbol_map,
+    substitutions_for,
+)
 
 logger = logging.getLogger(__name__)
 
 PROGRESS_INTERVAL: Final = 1000
-
-
-def normalize_line(fragment: str) -> str:
-    """Collapse a raw fragment into a single normalised line.
-
-    All runs of whitespace, including the newlines a driver may have
-    yielded inside one fragment, become single spaces, and the result is
-    NFC-normalised so that the same word is one string regardless of how
-    the source encoded its diacritics.
-
-    Args:
-        fragment: Raw text as a driver yielded it.
-
-    Returns:
-        The normalised line, empty when the fragment held no content.
-    """
-    return ud.normalize("NFC", " ".join(fragment.split()))
 
 
 def download_corpus(
@@ -76,13 +64,16 @@ def download_corpus(
     spec = get_source_spec(source_id)
     line_filter, lid_record = build_line_filter(lid_filter)
     filter_language = None if lid_filter is None else lid_filter["language"]
+    # The verified misencoding repairs for this language, applied to
+    # every line as it arrives so the corpus is born normalised.
+    folds = substitutions_for(read_symbol_map(PACKAGED_FOLDS), language)
 
     output_path.parent.mkdir(parents=True, exist_ok=True)
     lines_seen = 0
     lines_written = 0
     with output_path.open("w", encoding="utf-8") as sink:
         for fragment in stream_source(spec, language, access_token):
-            text = normalize_line(fragment)
+            text = apply_substitutions(normalize_line(fragment), folds)
             if text == "":
                 continue
             lines_seen += 1
@@ -124,4 +115,4 @@ def download_corpus(
     return manifest, manifest_file
 
 
-__all__ = ["PROGRESS_INTERVAL", "download_corpus", "normalize_line"]
+__all__ = ["PROGRESS_INTERVAL", "download_corpus"]

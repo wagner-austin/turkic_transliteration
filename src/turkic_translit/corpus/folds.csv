@@ -1,0 +1,9 @@
+action,scope,from,to,verdict,rationale,citation
+merge,ky,ӊ,ң,MISENCODING,"Web text writes the velar nasal with U+04CA EN WITH TAIL in core words (кеӊеш, жаӊы, миӊ, чоӊ); the Kyrgyz letter is U+04A3 EN WITH DESCENDER, the one the rule file maps.",Kyrgyz alphabet as ky_ipa.rules implements it (McCollum 2020)
+merge,ky,Ӊ,Ң,MISENCODING,Uppercase of the row above.,Kyrgyz alphabet as ky_ipa.rules implements it (McCollum 2020)
+merge,tr,ý,ı,MISENCODING,"Windows-1254 text decoded as Windows-1252 shows byte 0xFD as ý where the Turkish letter is ı: satýn, nasýl, hýzlý in the raw corpus.",Windows-1252 and Windows-1254 code page layouts
+merge,tr,Ý,İ,MISENCODING,Uppercase of the row above; byte 0xDD is İ in Windows-1254.,Windows-1252 and Windows-1254 code page layouts
+merge,tr,þ,ş,MISENCODING,"Byte 0xFE is ş in Windows-1254 and þ in Windows-1252: þekilde, sipaɾiþ in the raw corpus.",Windows-1252 and Windows-1254 code page layouts
+merge,tr,Þ,Ş,MISENCODING,Uppercase of the row above; byte 0xDE is Ş in Windows-1254.,Windows-1252 and Windows-1254 code page layouts
+merge,tr,ð,ğ,MISENCODING,"Byte 0xF0 is ğ in Windows-1254 and ð in Windows-1252: diðeɾ, doðɾu, olduðu in the raw corpus.",Windows-1252 and Windows-1254 code page layouts
+merge,tr,Ð,Ğ,MISENCODING,Uppercase of the row above; byte 0xD0 is Ğ in Windows-1254.,Windows-1252 and Windows-1254 code page layouts

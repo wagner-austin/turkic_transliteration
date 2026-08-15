@@ -43,7 +43,12 @@ from turkic_translit.corpus.manifest import (
     read_corpus_run_manifest,
     write_corpus_run_manifest,
 )
-from turkic_translit.corpus.run import download_corpus, normalize_line
+from turkic_translit.corpus.normalize import (
+    PACKAGED_FOLDS,
+    normalize_line,
+    strip_format_characters,
+)
+from turkic_translit.corpus.run import download_corpus
 from turkic_translit.corpus.sources import (
     SOURCE_REGISTRY,
     OscarSourceSpec,
@@ -57,6 +62,7 @@ from turkic_translit.corpus.sources import (
 )
 
 __all__ = [
+    "PACKAGED_FOLDS",
     "SOURCE_REGISTRY",
     "CorpusError",
     "CorpusRunManifest",
@@ -85,6 +91,7 @@ __all__ = [
     "read_corpus_run_manifest",
     "stream_source",
     "stream_wikipedia",
+    "strip_format_characters",
     "wikipedia_dump_url",
     "write_corpus_run_manifest",
 ]
