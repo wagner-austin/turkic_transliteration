@@ -2,6 +2,53 @@
 
 All notable changes to the Turkic Transliteration project will be documented in this file.
 
+## [0.5.5] - 2026-08-14
+
+### Removed
+
+**`load_tokenizer`'s SentencePiece override, and `LMModel.fresh`'s
+`spm_override` argument.** They substituted a shared SentencePiece model
+into a loaded tokenizer, so that several languages could train against
+one sub-word vocabulary, by replacing the tokenizer's `sp_model`.
+
+transformers 5 has no such attribute: every tokenizer is backed by the
+Rust `tokenizers` library now, including the ones that were previously
+"slow". Its documented replacements do not substitute anything —
+`AutoTokenizer.from_pretrained(vocab=…)` and direct construction with
+`vocab_file=` both accept the file and keep the published vocabulary,
+which was verified against a shared model that segments differently:
+
+```
+shared vocabulary:     40 pieces
+published vocabulary: 104 pieces
+constructed with vocab_file=<shared> → 104 pieces
+```
+
+A substitution whose only purpose is a guarantee about which vocabulary
+trained a model is worse than useless when it fails silently, and
+nothing called this one: no console script exposed it, and no caller
+existed in this project or any other.
+
+**Sub-word tokenisation is unaffected.** `turkic-build-spm` and
+`turkic-train-spm` still train SentencePiece models,
+`turkic_translit.tokenizer` still tokenises with them, and fine-tuning
+still uses the base model's own published sub-word vocabulary.
+
+### Changed
+
+* **transformers 5**, which the removal above unblocked, and with it
+  **gradio 6.24** and **huggingface-hub 1.x**. Gradio 6.18 onwards
+  requires hub 1.2 or newer, while transformers 4 capped it below 1.0,
+  so the demo had been held at gradio 6.17.3 by a dependency of the
+  language-model tooling it never loads.
+* `lm/model_calls.py` states the two `PreTrainedModel` methods that
+  transformers 5 leaves unannotated — `eval` and
+  `gradient_checkpointing_disable` — as a Protocol reached by name, the
+  same treatment `lm/tokenizer.py` already gives
+  `AutoTokenizer.from_pretrained`. Strict checking rejects a call into
+  unannotated code, and this project permits neither suppression
+  comments nor per-module type-checker overrides.
+
 ## [0.5.4] - 2026-08-14
 
 ### Removed

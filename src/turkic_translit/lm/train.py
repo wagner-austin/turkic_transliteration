@@ -35,6 +35,10 @@ from transformers.tokenization_utils_base import BatchEncoding, PreTrainedTokeni
 from transformers.trainer import Trainer
 from transformers.training_args import TrainingArguments
 
+from turkic_translit.lm.model_calls import (
+    disable_gradient_checkpointing,
+    switch_to_inference,
+)
 from turkic_translit.lm.tokenizer import load_tokenizer
 
 __all__ = [
@@ -191,7 +195,6 @@ class LMModel:
         lr: float = 5e-5,
         epochs: int = 3,
         sentences: Iterable[str],
-        spm_override: str | None = None,
         output_dir: str | Path,
     ) -> LMModel:
         """Fine-tune a base model on sentences and save the result.
@@ -203,7 +206,6 @@ class LMModel:
             sentences: Training text, read up to
                 :data:`MAX_BUFFERED_SENTENCES` so memory does not scale
                 with the corpus.
-            spm_override: SentencePiece model to substitute, or ``None``.
             output_dir: Directory to save the model and tokenizer into.
 
         Returns:
@@ -214,7 +216,7 @@ class LMModel:
                 directory cannot be written.
         """
         cuda_available = torch.cuda.is_available()
-        tokenizer = load_tokenizer(base_model, spm_override)
+        tokenizer = load_tokenizer(base_model)
         ensure_pad_token(tokenizer)
         model = AutoModelForCausalLM.from_pretrained(
             base_model, torch_dtype=model_dtype(cuda_available)
@@ -246,8 +248,8 @@ class LMModel:
         trainer.train()
 
         # Make the model inference-friendly before it is written out.
-        model.eval()
-        model.gradient_checkpointing_disable()
+        switch_to_inference(model)
+        disable_gradient_checkpointing(model)
         model.config.use_cache = True
 
         model.save_pretrained(str(output_dir))

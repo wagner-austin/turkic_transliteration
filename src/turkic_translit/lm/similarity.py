@@ -57,6 +57,7 @@ import numpy as np
 import torch
 from tqdm import tqdm
 
+from turkic_translit.lm.model_calls import switch_to_inference
 from turkic_translit.lm.train import LMModel
 
 __all__ = [
@@ -297,7 +298,7 @@ def embed_sentences(
     """
     tokenizer = model.tokenizer
     network = model.model
-    network.eval()
+    switch_to_inference(network)
     device = next(network.parameters()).device
 
     rows: list[Matrix] = []

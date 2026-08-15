@@ -23,6 +23,7 @@ from collections.abc import Iterable
 
 import torch
 
+from .model_calls import switch_to_inference
 from .train import LMModel
 
 __all__ = ["cross_perplexity"]
@@ -48,7 +49,7 @@ def cross_perplexity(model: LMModel, sentences: Iterable[str]) -> float:
     """
     network = model.model
     tokenizer = model.tokenizer
-    network.eval()
+    switch_to_inference(network)
     device = next(network.parameters()).device
 
     total_nll = 0.0

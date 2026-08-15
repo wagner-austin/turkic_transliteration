@@ -5,7 +5,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "turkic-translit"
-version = "0.5.4"
+version = "0.5.5"
 description = "Deterministic Latin and IPA transliteration for Kazakh, Kyrgyz, Uzbek, Turkish, Azerbaijani, Uyghur, Finnish, plus tokenizer/glue scripts."
 authors = [ {name="Austin Wagner", email="austinwagner@msn.com"} ]
 # 3.10 is the real floor, and was already the floor everywhere except
@@ -76,7 +76,7 @@ dependencies = [
     # extra, so it was reaching this project by luck.
     "torch>=2.2",
     "tqdm>=4.66",
-    "transformers>=4.41,<5",        # mGPT / BLOOM causal LM
+    "transformers>=5.0,<6",         # mGPT / BLOOM causal LM
     # Not imported anywhere, and required anyway: transformers.Trainer, used
     # by lm/train.py, raises at construction without it.
     "accelerate>=0.28",

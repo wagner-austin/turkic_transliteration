@@ -19,10 +19,7 @@ import torch
 from tests.tiny_model import (
     CORPUS,
     PAD_TOKEN,
-    write_byte_level_tokenizer_directory,
     write_model_directory,
-    write_sentencepiece_model,
-    write_sentencepiece_tokenizer_directory,
 )
 from turkic_translit.lm import _test_hooks as lm_hooks
 from turkic_translit.lm.eval import cross_perplexity
@@ -102,48 +99,11 @@ def test_loading_guarantees_a_pad_token(loaded: LMModel) -> None:
     assert loaded.tokenizer.pad_token_id == loaded.tokenizer.convert_tokens_to_ids(PAD_TOKEN)
 
 
-def test_the_tokenizer_loads_without_an_override(model_dir: Path) -> None:
-    """With no override the tokenizer is returned as published."""
+def test_the_tokenizer_loads_as_published(model_dir: Path) -> None:
+    """A saved tokenizer directory loads and encodes text."""
     tokenizer = load_tokenizer(str(model_dir))
 
     assert tokenizer("salem alem")["input_ids"]
-
-
-def test_an_override_naming_a_missing_file_is_rejected(model_dir: Path, tmp_path: Path) -> None:
-    """A missing SentencePiece model fails naming the path."""
-    with pytest.raises(FileNotFoundError):
-        load_tokenizer(str(model_dir), str(tmp_path / "absent.model"))
-
-
-def test_an_override_on_a_tokenizer_without_sentencepiece_is_rejected(tmp_path: Path) -> None:
-    """A tokenizer with no SentencePiece model rejects the override.
-
-    Silently ignoring it would leave the caller believing several
-    languages share one sub-word vocabulary when they do not.
-    """
-    byte_level = write_byte_level_tokenizer_directory(tmp_path / "gpt2")
-    override = write_sentencepiece_model(tmp_path / "shared", prefix="shared")
-
-    with pytest.raises(TypeError, match="does not support SentencePiece override"):
-        load_tokenizer(str(byte_level), str(override))
-
-
-def test_an_override_replaces_the_shared_sub_word_vocabulary(tmp_path: Path) -> None:
-    """The substituted SentencePiece model is the one that tokenises.
-
-    Two vocabularies trained on different corpora segment the same text
-    differently, which is what makes the substitution observable.
-    """
-    tokenizer_dir = write_sentencepiece_tokenizer_directory(tmp_path / "tok")
-    replacement = write_sentencepiece_model(tmp_path / "shared", prefix="shared")
-
-    original = load_tokenizer(str(tokenizer_dir))
-    overridden = load_tokenizer(str(tokenizer_dir), str(replacement))
-
-    assert overridden.sp_model.serialized_model_proto() == replacement.read_bytes()
-    assert overridden.tokenize("salem alem qazaq tili")
-    assert original.is_fast is True
-    assert overridden.is_fast is False
 
 
 def test_perplexity_is_finite_and_above_one(loaded: LMModel) -> None:

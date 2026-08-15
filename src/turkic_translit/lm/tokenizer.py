@@ -1,21 +1,24 @@
-"""Tokenizer loading, with an optional shared SentencePiece override.
+"""Tokenizer loading.
 
 ``AutoTokenizer`` is a factory, not a type: it returns a
 ``PreTrainedTokenizerBase``. Annotating the return as ``AutoTokenizer``
 made every attribute access on the result an error, which is part of what
 the file-level mypy suppression on this module was hiding.
 
-The fast implementation is used except when an override is asked for.
-A fast tokenizer holds its vocabulary in the Rust ``tokenizers`` backend
-and exposes no ``sp_model``, so the previous version — which always asked
-for the fast one — could only ever reject the override it documents.
-Asking for the SentencePiece-backed implementation is what makes
-substituting a SentencePiece model possible at all.
+This module used to offer a second thing: substituting a shared
+SentencePiece model into a loaded tokenizer, so that several languages
+could train against one sub-word vocabulary. It worked by replacing the
+tokenizer's ``sp_model``, and transformers 5 has no such attribute —
+every tokenizer is backed by the Rust ``tokenizers`` library now, and
+the documented replacements for the substitution accept the file and
+silently keep the published vocabulary. A substitution that cannot be
+verified is worse than none, since its whole purpose is a guarantee
+about which vocabulary trained a model. Nothing called it: no console
+script exposed it and no caller in this project or any other passed it.
 """
 
 from __future__ import annotations
 
-from pathlib import Path
 from typing import Protocol
 
 from transformers.tokenization_utils_base import PreTrainedTokenizerBase
@@ -73,35 +76,16 @@ def auto_tokenizer_loader() -> TokenizerLoader:
     return loader
 
 
-def load_tokenizer(model_name: str, spm_override: str | None = None) -> PreTrainedTokenizerBase:
-    """Load a tokenizer, optionally forcing a shared SentencePiece model.
+def load_tokenizer(model_name: str) -> PreTrainedTokenizerBase:
+    """Load a published tokenizer.
 
     Args:
         model_name: Local directory or Hub repository id.
-        spm_override: A ``.model`` file to load into the tokenizer's
-            internal SentencePiece model, so that several languages share
-            one sub-word vocabulary. ``None`` leaves the tokenizer as
-            published.
 
     Returns:
-        The loaded tokenizer: the fast implementation ordinarily, and the
-        SentencePiece-backed one when an override is given.
+        The loaded tokenizer.
 
     Raises:
-        FileNotFoundError: If ``spm_override`` names a missing file.
-        TypeError: If the model's slow tokenizer is not SentencePiece
-            backed, which means the override would silently do nothing.
+        OSError: If the name resolves to no readable tokenizer.
     """
-    load = auto_tokenizer_loader()
-    if spm_override is None:
-        return load(model_name, use_fast=True)
-
-    spm_path = Path(spm_override)
-    if not spm_path.exists():
-        raise FileNotFoundError(spm_path)
-
-    tokenizer = load(model_name, use_fast=False)
-    if not hasattr(tokenizer, "sp_model"):
-        raise TypeError(f"{tokenizer.__class__.__name__} does not support SentencePiece override")
-    tokenizer.sp_model.Load(str(spm_path))
-    return tokenizer
+    return auto_tokenizer_loader()(model_name, use_fast=True)

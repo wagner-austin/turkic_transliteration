@@ -19,7 +19,6 @@ are checked as strictly as the rest of the tree.
 
 from __future__ import annotations
 
-import json
 from pathlib import Path
 from typing import Protocol
 
@@ -201,53 +200,6 @@ def write_sentencepiece_model(target: Path, prefix: str = "spiece") -> Path:
         pad_id=3,
     )
     return target / f"{prefix}.model"
-
-
-def write_sentencepiece_tokenizer_directory(target: Path) -> Path:
-    """Save a SentencePiece-backed tokenizer, as a slow tokenizer needs.
-
-    ``T5Tokenizer`` is the SentencePiece-backed implementation used here
-    because it exposes ``sp_model``, which is the attribute the override
-    path in :func:`turkic_translit.lm.tokenizer.load_tokenizer` replaces.
-
-    Args:
-        target: Directory to write into. Created if absent.
-
-    Returns:
-        The directory, now loadable by ``AutoTokenizer``.
-    """
-    target.mkdir(parents=True, exist_ok=True)
-    build_tokenizer(write_sentencepiece_model(target)).save_pretrained(str(target))
-    return target
-
-
-def write_byte_level_tokenizer_directory(target: Path) -> Path:
-    """Save a tokenizer that is not SentencePiece backed.
-
-    GPT-2's tokenizer is byte-level BPE and exposes no ``sp_model``,
-    which is what makes it the case that must reject a SentencePiece
-    override rather than silently ignoring it. Its two vocabulary files
-    are written here rather than downloaded.
-
-    Args:
-        target: Directory to write into. Created if absent.
-
-    Returns:
-        The directory, now loadable by ``AutoTokenizer``.
-    """
-    target.mkdir(parents=True, exist_ok=True)
-    vocabulary = {END_TOKEN: 0, **{chr(code): code - 96 for code in range(97, 123)}}
-    (target / "vocab.json").write_text(json.dumps(vocabulary), encoding="utf-8")
-    (target / "merges.txt").write_text("#version: 0.2\n", encoding="utf-8", newline="\n")
-    tokenizer = build_byte_level_tokenizer(
-        vocab_file=str(target / "vocab.json"),
-        merges_file=str(target / "merges.txt"),
-        unk_token=END_TOKEN,
-        bos_token=END_TOKEN,
-        eos_token=END_TOKEN,
-    )
-    tokenizer.save_pretrained(str(target))
-    return target
 
 
 def write_model_directory(target: Path) -> Path:
