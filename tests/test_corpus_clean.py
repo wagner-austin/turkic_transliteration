@@ -38,6 +38,7 @@ from turkic_translit.corpus.clean import (
     decode_clean_stats,
     encode_clean_report,
     encode_clean_stats,
+    harmonized_emitted,
     sanitize_line,
     transcription_ratio,
     truncate_to_budget,
@@ -488,6 +489,30 @@ def test_a_cleaned_corpus_holds_only_what_the_rules_can_emit(tmp_path: Path) -> 
         text = (out / f"oscar_{language}_ipa.txt").read_text(encoding="utf-8")
         allowed = emitted_characters(language) | {" ", "\n"}
         assert set(text) <= allowed, f"{language} kept {set(text) - allowed}"
+
+
+def test_the_token_filter_sees_the_symbol_map_s_own_rewrites(tmp_path: Path) -> None:
+    """A token the map itself harmonised is native, not foreign.
+
+    The Turkish rules emit a, and the map rewrites it to ɑ before the
+    sanitiser runs. A filter built on the raw emitted set read every
+    harmonised Turkish token as foreign and dropped half the corpus.
+    """
+    rules = parse_symbol_map(SMALL_MAP, "small.csv")
+    assert "ɑ" not in emitted_characters("tr")
+    assert "ɑ" in harmonized_emitted("tr", rules)
+
+    line = "bana bakan kalan zaman aslan taɾafa katan alan bakan"
+    raw = tmp_path / "raw"
+    raw.mkdir()
+    (raw / "oscar_tr_ipa.txt").write_text(line + "\n", encoding="utf-8")
+    out = tmp_path / "clean"
+
+    report = clean_corpora({"tr": raw / "oscar_tr_ipa.txt"}, out, rules)
+
+    cleaned = (out / "oscar_tr_ipa.txt").read_text(encoding="utf-8")
+    assert "bɑnɑ" in cleaned
+    assert report["languages"]["tr"]["dropped_foreign_tokens"] == 0
 
 
 @pytest.mark.parametrize(

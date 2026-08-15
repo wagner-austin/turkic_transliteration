@@ -433,6 +433,30 @@ def truncate_to_budget(lines: list[str], budget: int) -> list[str]:
     return kept
 
 
+def harmonized_emitted(language: str, rules: tuple[SymbolRule, ...]) -> frozenset[str]:
+    """The language's emitted characters, as the symbol map rewrites them.
+
+    The sanitiser runs on text the symbol map has already been applied
+    to, so the set it keeps must be the map's image of what the rules
+    emit: Turkish rules emit a, the map rewrites it to ɑ, and a filter
+    ignorant of the map would read every harmonised Turkish token as
+    foreign.
+
+    Args:
+        language: The language whose set is wanted.
+        rules: Rows of the symbol map the run applies.
+
+    Returns:
+        The harmonised emitted characters.
+    """
+    substitutions = substitutions_for(rules, language)
+    return frozenset(
+        harmonised_char
+        for emitted_char in emitted_characters(language)
+        for harmonised_char in apply_substitutions(emitted_char, substitutions)
+    )
+
+
 def rules_fingerprint(languages: tuple[str, ...], rules: tuple[SymbolRule, ...]) -> dict[str, str]:
     """SHA-256 of each rule file used, and of the symbol map applied.
 
@@ -493,7 +517,7 @@ def clean_corpora(
     statistics: dict[str, CleanStats] = {}
     for language in languages:
         substitutions = substitutions_for(rules, language)
-        emitted = emitted_characters(language)
+        emitted = harmonized_emitted(language, rules)
         raw = inputs[language].read_text(encoding="utf-8").splitlines()
         kept, stats = clean_lines(raw, substitutions, min_line_chars, min_ipa_ratio, emitted)
         cleaned[language] = kept
@@ -531,6 +555,7 @@ __all__ = [
     "decode_clean_stats",
     "encode_clean_report",
     "encode_clean_stats",
+    "harmonized_emitted",
     "rules_fingerprint",
     "sanitize_line",
     "transcription_ratio",

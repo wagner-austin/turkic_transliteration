@@ -147,6 +147,17 @@ def emitted_characters(lang: str) -> frozenset[str]:
         out.update(to_ipa(letter, lang))
     for text in seam_inputs(lang):
         out.update(to_ipa(text, lang))
+    # A bare apostrophe is a letter in Uzbek — the tutuq belgisi — and
+    # punctuation everywhere else. Only real transliteration output is
+    # collected: a mark passing through unchanged is itself of letter
+    # category, and admitting it would let quoted foreign digraphs
+    # survive in the languages that have no apostrophe letter.
+    for mark in APOSTROPHES:
+        out.update(
+            char
+            for char in to_ipa(mark, lang)
+            if char not in APOSTROPHES and ud.category(char).startswith("L")
+        )
     return frozenset(out)
 
 

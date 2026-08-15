@@ -80,6 +80,8 @@ SEAMS: tuple[tuple[str, str, str, str], ...] = (
     ("qo'ng'iz", "қўнғиз", "qonʁiz", "beetle"),
     ("to'ng'ich", "тўнғич", "tonʁit͡ʃ", "firstborn"),
     ("jing", "жинг", "d͡ʒiŋ", "complaints, plain ng stays the velar nasal"),
+    ("ta'sir", "таъсир", "taʔsir", "effect, a bare apostrophe is the tutuq belgisi"),
+    ("ba'zi", "баъзи", "baʔzi", "some"),
 )
 
 # The corpora spell the modifier with several codepoints; the rules

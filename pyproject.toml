@@ -5,7 +5,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "turkic-translit"
-version = "0.5.8"
+version = "0.5.9"
 description = "Deterministic Latin and IPA transliteration for Kazakh, Kyrgyz, Uzbek, Turkish, Azerbaijani, Uyghur, Finnish, plus tokenizer/glue scripts."
 authors = [ {name="Austin Wagner", email="austinwagner@msn.com"} ]
 # 3.10 is the floor pyicu-wheels publishes for, and the floor the

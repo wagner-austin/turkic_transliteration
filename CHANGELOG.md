@@ -2,6 +2,35 @@
 
 All notable changes to the Turkic Transliteration project will be documented in this file.
 
+## [0.5.9] - 2026-08-15
+
+### Fixed
+
+**`turkic-clean-corpus` discarded almost every Turkish line.** The
+sanitiser runs on text the symbol map has already rewritten, but it
+compared that text against the raw emitted set — what the rules produce
+*before* the map. Turkish rules emit `a` and the map rewrites it to `ɑ`,
+so every harmonised Turkish token carried a character the filter did not
+recognise and was dropped whole as foreign material. On a forty-line
+Turkish corpus: one line kept, four hundred tokens dropped, forty-eight
+characters written.
+
+`harmonized_emitted` builds the set the sanitiser actually needs — the
+map's image of what the rules emit — and `clean_corpora` uses it. A test
+pins the case: `ɑ` is absent from `emitted_characters("tr")`, present in
+`harmonized_emitted("tr", rules)`, and a Turkish line survives cleaning
+with no tokens dropped.
+
+The emitted set also now collects the letters an apostrophe
+transliterates *to*, which is how the Uzbek tutuq belgisi (`ba'zi` →
+`baʔzi`) survives cleaning while a bare apostrophe stays foreign in the
+languages that have no apostrophe letter.
+
+Both changes existed on the corpus-rebuild branch, where the corpora
+were built, and both were missed when 0.5.8 took only that branch
+commit's rule file. 0.5.7 and 0.5.8 carry the defect; anyone who ran
+`turkic-clean-corpus` under either should rebuild.
+
 ## [0.5.8] - 2026-08-15
 
 ### Fixed
