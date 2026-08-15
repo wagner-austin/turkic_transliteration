@@ -24,20 +24,19 @@ filtering.
 
 The design decision worth noting: **languages are discovered dynamically from
 rule files** in `src/turkic_translit/rules/`, so adding a language means adding a
-`.rules` file — no code change, and the CLI, the library API and the web demo all
-pick it up at once.
+`.rules` file — no code change, and the CLI, the library API (`to_ipa`/`to_latin`)
+and the web demo all pick it up at once.
 
 **Supported languages** (verified by the test suite): Azerbaijani, Finnish,
 Kazakh, Kyrgyz, Turkish, Uyghur, and Uzbek (both Cyrillic and Latin input).
-IPA output is available for all of them; Latin output covers Kazakh and Kyrgyz
-(plus embedded Arabic-script handling). The batch `turkic-translit translit`
-CLI, the library API (`to_ipa`/`to_latin`), and the web demo all cover the
-full set — language choices are discovered dynamically from the rules
-directory.
+IPA output is available for all of them; Latin output covers Kazakh and
+Kyrgyz (Cyrillic → Latin, with optional embedded Arabic-script handling)
+and Turkish (diacritic folding to ASCII).
 
 ## Install
 
-This project uses **Poetry**. Python **3.9+**.
+This project uses **Poetry**. Python **3.10–3.13** (the PyICU wheel installer
+covers exactly those versions).
 
 ```bash
 # Simplest: the dev setup script (also installs the Windows PyICU wheel)
@@ -77,24 +76,36 @@ The Makefile wraps the common tasks (all via Poetry):
 
 ```bash
 make check   # lint + test (the full gate)
-make lint    # ruff check --fix, ruff format, mypy --strict
-make test    # pytest
+make lint    # guards, then ruff check --fix + ruff format, then strict mypy
+make guard   # just the guard rules (scripts/guards/)
+make test    # pytest with 100% statement+branch coverage enforced
 make web     # launch the Gradio web UI
-make help    # list all targets
 ```
 
-On Windows without GNU Make, use the PowerShell wrapper:
+On Windows without GNU Make: `./scripts/run.ps1 <target>`.
 
-```powershell
-./scripts/run.ps1 lint
-./scripts/run.ps1 test
-./scripts/run.ps1 web
-./scripts/run.ps1 help
-```
+Linting, type-checking (strict mypy) and the guard rules all cover `src`,
+`tests` and `scripts`. The guards ban weak typing (`Any`, casts, ignores),
+silent exception handling, and weak or fake tests — including
+transliteration tests that never compare output against an expected value.
 
-Type-checking is `mypy --strict` (config in `mypy.ini`, scoped to `src/`).
-Formatting and linting are both handled by **ruff** (`ruff format` replaced
-black).
+## Validation
+
+- Every IPA rule file declares its source in machine-readable `# Source-*`
+  header fields, and a test module that pins expected output must name the
+  source it inherits (`INHERITS_SOURCE`); both are guard-enforced, as is the
+  ban on expectations computed by the code under test.
+- Expected values are transcriptions printed in the cited descriptions
+  (journal Illustrations, reference-grammar chapters). Each language is
+  covered letter-exhaustively plus word sets from a second, independent
+  description; Uyghur is additionally checked against the MFA dictionary's
+  22,630 pronunciations.
+- Departures from a source's printed notation are declared in two tables —
+  `NOTATION` (different glyph, same phoneme) and `DECLARED_SIMPLIFICATIONS`
+  (a real distinction the rules drop) — each entry carrying a reason. A
+  central test fails any entry no printed datum exercises, and a
+  cross-language test requires shared letters to agree across languages
+  after corpus harmonization unless a contrast is declared with a citation.
 
 ## Command-line tools
 
@@ -102,9 +113,10 @@ Console entry points defined in `pyproject.toml`:
 
 | Command | Purpose |
 |---------|---------|
-| `turkic-translit` | Transliterate text to Latin and/or IPA (`--lang kk\|ky`) |
+| `turkic-translit` | Transliterate text to Latin and/or IPA |
 | `turkic-filter-russian` | Drop or mask Russian tokens from a stream |
 | `turkic-download-corpus` | Download/prepare OSCAR corpora |
+| `turkic-clean-corpus` | Clean and harmonize downloaded corpora |
 | `turkic-build-spm` / `turkic-train-spm` | Train a SentencePiece tokenizer |
 | `turkic-train-lm` / `turkic-eval-lm` | Train / evaluate a language model |
 | `turkic-leven` | Levenshtein-based comparison utility |
@@ -118,11 +130,11 @@ turkic-translit translit --lang kk --in text.txt \
     --out-latin kk_lat.txt --out-ipa kk_ipa.txt --arabic
 ```
 
-- `--lang` — any ISO 639-1 code advertised by the rules directory
-  (`az`, `fi`, `kk`, `ky`, `tr`, `ug`, `uz`)
+- `--lang` — any code advertised by the rules directory; IPA is available
+  for `az`, `fi`, `kk`, `ky`, `tr`, `ug`, `uz` and `uzc` (Uzbek Cyrillic)
 - `--in` — input file, or `-` for stdin (default: `-`)
 - `--out-latin` — Latin output path, or `-` for stdout. Omit to skip.
-  Only meaningful for languages with `<lang>_lat.rules` (`kk`, `ky`).
+  Only meaningful for languages with `<lang>_lat.rules` (`kk`, `ky`, `tr`).
 - `--out-ipa` — IPA output path, or `-` for stdout. Omit to skip.
 - `--arabic` — also transliterate embedded Arabic script (Latin mode only)
 - `--benchmark` — log throughput statistics on completion
