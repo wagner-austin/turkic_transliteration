@@ -16,8 +16,11 @@ from pathlib import Path
 
 import gradio as gr
 import pytest
+from click.testing import CliRunner
 
 from turkic_translit import _test_hooks
+from turkic_translit.cli import main as cli_group
+from turkic_translit.cli.web import cli as web_command
 from turkic_translit.corpus import _test_hooks as corpus_hooks
 from turkic_translit.lid import _test_hooks as lid_hooks
 from turkic_translit.lid.locations import default_search_dirs
@@ -136,6 +139,43 @@ def test_the_entry_point_builds_and_serves(installed_ui: None) -> None:
         web_hooks.server = previous
 
     assert [served.title for served in recording.served] == ["Turkic Transliteration Suite"]
+
+
+def test_the_web_subcommand_serves_the_same_application(installed_ui: None) -> None:
+    """``turkic-translit web`` reaches the entry point through the group.
+
+    The subcommand is the only place Gradio is imported, which is why it
+    imports inside the function body rather than at module scope, and
+    that body was the one part of the console script no test entered:
+    ``--help`` exercises the decorator and stops there. Driving it
+    through the real group proves the registration, the deferred import
+    and the call, and the recording server is what makes it safe to run
+    a command whose production behaviour is to block forever.
+
+    Args:
+        installed_ui: The bound hooks.
+    """
+    previous = web_hooks.server
+    recording = web_hooks.RecordingServer()
+    web_hooks.server = recording
+    try:
+        result = CliRunner().invoke(cli_group, ["web"])
+    finally:
+        web_hooks.server = previous
+
+    assert result.exit_code == 0, result.output
+    assert [served.title for served in recording.served] == ["Turkic Transliteration Suite"]
+
+
+def test_the_web_subcommand_is_registered_under_its_own_name() -> None:
+    """The group offers ``web``, so the test above invokes a real command.
+
+    Click reports exit code 2 and prints usage for a name it does not
+    know, which a test that only asserted on the recording server would
+    not distinguish from a command that ran and served nothing.
+    """
+    assert "web" in cli_group.commands
+    assert cli_group.commands["web"] is web_command
 
 
 def free_port() -> int:
