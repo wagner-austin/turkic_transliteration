@@ -130,6 +130,28 @@ def test_a_pyproject_without_a_project_table_is_refused() -> None:
         hf_space.package_version("")
 
 
+def test_the_package_declares_the_compressor_oscars_loader_imports() -> None:
+    """A plain install has to bring zstandard, unimported though it is.
+
+    Building the interface lists OSCAR-2301's configurations, which
+    makes datasets fetch and execute that dataset's loading script,
+    whose first third-party import is zstandard. Nothing under src
+    imports it, so an audit of import statements dropped it, and the
+    Space then installed a package that raised ModuleNotFoundError
+    before it could serve a page. Locally the import survives because
+    another dependency happens to bring zstandard along, which is
+    precisely why the declaration is what gets asserted.
+    """
+    pyproject = (hf_space.PROJECT_ROOT / "pyproject.toml").read_text(encoding="utf-8")
+
+    assert "zstandard" in hf_space.declared_dependencies(pyproject)
+
+
+def test_the_declared_dependencies_are_named_without_their_bounds() -> None:
+    """Each entry reports as a bare package name."""
+    assert hf_space.declared_dependencies(PYPROJECT) == ("click", "gradio")
+
+
 def test_the_gradio_requirement_is_read_as_written() -> None:
     """The whole dependency entry is returned, bounds included."""
     assert hf_space.gradio_requirement(PYPROJECT) == "gradio>=6.0,<7"

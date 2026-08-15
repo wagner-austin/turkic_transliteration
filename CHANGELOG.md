@@ -2,6 +2,26 @@
 
 All notable changes to the Turkic Transliteration project will be documented in this file.
 
+## [0.5.2] - 2026-08-14
+
+### Fixed
+
+**The web demo could not start.** Building the interface lists the
+OSCAR-2301 corpus's configurations, which makes `datasets` fetch and
+execute that dataset's own loading script, and that script's first
+third-party import is `zstandard`. Nothing under `src/` imports it, so
+0.5.0's dependency audit — which kept what an import statement named —
+dropped it, and an install with no other source of `zstandard` raised
+`ModuleNotFoundError` before it could serve a page.
+
+Development environments never saw it, because something else in the
+lock brings `zstandard` along. The Hugging Face Space, which installs
+this package and nothing else, saw nothing but it.
+
+The declaration is back, alongside `accelerate`, which is undeclarable
+by the same import-statement rule for the same reason: needed at
+runtime by something this package does, named in no import here.
+
 ## [0.5.1] - 2026-08-12
 
 ### Added

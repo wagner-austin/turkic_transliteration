@@ -5,7 +5,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "turkic-translit"
-version = "0.5.1"
+version = "0.5.2"
 description = "Deterministic Latin and IPA transliteration for Kazakh, Kyrgyz, Uzbek, Turkish, Azerbaijani, Uyghur, Finnish, plus tokenizer/glue scripts."
 authors = [ {name="Austin Wagner", email="austinwagner@msn.com"} ]
 # 3.10 is the real floor, and was already the floor everywhere except
@@ -81,6 +81,15 @@ dependencies = [
     # Not imported anywhere, and required anyway: transformers.Trainer, used
     # by lm/train.py, raises at construction without it.
     "accelerate>=0.28",
+    # Also not imported anywhere, and also required anyway. OSCAR-2301
+    # ships .jsonl.zst shards, and datasets reads them by executing the
+    # dataset's own loading script, whose first third-party import is
+    # zstandard. The corpus tab lists that dataset's configurations while
+    # the interface is being built, so without this the demo raises
+    # ModuleNotFoundError before it can serve a page — which is exactly
+    # what it did once this was dropped for not appearing in an import
+    # statement anywhere under src.
+    "zstandard>=0.23",
 ]
 
 [project.optional-dependencies]

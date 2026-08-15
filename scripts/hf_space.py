@@ -136,6 +136,37 @@ def package_version(pyproject_text: str) -> str:
     return _project_string(pyproject_text, "version")
 
 
+def _dependency_entries(pyproject_text: str) -> tuple[str, ...]:
+    """Read the package's runtime dependencies as they are written.
+
+    Args:
+        pyproject_text: Contents of ``pyproject.toml``.
+
+    Returns:
+        Each entry of ``[project] dependencies``, in declaration order,
+        or nothing when the table declares none.
+    """
+    document = tomllib.loads(pyproject_text)
+    project = document.get("project")
+    declared = project.get("dependencies") if isinstance(project, dict) else None
+    return tuple(str(entry) for entry in declared) if isinstance(declared, list) else ()
+
+
+def declared_dependencies(pyproject_text: str) -> tuple[str, ...]:
+    """Name the packages a plain install of this project brings in.
+
+    The Space installs the package and nothing else, so this is the
+    whole list of what the demo has available to it at runtime.
+
+    Args:
+        pyproject_text: Contents of ``pyproject.toml``.
+
+    Returns:
+        Each dependency's name, without its version specifier.
+    """
+    return tuple(Requirement(entry).name for entry in _dependency_entries(pyproject_text))
+
+
 def gradio_requirement(pyproject_text: str) -> str:
     """Read the package's Gradio requirement as it is written.
 
@@ -150,11 +181,7 @@ def gradio_requirement(pyproject_text: str) -> str:
             checked against this one entry, so its absence would leave
             the card unchecked rather than merely undocumented.
     """
-    document = tomllib.loads(pyproject_text)
-    project = document.get("project")
-    declared = project.get("dependencies") if isinstance(project, dict) else None
-    entries = [str(entry) for entry in declared] if isinstance(declared, list) else []
-    for entry in entries:
+    for entry in _dependency_entries(pyproject_text):
         if Requirement(entry).name == GRADIO:
             return entry
     raise ValueError(f"pyproject.toml declares no {GRADIO} dependency")
