@@ -171,6 +171,34 @@ def test_shard_streamer_refuses_a_language_the_repository_lacks(tmp_path: Path) 
     assert excinfo.value.detail == "no shards for language ky"
 
 
+def test_shard_streamer_reports_an_unreadable_shard_as_a_corpus_error(tmp_path: Path) -> None:
+    """A refused shard reaches the interface as this package's own error.
+
+    OSCAR's data is gated and its listing is not, so a caller without a
+    token names the languages and is then refused the text. That
+    refusal arrives from urllib, and the tab only reports failures that
+    arrive as CorpusError, so it is translated here — as the byte-stream
+    opener beside it already does.
+    """
+    api, resolve = build_repository(
+        tmp_path, {"kk_meta/kk_meta_part_1.jsonl.zst": [{"content": "bir"}]}
+    )
+    (tmp_path / "files" / DATASET / "kk_meta/kk_meta_part_1.jsonl.zst").unlink()
+
+    with pytest.raises(CorpusStreamError) as excinfo:
+        list(HubShardTextStreamer(api, resolve).texts(DATASET, "kk", None))
+
+    assert excinfo.value.code == ERR_STREAM_FAILED
+
+
+def test_repository_files_reports_an_unreadable_endpoint(tmp_path: Path) -> None:
+    """A listing that cannot be fetched is a corpus error, not a urllib one."""
+    with pytest.raises(CorpusStreamError) as excinfo:
+        repository_files((tmp_path / "absent.json").as_uri())
+
+    assert excinfo.value.code == ERR_STREAM_FAILED
+
+
 def test_repository_files_reports_every_path_the_listing_names(tmp_path: Path) -> None:
     """The listing is read as the Hub returns it, README included."""
     api, _resolve = build_repository(

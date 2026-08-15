@@ -72,11 +72,16 @@ def repository_files(api_url: str) -> tuple[str, ...]:
         Every path in the repository, in the order the Hub reports them.
 
     Raises:
-        CorpusStreamError: If the response carries no file listing,
-            which is what a moved or renamed repository looks like.
+        CorpusStreamError: If the endpoint cannot be read, or if the
+            response carries no file listing, which is what a moved or
+            renamed repository looks like.
     """
-    with urlopen(build_request(api_url, "GET"), timeout=TIMEOUT_SECONDS) as response:
-        document = json.load(response)
+    try:
+        with urlopen(build_request(api_url, "GET"), timeout=TIMEOUT_SECONDS) as response:
+            document = json.load(response)
+    except URLError as exc:
+        logger.error("could not list %s: %s", api_url, exc)
+        raise CorpusStreamError(api_url, str(exc)) from exc
 
     siblings = document.get("siblings") if isinstance(document, Mapping) else None
     if not isinstance(siblings, list):
@@ -130,9 +135,13 @@ class HubShardTextStreamer:
             Each document's text, skipping lines that carry none.
 
         Raises:
-            CorpusStreamError: If the language has no shards, which
-                means it was offered by something other than this
-                repository's contents.
+            CorpusStreamError: If the language has no shards, or if a
+                shard cannot be read. OSCAR's data is gated while its
+                file listing is not, so a caller with no token gets as
+                far as naming the languages and is then refused the
+                text — a refusal the interface reports, because it
+                arrives as this package's own error rather than as a
+                urllib one.
         """
         api_url = f"{self._dataset_api}/{dataset_name}"
         paths = hub.shard_paths(repository_files(api_url), configuration)
@@ -141,15 +150,34 @@ class HubShardTextStreamer:
 
         for path in paths:
             url = self._resolve_template.format(name=dataset_name, path=path)
-            with urlopen(build_request(url, "GET", token), timeout=TIMEOUT_SECONDS) as response:
-                reader = ZstdDecompressor().stream_reader(response)
-                for line in io.TextIOWrapper(reader, encoding="utf-8"):
-                    document = json.loads(line)
-                    value = (
-                        document.get(hub.CONTENT_FIELD) if isinstance(document, Mapping) else None
-                    )
-                    if isinstance(value, str):
-                        yield value
+            yield from self._documents(url, token)
+
+    def _documents(self, url: str, token: str | None) -> Iterator[str]:
+        """Read one shard's documents.
+
+        Args:
+            url: Download URL of the shard.
+            token: Access token for the gated data, or ``None``.
+
+        Yields:
+            Each document's text, skipping lines that carry none.
+
+        Raises:
+            CorpusStreamError: If the shard cannot be read.
+        """
+        try:
+            response = urlopen(build_request(url, "GET", token), timeout=TIMEOUT_SECONDS)
+        except URLError as exc:
+            logger.error("could not read %s: %s", url, exc)
+            raise CorpusStreamError(url, str(exc)) from exc
+
+        with response:
+            reader = ZstdDecompressor().stream_reader(response)
+            for line in io.TextIOWrapper(reader, encoding="utf-8"):
+                document = json.loads(line)
+                value = document.get(hub.CONTENT_FIELD) if isinstance(document, Mapping) else None
+                if isinstance(value, str):
+                    yield value
 
 
 class MappingDatasetTextStreamer:
