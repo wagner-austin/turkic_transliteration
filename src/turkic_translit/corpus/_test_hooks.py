@@ -5,11 +5,10 @@ rebinds it. Tests bind them to in-memory implementations that satisfy the
 same protocols. The drivers call the hooks unconditionally, so no
 production branch exists purely to support testing.
 
-Every real adapter here reaches the outside world through ``urllib`` or
-through the ``datasets`` package rather than through ``requests``. That is
-deliberate: ``urllib`` handles ``file://``, and ``datasets`` reads a local
-directory, so the adapters can be exercised for real — not stubbed —
-without a network.
+Every real adapter here reaches the outside world through ``urllib``
+rather than through ``requests``, and that is deliberate: ``urllib``
+handles ``file://``, so each adapter can be exercised for real — not
+stubbed — against files on disk, endpoints included.
 
 The module is private because the seam is internal to this package and is
 not part of the published API.
@@ -25,6 +24,9 @@ from typing import IO, Final, Protocol
 from urllib.error import URLError
 from urllib.request import urlopen
 
+from zstandard import ZstdDecompressor
+
+from turkic_translit.corpus import hub
 from turkic_translit.corpus.errors import CorpusStreamError
 from turkic_translit.net import build_request
 
@@ -39,58 +41,115 @@ SITEMATRIX_URL: Final = (
 
 
 class DatasetTextStreamer(Protocol):
-    """Reader yielding the text column of a streamed dataset."""
+    """Reader yielding one language's documents from a corpus."""
 
     def texts(self, dataset_name: str, configuration: str, token: str | None) -> Iterator[str]:
-        """Stream the ``text`` field of every row that has one.
+        """Stream the text of every document that carries some.
 
         Args:
             dataset_name: Dataset identifier, e.g.
                 ``oscar-corpus/OSCAR-2301``.
-            configuration: Configuration within that dataset, which for
-                OSCAR is the language code.
+            configuration: Language code within that dataset.
             token: Access token for gated datasets, or ``None``.
 
         Yields:
-            Each row's text, exactly as stored.
+            Each document's text, exactly as stored.
         """
         ...
 
 
-class HuggingFaceDatasetTextStreamer:
-    """Streamer backed by the ``datasets`` package.
+def repository_files(api_url: str) -> tuple[str, ...]:
+    """List every file a dataset repository holds.
 
-    The import is deferred to call time so that installing this project
-    without the corpus extra still imports. Rows arrive untyped, so the
-    text field is checked before it is yielded: a row whose ``text`` is
-    null is skipped rather than being turned into an empty line that
-    would later look like a real but blank document.
+    The listing is public even for a gated dataset, so this is what the
+    language list is built from: naming a corpus's languages costs no
+    credential, while reading its text does.
+
+    Args:
+        api_url: The repository's endpoint on the Hub.
+
+    Returns:
+        Every path in the repository, in the order the Hub reports them.
+
+    Raises:
+        CorpusStreamError: If the response carries no file listing,
+            which is what a moved or renamed repository looks like.
+    """
+    with urlopen(build_request(api_url, "GET"), timeout=TIMEOUT_SECONDS) as response:
+        document = json.load(response)
+
+    siblings = document.get("siblings") if isinstance(document, Mapping) else None
+    if not isinstance(siblings, list):
+        raise CorpusStreamError(api_url, "response carries no file listing")
+
+    return tuple(
+        sibling["rfilename"]
+        for sibling in siblings
+        if isinstance(sibling, Mapping) and isinstance(sibling.get("rfilename"), str)
+    )
+
+
+class HubShardTextStreamer:
+    """Streamer reading a language's shards straight from the Hub.
+
+    Each shard is Zstandard-compressed JSON lines, decompressed as it
+    arrives rather than downloaded whole: a language's shards run to
+    gigabytes, and a caller asking for a hundred sentences should pay
+    for a hundred sentences.
+
+    A line whose ``content`` is not a string is skipped rather than
+    turned into an empty document, and the shards are read in part
+    order so the corpus arrives as it was published.
+
+    Args:
+        dataset_api: Endpoint listing a repository's files. Overridable
+            so the whole read runs against files on disk.
+        resolve_template: Template naming a file's download URL, with
+            ``name`` and ``path`` fields.
     """
 
+    def __init__(
+        self,
+        dataset_api: str = hub.DATASET_API,
+        resolve_template: str = hub.RESOLVE_TEMPLATE,
+    ) -> None:
+        """Store the two endpoints this streamer reads through."""
+        self._dataset_api = dataset_api
+        self._resolve_template = resolve_template
+
     def texts(self, dataset_name: str, configuration: str, token: str | None) -> Iterator[str]:
-        """Stream one configuration of a dataset in streaming mode.
+        """Stream one language's documents, shard by shard.
 
         Args:
-            dataset_name: Dataset identifier or a local directory path.
-            configuration: Configuration within that dataset.
-            token: Access token for gated datasets, or ``None``.
+            dataset_name: Dataset identifier, e.g.
+                ``oscar-corpus/OSCAR-2301``.
+            configuration: Language code selecting the shards to read.
+            token: Access token for the gated data, or ``None``.
 
         Yields:
-            Each row's text field, skipping rows that carry no text.
+            Each document's text, skipping lines that carry none.
+
+        Raises:
+            CorpusStreamError: If the language has no shards, which
+                means it was offered by something other than this
+                repository's contents.
         """
-        module = __import__("datasets")
-        dataset = module.load_dataset(
-            dataset_name,
-            configuration,
-            split="train",
-            streaming=True,
-            trust_remote_code=True,
-            token=token,
-        )
-        for row in dataset:
-            value = row["text"]
-            if isinstance(value, str):
-                yield value
+        api_url = f"{self._dataset_api}/{dataset_name}"
+        paths = hub.shard_paths(repository_files(api_url), configuration)
+        if not paths:
+            raise CorpusStreamError(api_url, f"no shards for language {configuration}")
+
+        for path in paths:
+            url = self._resolve_template.format(name=dataset_name, path=path)
+            with urlopen(build_request(url, "GET", token), timeout=TIMEOUT_SECONDS) as response:
+                reader = ZstdDecompressor().stream_reader(response)
+                for line in io.TextIOWrapper(reader, encoding="utf-8"):
+                    document = json.loads(line)
+                    value = (
+                        document.get(hub.CONTENT_FIELD) if isinstance(document, Mapping) else None
+                    )
+                    if isinstance(value, str):
+                        yield value
 
 
 class MappingDatasetTextStreamer:
@@ -297,24 +356,32 @@ class RemoteLanguageCatalogue:
             rather than against the live API.
     """
 
-    def __init__(self, sitematrix_url: str = SITEMATRIX_URL) -> None:
-        """Store the SiteMatrix endpoint this catalogue queries."""
+    def __init__(
+        self,
+        sitematrix_url: str = SITEMATRIX_URL,
+        dataset_api: str = hub.DATASET_API,
+    ) -> None:
+        """Store the two endpoints this catalogue queries."""
         self._sitematrix_url = sitematrix_url
+        self._dataset_api = dataset_api
 
     def oscar_configurations(self, dataset_name: str) -> tuple[str, ...]:
-        """List a dataset's configurations via the ``datasets`` package.
+        """List the languages a dataset repository holds shards for.
+
+        Read from the repository's file listing, which is public: the
+        previous version learned the same list by downloading and
+        executing the dataset's loading script, so naming the languages
+        ran third-party code and needed that script's own dependencies
+        installed.
 
         Args:
-            dataset_name: Dataset identifier or a local directory path.
+            dataset_name: Dataset identifier.
 
         Returns:
-            Configuration names, sorted.
+            Language codes, sorted.
         """
-        module = __import__("datasets")
-        configurations: Sequence[str] = module.get_dataset_config_names(
-            dataset_name, trust_remote_code=True
-        )
-        return tuple(sorted(configurations))
+        files = repository_files(f"{self._dataset_api}/{dataset_name}")
+        return hub.languages(files)
 
     def wikipedia_editions(self) -> tuple[str, ...]:
         """List language codes whose Wikipedia edition is open.
@@ -401,7 +468,7 @@ class MappingLanguageCatalogue:
         return tuple(sorted(self._wikipedia))
 
 
-dataset_texts: DatasetTextStreamer = HuggingFaceDatasetTextStreamer()
+dataset_texts: DatasetTextStreamer = HubShardTextStreamer()
 byte_streams: ByteStreamOpener = UrlByteStreamOpener()
 reachability: ReachabilityProbe = UrlReachabilityProbe()
 languages: LanguageCatalogue = RemoteLanguageCatalogue()
@@ -411,7 +478,7 @@ __all__ = [
     "TIMEOUT_SECONDS",
     "ByteStreamOpener",
     "DatasetTextStreamer",
-    "HuggingFaceDatasetTextStreamer",
+    "HubShardTextStreamer",
     "LanguageCatalogue",
     "MappingByteStreamOpener",
     "MappingDatasetTextStreamer",

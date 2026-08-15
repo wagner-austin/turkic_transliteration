@@ -6,7 +6,7 @@ SHELL := powershell.exe
 # Install dependencies, including the Windows PyICU wheel which PyPI rules
 # prevent pip from resolving automatically.
 install:
-	poetry install --extras corpus --extras dev --no-ansi
+	poetry install --extras dev --no-ansi
 	if ($$IsWindows -or $$env:OS -eq 'Windows_NT') { poetry run python -m turkic_translit.pyicu_install }
 
 # Guards: no Any/cast/object/type-ignore/TypeAlias/suppress, no silent excepts,

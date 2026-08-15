@@ -36,7 +36,6 @@ dependencies = [
     # undeclared import and an unused declaration are the same bug seen from
     # opposite sides, and both were present here.
     "click>=8.1",
-    "datasets (>=3.6.0,<4.0.0)",
     # Universal fasttext-wheel for all platforms and Python 3.10-3.13. It is
     # the only build with Windows wheels; the numpy-2 forks publish none, so
     # swapping the dependency would cost every Windows user a C++ toolchain.
@@ -81,14 +80,13 @@ dependencies = [
     # Not imported anywhere, and required anyway: transformers.Trainer, used
     # by lm/train.py, raises at construction without it.
     "accelerate>=0.28",
-    # Also not imported anywhere, and also required anyway. OSCAR-2301
-    # ships .jsonl.zst shards, and datasets reads them by executing the
-    # dataset's own loading script, whose first third-party import is
-    # zstandard. The corpus tab lists that dataset's configurations while
-    # the interface is being built, so without this the demo raises
-    # ModuleNotFoundError before it can serve a page — which is exactly
-    # what it did once this was dropped for not appearing in an import
-    # statement anywhere under src.
+    # OSCAR-2301 ships .jsonl.zst shards and corpus/_test_hooks.py
+    # decompresses them as they stream. It was undeclared for one
+    # release, during which the demo raised ModuleNotFoundError before
+    # it could serve a page: the corpus tab reached zstandard through
+    # the dataset's loading script, so no import statement here named
+    # it and the dependency audit dropped it. The driver imports it
+    # outright now, and the script is gone.
     "zstandard>=0.23",
 ]
 
@@ -99,10 +97,6 @@ examples = [
     "jupyterlab",
 ]
 winlid = []
-corpus = [
-    "datasets>=3.0",
-    "pyarrow>=14.0",
-]
 sentry = [
     "sentry-sdk>=2.0",
 ]

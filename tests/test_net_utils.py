@@ -43,6 +43,21 @@ def test_build_request_preserves_the_url_unchanged() -> None:
     assert build_request(url, "GET").full_url == url
 
 
+def test_build_request_presents_a_token_as_a_bearer_credential() -> None:
+    """OSCAR's shards are gated, and this is the header that opens them."""
+    request = build_request("https://huggingface.co/datasets/x", "GET", "hf_secret")
+
+    assert request.get_header("Authorization") == "Bearer hf_secret"
+    assert request.get_header("User-agent") == USER_AGENT
+
+
+def test_build_request_without_a_token_sends_no_authorization() -> None:
+    """A public read carries no credential, which is how the listing is read."""
+    request = build_request("https://huggingface.co/api/datasets/x", "GET")
+
+    assert request.get_header("Authorization") is None
+
+
 @pytest.mark.network
 def test_wikimedia_accepts_the_project_agent() -> None:
     """The live dump host answers a request carrying this agent.

@@ -28,7 +28,7 @@ USER_AGENT: Final[str] = (
 DEFAULT_HEADERS: Final[dict[str, str]] = {"User-Agent": USER_AGENT}
 
 
-def build_request(url: str, method: str) -> Request:
+def build_request(url: str, method: str, token: str | None = None) -> Request:
     """Build a request carrying this project's User-Agent.
 
     Args:
@@ -37,11 +37,19 @@ def build_request(url: str, method: str) -> Request:
             adapters built on this are exercised without a network.
         method: HTTP method, e.g. ``GET`` or ``HEAD``. Ignored by
             non-HTTP handlers.
+        token: Bearer credential to present, or ``None`` for the
+            unauthenticated request that public data needs. OSCAR is
+            gated, so its shards are refused without one, while the file
+            listing naming those shards is served without one.
 
     Returns:
-        A request with :data:`DEFAULT_HEADERS` applied.
+        A request with :data:`DEFAULT_HEADERS` applied, and an
+        ``Authorization`` header when a token was given.
     """
-    return Request(url, headers=DEFAULT_HEADERS, method=method)
+    headers = dict(DEFAULT_HEADERS)
+    if token is not None:
+        headers["Authorization"] = f"Bearer {token}"
+    return Request(url, headers=headers, method=method)
 
 
 __all__ = ["DEFAULT_HEADERS", "USER_AGENT", "build_request"]

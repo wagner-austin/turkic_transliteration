@@ -9,11 +9,9 @@ one place per question.
 
 from __future__ import annotations
 
-from turkic_translit.corpus import _test_hooks
+from turkic_translit.corpus import _test_hooks, hub
 from turkic_translit.corpus.drivers import WIKIPEDIA_DUMP_HOST
 from turkic_translit.corpus.sources import OscarSourceSpec, WikipediaSourceSpec
-
-HUGGINGFACE_DATASET_API: str = "https://huggingface.co/api/datasets"
 
 
 def available_languages(
@@ -44,7 +42,7 @@ def health_check_url(spec: OscarSourceSpec | WikipediaSourceSpec) -> str:
         A URL that answers cheaply, without downloading corpus data.
     """
     if spec["driver"] == "oscar":
-        return f"{HUGGINGFACE_DATASET_API}/{spec['hf_name']}"
+        return hub.dataset_api_url(spec["hf_name"])
     return WIKIPEDIA_DUMP_HOST
 
 
@@ -61,7 +59,6 @@ def source_reachable(spec: OscarSourceSpec | WikipediaSourceSpec) -> bool:
 
 
 __all__ = [
-    "HUGGINGFACE_DATASET_API",
     "available_languages",
     "health_check_url",
     "source_reachable",

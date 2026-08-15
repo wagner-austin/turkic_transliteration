@@ -1,22 +1,25 @@
 """Tests for the corpus package's boundary adapters.
 
 Nothing here is mocked. The production adapters are run for real: the
-URL adapters against ``file://`` URLs, and the dataset adapters against a
-local directory that the ``datasets`` package loads without a network.
-The SiteMatrix parser runs against a response captured from the live
-Wikimedia API and stored in ``tests/data``, so the shape it parses is the
-shape the API actually returns.
+URL adapters against ``file://`` URLs, and the Hub adapters against a
+repository written to disk — its file listing where the endpoint would
+be, its shards where the resolver would put them, Zstandard-compressed
+as the real ones are. The SiteMatrix parser runs against a response
+captured from the live Wikimedia API and stored in ``tests/data``, so
+the shape it parses is the shape the API actually returns.
 """
 
 from __future__ import annotations
 
 import json
+from collections.abc import Mapping, Sequence
 from pathlib import Path
 
 import pytest
+from zstandard import ZstdCompressor
 
 from turkic_translit.corpus._test_hooks import (
-    HuggingFaceDatasetTextStreamer,
+    HubShardTextStreamer,
     MappingByteStreamOpener,
     MappingDatasetTextStreamer,
     MappingLanguageCatalogue,
@@ -24,32 +27,51 @@ from turkic_translit.corpus._test_hooks import (
     RemoteLanguageCatalogue,
     UrlByteStreamOpener,
     UrlReachabilityProbe,
+    repository_files,
 )
 from turkic_translit.corpus.errors import ERR_STREAM_FAILED, CorpusStreamError
 
 SITEMATRIX_FIXTURE = Path(__file__).parent / "data" / "sitematrix.json"
 
 
-@pytest.fixture
-def local_dataset(tmp_path: Path) -> Path:
-    """Build a one-file dataset directory the ``datasets`` package can read.
+DATASET = "oscar-corpus/OSCAR-2301"
 
-    One row carries a null text field, which is the case the streamer has
-    to drop rather than turn into an empty line.
+
+def build_repository(
+    root: Path, shards: Mapping[str, Sequence[Mapping[str, str | None] | str]]
+) -> tuple[str, str]:
+    """Write a dataset repository, listing and shards, onto disk.
+
+    The listing is served from a file whose path is what the Hub's
+    endpoint would be, and the shards from files whose paths are what
+    the resolver would return, so the adapter performs its real reads
+    over ``file://`` rather than against a substitute.
 
     Args:
-        tmp_path: Directory to build the dataset in.
+        root: Directory to build the repository under.
+        shards: Repository path of each shard, mapped to the JSON
+            documents it holds.
 
     Returns:
-        Path of the dataset directory.
+        The endpoint listing the repository, and the template resolving
+        one of its files.
     """
-    directory = tmp_path / "dataset"
-    directory.mkdir()
-    rows = [{"text": "salom dunyo"}, {"text": None}, {"text": "ikkinchi qator"}]
-    (directory / "train.jsonl").write_text(
-        "\n".join(json.dumps(row) for row in rows) + "\n", encoding="utf-8"
+    listing = root / "api" / DATASET
+    listing.parent.mkdir(parents=True)
+    listing.write_text(
+        json.dumps(
+            {"siblings": [{"rfilename": "README.md"}] + [{"rfilename": path} for path in shards]}
+        ),
+        encoding="utf-8",
     )
-    return directory
+
+    for path, documents in shards.items():
+        shard = root / "files" / DATASET / path
+        shard.parent.mkdir(parents=True, exist_ok=True)
+        lines = "".join(f"{json.dumps(document)}\n" for document in documents)
+        shard.write_bytes(ZstdCompressor().compress(lines.encode("utf-8")))
+
+    return (root / "api").as_uri(), f"{(root / 'files').as_uri()}/{{name}}/{{path}}"
 
 
 def test_url_opener_streams_a_file_url(tmp_path: Path) -> None:
@@ -107,13 +129,80 @@ def test_mapping_probe_answers_from_its_set_and_logs_the_probe() -> None:
     ]
 
 
-def test_dataset_streamer_reads_a_local_dataset(local_dataset: Path) -> None:
-    """The production streamer yields text and drops rows that carry none."""
-    streamer = HuggingFaceDatasetTextStreamer()
-    assert list(streamer.texts(str(local_dataset), "default", None)) == [
-        "salom dunyo",
-        "ikkinchi qator",
-    ]
+def test_shard_streamer_reads_every_shard_in_part_order(tmp_path: Path) -> None:
+    """Documents arrive shard by shard, numbered rather than alphabetised.
+
+    Part 10 is here because it is the case text ordering gets wrong: as
+    strings ``_part_10`` sorts before ``_part_2``, which would deliver
+    the corpus in an order the publisher never wrote it in.
+
+    Two lines are dropped rather than yielded: one whose ``content`` is
+    null, which would otherwise become a blank line indistinguishable
+    from a real but empty document, and one that is not an object at
+    all, which has no content field to read.
+    """
+    api, resolve = build_repository(
+        tmp_path,
+        {
+            "kk_meta/kk_meta_part_1.jsonl.zst": [
+                {"content": "bir"},
+                {"content": None},
+                "not-an-object",
+            ],
+            "kk_meta/kk_meta_part_2.jsonl.zst": [{"content": "eki"}],
+            "kk_meta/kk_meta_part_10.jsonl.zst": [{"content": "on"}],
+        },
+    )
+
+    streamer = HubShardTextStreamer(api, resolve)
+
+    assert list(streamer.texts(DATASET, "kk", None)) == ["bir", "eki", "on"]
+
+
+def test_shard_streamer_refuses_a_language_the_repository_lacks(tmp_path: Path) -> None:
+    """A language with no shards is an error, not an empty corpus."""
+    api, resolve = build_repository(
+        tmp_path, {"kk_meta/kk_meta_part_1.jsonl.zst": [{"content": "bir"}]}
+    )
+
+    with pytest.raises(CorpusStreamError) as excinfo:
+        list(HubShardTextStreamer(api, resolve).texts(DATASET, "ky", None))
+
+    assert excinfo.value.detail == "no shards for language ky"
+
+
+def test_repository_files_reports_every_path_the_listing_names(tmp_path: Path) -> None:
+    """The listing is read as the Hub returns it, README included."""
+    api, _resolve = build_repository(
+        tmp_path, {"kk_meta/kk_meta_part_1.jsonl.zst": [{"content": "bir"}]}
+    )
+
+    assert repository_files(f"{api}/{DATASET}") == (
+        "README.md",
+        "kk_meta/kk_meta_part_1.jsonl.zst",
+    )
+
+
+def test_repository_files_rejects_a_response_that_lists_nothing(tmp_path: Path) -> None:
+    """A response of the wrong shape is an error, not an empty repository."""
+    document = tmp_path / "moved.json"
+    document.write_text(json.dumps({"error": "not found"}), encoding="utf-8")
+
+    with pytest.raises(CorpusStreamError) as excinfo:
+        repository_files(document.as_uri())
+
+    assert excinfo.value.detail == "response carries no file listing"
+
+
+def test_repository_files_skips_entries_carrying_no_name(tmp_path: Path) -> None:
+    """A malformed sibling is skipped, and the well-formed ones survive."""
+    document = tmp_path / "partial.json"
+    document.write_text(
+        json.dumps({"siblings": ["not-a-mapping", {"size": 12}, {"rfilename": "kk_meta/a.zst"}]}),
+        encoding="utf-8",
+    )
+
+    assert repository_files(document.as_uri()) == ("kk_meta/a.zst",)
 
 
 def test_mapping_streamer_serves_a_configuration_and_records_the_call() -> None:
@@ -134,12 +223,24 @@ def test_mapping_streamer_refuses_an_unknown_configuration() -> None:
     assert excinfo.value.detail == "no configuration in the table"
 
 
-def test_remote_catalogue_lists_a_local_dataset_configuration(
-    local_dataset: Path,
-) -> None:
-    """The production catalogue enumerates configurations without a network."""
-    catalogue = RemoteLanguageCatalogue()
-    assert catalogue.oscar_configurations(str(local_dataset)) == ("default",)
+def test_remote_catalogue_lists_the_languages_the_repository_holds(tmp_path: Path) -> None:
+    """Languages come from the shard directories, not from a loading script.
+
+    The README and the checksum file are in the listing and are not
+    languages, so the codes are taken from the shards themselves.
+    """
+    api, _resolve = build_repository(
+        tmp_path,
+        {
+            "kk_meta/kk_meta_part_1.jsonl.zst": [{"content": "bir"}],
+            "ky_meta/ky_meta.jsonl.zst": [{"content": "bir"}],
+            "kk_meta/checksum.sha256": [],
+        },
+    )
+
+    catalogue = RemoteLanguageCatalogue(SITEMATRIX_FIXTURE.as_uri(), api)
+
+    assert catalogue.oscar_configurations(DATASET) == ("kk", "ky")
 
 
 def test_remote_catalogue_excludes_closed_wikipedia_editions() -> None:
