@@ -2,6 +2,39 @@
 
 All notable changes to the Turkic Transliteration project will be documented in this file.
 
+## [0.5.3] - 2026-08-14
+
+### Fixed
+
+**Typing in the web demo wrote a file per keystroke.** Every keystroke
+ran the transliteration handler, and that handler saved a timestamped
+copy whenever its output passed fifty characters, so typing a paragraph
+left a hundred files behind. Typing now transliterates and returns;
+the Transliterate button writes the file. The fifty-character threshold
+is gone rather than adjusted — it made the short answer the harder one
+to keep.
+
+### Changed
+
+* The demo opens on **Transliterate to IPA** rather than on the corpus
+  downloader.
+* Every language the tab offers now has an example, and each example is
+  a word this project already checks against a published description of
+  that language (Ragagnin, Karlsson, Abish, McCollum, Routledge, Ido,
+  and the Montreal Forced Aligner dictionary). Previously two languages
+  had examples, and the Kazakh one was Russian text.
+* The language selector names its languages instead of listing bare
+  codes, the IPA output has a copy button, and the download slot stays
+  hidden until there is a file in it — all three matching what the
+  corpus tab already did.
+
+### Release process
+
+`git push` is now the whole release. The publish workflow runs on a push
+to `main`, publishes whatever version `pyproject.toml` declares if PyPI
+does not have it, and tags the commit it published. Hand-made tags were
+a second chance to get a release wrong.
+
 ## [0.5.2] - 2026-08-14
 
 ### Fixed
