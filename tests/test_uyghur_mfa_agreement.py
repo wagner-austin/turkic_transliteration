@@ -30,7 +30,7 @@ SAMPLE = Path(__file__).parent / "data" / "uyghur_mfa_sample.tsv"
 # The two transcription conventions separating MFA's notation from this
 # project's, applied to MFA's side. Both are convention, not phonology:
 # the same letters, the same phonemes, different glyph choices.
-CONVENTIONS: tuple[tuple[str, str, str], ...] = (
+NOTATION: tuple[tuple[str, str, str], ...] = (
     ("a", "ɑ", "MFA writes the low back vowel as plain a; McCollum and this project use ɑ"),
     ("ɛ", "æ", "MFA writes the front low vowel as ɛ; McCollum, and kk/az here, use æ"),
 )
@@ -69,7 +69,7 @@ def as_this_project_writes_it(phones: str) -> str:
         The same pronunciation as a plain string in our glyphs.
     """
     text = phones.replace(" ", "")
-    for mfa, ours, _reason in CONVENTIONS:
+    for mfa, ours, _reason in NOTATION:
         text = text.replace(mfa, ours)
     return text
 

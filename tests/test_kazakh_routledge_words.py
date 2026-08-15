@@ -23,8 +23,25 @@ import pytest
 
 from turkic_translit.core import _RULE_DIR, to_ipa
 from turkic_translit.rule_provenance import read_rule_source
+from turkic_translit.testing import as_project_notation
 
-PRIMARY_SOURCE = "https://doi.org/10.1017/S0025100319000185"
+# Abish's Turcological glyphs in this project's notation. The lax
+# near-high vowels carry a combining dot below, so those entries are
+# multi-codepoint and must precede the plain letters they contain.
+NOTATION: tuple[tuple[str, str, str], ...] = (
+    ("ụ̈", "ʏ", "lax high front rounded, her dotted ü, our ʏ for ү"),
+    ("ị", "ɪ", "lax high front unrounded, our ɪ for і"),
+    ("ụ", "ʊ", "lax high back rounded, our ʊ for ұ"),
+    ("ḳ", "q", "her dotted k is the back stop, our q for қ"),
+    ("ï", "ə", "her high back unrounded is the central vowel of the cited source, ы"),
+    ("ö", "ɵ", "her ö is the cited source's central ɵ for ө"),
+    ("γ", "ʁ", "her gamma is the uvular fricative, our ʁ for ғ"),
+    ("ž", "ʒ", "her haček z is the fricative, our ʒ for ж"),
+    ("g", "ɡ", "Turcological g is the IPA voiced velar plosive U+0261"),
+    ("a", "ɑ", "Turcological low back vowel"),
+)
+
+INHERITS_SOURCE = "https://doi.org/10.1017/S0025100319000185"
 CORROBORATING_SOURCE = "https://doi.org/10.4324/9781003243809-22"
 
 # (Cyrillic word, expected IPA, Abish's printed transcription, gloss and page)
@@ -50,7 +67,7 @@ def test_the_declared_source_is_still_the_illustration() -> None:
     """Corroboration adds a source; it does not replace the cited one."""
     declared = read_rule_source(_RULE_DIR / "kk_ipa.rules")
 
-    assert declared["identifier"] == PRIMARY_SOURCE
+    assert declared["identifier"] == INHERITS_SOURCE
 
 
 def test_the_rule_file_names_the_corroborating_description() -> None:
@@ -76,6 +93,7 @@ def test_word_matches_the_printed_transcription(
     """
     assert printed != ""
     assert where != ""
+    assert as_project_notation(printed, NOTATION) == expected
     assert to_ipa(word, "kk") == expected
 
 

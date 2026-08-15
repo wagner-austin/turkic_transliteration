@@ -26,30 +26,29 @@ import pytest
 
 from turkic_translit.core import _RULE_DIR, to_ipa
 from turkic_translit.rule_provenance import read_rule_source
+from turkic_translit.testing import as_project_notation
 
 PRIMARY_SOURCE = "https://doi.org/10.1017/S0025100317000184"
 CORROBORATING_SOURCE = "https://doi.org/10.4324/9781003243809-17"
 
-# Turcological glyph → this project's IPA glyph. A single-pass character
-# translation, not sequential replacement, so no output feeds a later rule
-# (ü→y and y→j would otherwise interact). Length marks are dropped per the
-# rule file's declared simplifications.
-TURCOLOGICAL_TO_IPA: dict[int, str] = {
-    ord("a"): "ɑ",
-    ord("ä"): "æ",
-    ord("ï"): "ɯ",
-    ord("ü"): "y",
-    ord("ö"): "œ",
-    ord("γ"): "ɣ",
-    ord("χ"): "x",
-    ord("č"): "t͡ʃ",
-    ord("ǰ"): "d͡ʒ",
-    ord("š"): "ʃ",
-    ord("ž"): "ʒ",
-    ord("y"): "j",
-    ord("r"): "ɾ",
-    ord("ː"): "",
-}
+# Turcological glyph → this project's IPA glyph, one entry per glyph the
+# words and letter equations below actually contain; the central
+# deviation test rejects entries no datum exercises. Ordered so that no
+# replacement output feeds a later entry's input.
+NOTATION: tuple[tuple[str, str, str], ...] = (
+    ("ä", "æ", "Turcological low front vowel, the chapter's ‹ǝ› equation"),
+    ("ï", "ɯ", "Turcological high back unrounded vowel, the ‹ı› equation"),
+    ("ü", "y", "Turcological high front rounded vowel"),
+    ("γ", "ɣ", "Turcological voiced dorsal fricative, the ‹ğ› equation"),
+    ("χ", "x", "Turcological voiceless dorsal fricative, the ‹x› equation"),
+    ("ǰ", "d͡ʒ", "Turcological voiced affricate"),
+    ("r", "ɾ", "the rules write the rhotic as the tap the Illustration prints"),
+    ("a", "ɑ", "Turcological low back vowel"),
+)
+
+DECLARED_SIMPLIFICATIONS: tuple[tuple[str, str, str], ...] = (
+    ("ː", "", "the rules do not mark length; the chapter's loan long vowels are unwritten"),
+)
 
 # The four words the chapter prints in both spellings. The chapter
 # typesets the schwa letter as ǝ (U+01DD); the Azerbaijani alphabet's
@@ -81,7 +80,7 @@ def in_this_project_glyphs(turcological: str) -> str:
     Returns:
         The same segments in the glyphs az_ipa.rules emits.
     """
-    return turcological.translate(TURCOLOGICAL_TO_IPA)
+    return as_project_notation(turcological, NOTATION, DECLARED_SIMPLIFICATIONS)
 
 
 def test_the_declared_source_is_still_the_illustration() -> None:

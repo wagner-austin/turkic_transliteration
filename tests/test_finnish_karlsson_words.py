@@ -22,6 +22,20 @@ import pytest
 
 from turkic_translit.core import _RULE_DIR, to_ipa
 from turkic_translit.rule_provenance import read_rule_source
+from turkic_translit.testing import as_project_notation
+
+# Karlsson's printed forms are citation forms in brackets; his letter
+# table assigns ⟨v⟩ the value ʋ, so the v glyph of his bracketed forms is
+# the same segment.
+NOTATION: tuple[tuple[str, str, str], ...] = (
+    ("[", "", "citation brackets, not segments"),
+    ("]", "", "citation brackets, not segments"),
+    ("v", "ʋ", "his letter table assigns the letter ʋ, p. 16"),
+)
+
+DECLARED_SIMPLIFICATIONS: tuple[tuple[str, str, str], ...] = (
+    ("ˈ", "", "the rules do not mark stress; Finnish stress is fixed initial"),
+)
 
 PRIMARY_SOURCE = "https://urn.fi/URN:ISBN:9789514289842"
 CORROBORATING_ISBN = "978-1-138-82103-3"
@@ -73,4 +87,5 @@ def test_word_matches_the_printed_ipa(word: str, expected: str, printed: str, wh
     """
     assert printed != ""
     assert where != ""
+    assert as_project_notation(printed, NOTATION, DECLARED_SIMPLIFICATIONS) == expected
     assert to_ipa(word, "fi") == expected

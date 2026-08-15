@@ -51,24 +51,6 @@ GOLD = {
 }
 
 
-def _canonical(ipa: str) -> str:
-    """Normalise alternative glyphs to those emitted by ky_ipa.rules.
-
-    Args:
-        ipa: IPA text using any of the accepted glyph variants.
-
-    Returns:
-        The same transcription in the glyphs the rules emit.
-    """
-    return (
-        ipa.replace("ʤ", "d͡ʒ")
-        .replace("ʦ", "t͡s")
-        .replace("ʧ", "t͡ʃ")
-        .replace("q", "k")
-        .replace("ʁ", "ɡ")
-    )
-
-
 @pytest.mark.parametrize(("cyr", "ipa"), GOLD.items())
 def test_kyrgyz_word_to_ipa(cyr: str, ipa: str) -> None:
     """Each word transcribes to the IPA McCollum records for it.
@@ -77,6 +59,6 @@ def test_kyrgyz_word_to_ipa(cyr: str, ipa: str) -> None:
         cyr: The Kyrgyz word in Cyrillic.
         ipa: The published transcription.
     """
-    predicted = _canonical(ud.normalize("NFC", to_ipa(cyr, "ky")))
-    expected = _canonical(ipa)
+    predicted = ud.normalize("NFC", to_ipa(cyr, "ky"))
+    expected = ipa
     assert predicted == expected, f"{cyr} → {predicted!r}, expected {expected!r}"

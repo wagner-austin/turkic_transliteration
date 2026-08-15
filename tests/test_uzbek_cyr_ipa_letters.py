@@ -18,7 +18,7 @@ from turkic_translit.rule_provenance import read_rule_source
 
 INHERITS_SOURCE = "https://doi.org/10.1017/S0025100324000148"
 
-DECLARED_DEVIATIONS: tuple[tuple[str, str, str], ...] = (
+NOTATION: tuple[tuple[str, str, str], ...] = (
     ("d͡ʑ", "d͡ʒ", "the source writes the alveolo-palatal affricate, p. 153"),
     ("t͡ɕ", "t͡ʃ", "the source writes the alveolo-palatal affricate, p. 153"),
     ("ɕ", "ʃ", "the source writes the alveolo-palatal fricative, p. 153"),
@@ -61,7 +61,7 @@ def as_this_project_writes_it(published: str) -> str:
     Returns:
         The same transcription in the notation these rules produce.
     """
-    for source_symbol, ours, _reason in DECLARED_DEVIATIONS:
+    for source_symbol, ours, _reason in NOTATION:
         published = published.replace(source_symbol, ours)
     return published
 

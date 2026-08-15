@@ -35,7 +35,7 @@ LENGTH_MARK = "ː"
 
 # Applied to the published transcription to obtain what these rules
 # produce.
-DECLARED_DEVIATIONS: tuple[tuple[str, str, str], ...] = (
+NOTATION: tuple[tuple[str, str, str], ...] = (
     (DENTAL, "", "the source marks /t̪ d̪/ dental; these rules leave the place off, p. 25"),
 )
 
@@ -109,7 +109,7 @@ def as_this_project_writes_it(published: str) -> str:
         the dental mark dropped and each doubled segment rewritten with
         the length mark.
     """
-    for source_symbol, ours, _reason in DECLARED_DEVIATIONS:
+    for source_symbol, ours, _reason in NOTATION:
         published = published.replace(source_symbol, ours)
     collapsed: list[str] = []
     for symbol in published:

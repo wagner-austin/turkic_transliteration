@@ -25,13 +25,16 @@ INHERITS_SOURCE = "https://doi.org/10.1017/S0025100300004588"
 # Applied to the published transcription to obtain what these rules
 # produce. Each entry is a simplification the rule file declares, not an
 # adjustment made to force a match.
-DECLARED_DEVIATIONS: tuple[tuple[str, str, str], ...] = (
-    ("ɫ", "l", "the rules carry one lateral; the velarized dental rule is not enabled"),
-    # The source's symbol was read off a 1992 scan and confirmed against
-    # the page by a second reader, since the two glyphs are easy to
-    # confuse and enlarging a scan of that vintage does not settle it.
+# The source's œ was read off a 1992 scan and confirmed against the
+# page by a second reader, since the two glyphs are easy to confuse and
+# enlarging a scan of that vintage does not settle it.
+NOTATION: tuple[tuple[str, str, str], ...] = (
     ("œ", "ø", "the rules write the front rounded mid vowel with the close-mid symbol"),
     ("g", "ɡ", "the journal typesets the voiced velar plosive as U+0067; IPA is U+0261"),
+)
+
+DECLARED_SIMPLIFICATIONS: tuple[tuple[str, str, str], ...] = (
+    ("ɫ", "l", "the rules carry one lateral; the velarized dental rule is not enabled"),
 )
 
 # orthography, Zimmer & Orgun's transcription, gloss, page
@@ -89,7 +92,7 @@ def as_this_project_writes_it(published: str) -> str:
     Returns:
         The same transcription in the notation these rules produce.
     """
-    for source_symbol, ours, _reason in DECLARED_DEVIATIONS:
+    for source_symbol, ours, _reason in (*NOTATION, *DECLARED_SIMPLIFICATIONS):
         published = published.replace(source_symbol, ours)
     return published
 
@@ -133,7 +136,7 @@ def test_a_deviation_is_only_declared_when_it_is_real() -> None:
     A deviation nobody needs is a licence to differ from the source
     without saying why, so the list is held to the ones that do work.
     """
-    for source_symbol, ours, reason in DECLARED_DEVIATIONS:
+    for source_symbol, ours, reason in (*NOTATION, *DECLARED_SIMPLIFICATIONS):
         assert reason != ""
         assert any(source_symbol in published for _o, published, _g, _p in KEYWORDS), (
             f"declared deviation {source_symbol!r} -> {ours!r} applies to no keyword"
