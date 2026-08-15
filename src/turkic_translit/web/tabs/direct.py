@@ -18,23 +18,43 @@ from __future__ import annotations
 
 import logging
 import time
+from collections.abc import Mapping
 from pathlib import Path
 
 import gradio as gr
 
-from turkic_translit.lang_utils import pretty_lang
-from turkic_translit.web.web_utils import direct_transliterate, download_dir
+from turkic_translit.web.web_utils import direct_transliterate, download_dir, labelise
 
 logger = logging.getLogger(__name__)
 
-MIN_CHARS_FOR_DOWNLOAD = 50
+# One example per language the tab offers, and every word is one this
+# project already checks against a published description of that
+# language — the same words the gold-standard test modules pin the rules
+# against. A visitor's first click therefore lands on output the
+# literature agrees with, which is the whole claim this demo makes.
+#
+# tests/test_web_tab_direct.py fails when a word here is not one of those
+# words, and when this table's languages are not exactly the offered
+# ones, so a new rule file cannot arrive without an example. The
+# previous pair pinned two codes by hand, showed Russian text under the
+# Kazakh one, and left the other six languages with no example at all.
+EXAMPLE_WORDS: Mapping[str, str] = {
+    "az": "kitab",  # 'book', Ragagnin p. 244
+    "fi": "rengas",  # 'tyre', Karlsson p. 14
+    "kk": "құс",  # 'bird', Abish p. 337
+    "ky": "көл",  # McCollum, monosyllabic roots, Table 3
+    "tr": "dağ",  # soft g lengthens the vowel, Routledge p. 195
+    "ug": "ئوخشاش",  # Montreal Forced Aligner dictionary sample
+    "uz": "besh",  # 'five', Ido p. 154
+    "uzc": "беш",  # 'five', Ido p. 154
+}
 
 __all__ = [
-    "MIN_CHARS_FOR_DOWNLOAD",
+    "EXAMPLE_WORDS",
     "ipa_languages",
-    "language_info",
     "register",
     "transliterate_request",
+    "transliterated_download",
 ]
 
 
@@ -68,24 +88,7 @@ def ipa_languages() -> list[str]:
     return sorted(code for code, fmts in get_supported_languages().items() if "ipa" in fmts)
 
 
-def language_info(codes: list[str]) -> str:
-    """Summarise the language list for the radio group's caption.
-
-    Args:
-        codes: Language codes the radio group offers, in display order.
-
-    Returns:
-        The first three codes with their names, and a count of the rest.
-    """
-    shown = ", ".join(f"{code} = {pretty_lang(code)}" for code in codes[:3])
-    if len(codes) > 3:
-        return f"{shown}, +{len(codes) - 3} more"
-    return shown
-
-
-def transliterate_request(
-    text: str, lang: str, file_path: str | None = None
-) -> tuple[str, str, str | None]:
+def transliterate_request(text: str, lang: str, file_path: str | None = None) -> tuple[str, str]:
     """Transliterate the text box or the uploaded file to IPA.
 
     Args:
@@ -95,34 +98,59 @@ def transliterate_request(
             ``None`` when nothing was uploaded.
 
     Returns:
-        The IPA output, a Markdown status line, and the path of a
-        downloadable copy when the result is long enough to want one.
+        The IPA output and a Markdown status line. Nothing is written to
+        disk: this runs on every keystroke, and the previous version
+        wrote a timestamped file on each one whose output passed fifty
+        characters, so typing a paragraph left a hundred files behind.
     """
     if file_path:
         text = _handle_file_upload(file_path)
         if text.startswith("Error reading file:"):
-            return "", f"**{text}**", None
+            return "", f"**{text}**"
     if not text.strip():
-        return "", "*Please enter some text to transliterate or upload a file*", None
+        return "", "*Please enter some text to transliterate or upload a file*"
 
     try:
         result, stats_md = direct_transliterate(text, lang, False, "ipa")
     except ValueError as exc:
         logger.warning("transliteration of %s failed: %s", lang, exc)
-        return "", f"**Error**: {exc!s}", None
+        return "", f"**Error**: {exc!s}"
 
     if file_path:
         stats_md += "\n*Source: Uploaded file*"
+    return result, stats_md
 
-    if len(result) <= MIN_CHARS_FOR_DOWNLOAD:
-        return result, stats_md, None
+
+def transliterated_download(
+    text: str, lang: str, file_path: str | None = None
+) -> tuple[str, str, gr.File]:
+    """Transliterate, and write the result out for downloading.
+
+    Asking for a file is what the button means, so length no longer
+    decides it. The previous rule offered a download above fifty
+    characters and withheld one below, which made the shorter answer the
+    harder one to keep.
+
+    Args:
+        text: Text typed into the box.
+        lang: Language code selected in the radio group.
+        file_path: Uploaded file, which takes precedence over the box, or
+            ``None`` when nothing was uploaded.
+
+    Returns:
+        The IPA output, a Markdown status line, and the download slot —
+        holding the written file, or empty and hidden when there was no
+        output to write.
+    """
+    result, stats_md = transliterate_request(text, lang, file_path)
+    if not result:
+        return result, stats_md, gr.File(value=None, visible=False)
 
     stamp = time.strftime("%Y%m%d_%H%M%S")
     filename = f"transliteration_{lang}_ipa_{stamp}.txt"
     target = download_dir() / filename
     target.write_text(result, encoding="utf-8")
-    stats_md += f"\n*File ready for download: {filename}*"
-    return result, stats_md, str(target)
+    return result, stats_md, gr.File(value=str(target), visible=True)
 
 
 def register() -> None:
@@ -159,54 +187,50 @@ def register() -> None:
 
         with gr.Row():
             with gr.Column(scale=3):
-                # Only expose languages that have an `{lang}_ipa.rules` file.
+                # Only expose languages that have an `{lang}_ipa.rules` file,
+                # named as the corpus tab names them rather than by bare code.
                 lang_choices = ipa_languages()
                 lang = gr.Radio(
-                    lang_choices,
+                    labelise(lang_choices),
                     label="Language",
                     value=lang_choices[0],
-                    info=language_info(lang_choices),
                 )
 
             with gr.Column(scale=7):
-                output = gr.Textbox(label="Output (IPA)", lines=4, interactive=False)
+                output = gr.Textbox(
+                    label="Output (IPA)",
+                    lines=4,
+                    interactive=False,
+                    buttons=["copy"],
+                )
                 stats = gr.Markdown()
-                download_file = gr.File(label="Download Result", elem_id="download-output")
+                # Empty until the button writes something into it, like
+                # the corpus tab's transliterated-file slot.
+                download_file = gr.File(
+                    label="Download Result",
+                    elem_id="download-output",
+                    visible=False,
+                )
 
         with gr.Row(elem_classes=["examples-row"]):
             gr.Examples(
-                examples=[
-                    ["Пример текста", "kk", None],
-                    ["Merhaba dünya", "tr", None],
-                ],
+                examples=[[EXAMPLE_WORDS[code], code, None] for code in lang_choices],
                 inputs=[
                     translit_textbox,
                     lang,
                     translit_upload_file,
                 ],
                 outputs=[output, stats, download_file],
-                fn=transliterate_request,
+                fn=transliterated_download,
                 label="Try these examples",
             )
             btn = gr.Button("Transliterate", variant="primary")
 
-        btn.click(
-            transliterate_request,
-            [translit_textbox, lang, translit_upload_file],
-            [output, stats, download_file],
-        )
-        translit_textbox.change(
-            transliterate_request,
-            [translit_textbox, lang, translit_upload_file],
-            [output, stats, download_file],
-        )
-        lang.change(
-            transliterate_request,
-            [translit_textbox, lang, translit_upload_file],
-            [output, stats, download_file],
-        )
-        translit_upload_file.change(
-            transliterate_request,
-            [translit_textbox, lang, translit_upload_file],
-            [output, stats, download_file],
-        )
+        # Typing, switching language and uploading all show the result;
+        # only the button writes a file, because only the button was
+        # asked for one.
+        inputs = [translit_textbox, lang, translit_upload_file]
+        btn.click(transliterated_download, inputs, [output, stats, download_file])
+        translit_textbox.change(transliterate_request, inputs, [output, stats])
+        lang.change(transliterate_request, inputs, [output, stats])
+        translit_upload_file.change(transliterate_request, inputs, [output, stats])

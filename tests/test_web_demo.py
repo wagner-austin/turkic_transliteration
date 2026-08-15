@@ -118,7 +118,7 @@ def test_the_application_builds_with_both_tabs(installed_ui: None) -> None:
 
     tabs = [block.label for block in application.blocks.values() if isinstance(block, gr.Tab)]
     assert application.title == "Turkic Transliteration Suite"
-    assert tabs == ["📥 Download Corpus", "📝 Transliterate to IPA"]
+    assert tabs == ["📝 Transliterate to IPA", "📥 Download Corpus"]
 
 
 def test_the_entry_point_builds_and_serves(installed_ui: None) -> None:

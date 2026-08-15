@@ -122,11 +122,15 @@ def build_ui() -> gr.Blocks:
 
             _tab.register()
 
+        # Transliteration leads because it is what this project is for.
+        # The corpus tab led until now, so a visitor's first screen was
+        # a downloader for a gated dataset rather than the thing the
+        # demo exists to show.
         with gr.Tabs():
-            with gr.Tab("📥 Download Corpus", id="corpus"):
-                _corpus_tab()
             with gr.Tab("📝 Transliterate to IPA", id="direct"):
                 _direct_tab()
+            with gr.Tab("📥 Download Corpus", id="corpus"):
+                _corpus_tab()
 
         gr.Markdown(
             """
