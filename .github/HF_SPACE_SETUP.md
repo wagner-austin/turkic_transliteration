@@ -45,12 +45,41 @@ You can also manually trigger the sync from GitHub:
 
 ## How It Works
 
-1. When you push to `main` (e.g., after running your release script), the GitHub Action activates
-2. It reads your current version from `pyproject.toml`
-3. It clones your HF Space repo: `AustinWagner/turkic-transliteration-demo`
-4. It makes a commit to trigger a rebuild
-5. It pushes to HF, which triggers Hugging Face to rebuild the Space
-6. The Space's `requirements.txt` has `turkic-translit[ui]>=0.3.2`, so it pulls the latest version from PyPI
+Nothing on the Space is edited by hand. Every file it holds is written from
+this repository, so the only way to change the demo is to push here.
+
+1. A push to `main` touching `src/`, `app.py`, `pyproject.toml`,
+   `.github/hf-space/`, or the sync script activates the workflow
+2. `python -m scripts.hf_space --print-version` reads the version from
+   `pyproject.toml`, and the job waits until PyPI has published it
+3. The Space is cloned, and `python -m scripts.hf_space --space hf-space`
+   writes three files into it:
+   - `README.md` — the Space card, copied from `.github/hf-space/README.md`
+   - `requirements.txt` — `turkic-translit==<version>`, and nothing else,
+     because everything the demo needs is already a dependency of the package
+   - `app.py` — the entry point named by the card's `app_file`
+4. The commit is pushed, which makes Hugging Face rebuild
+5. The job polls the Space's runtime API until the build settles, and **fails
+   if it settles on an error**. A broken Space is a red workflow run, not a
+   green one
+
+### The pair that has to agree
+
+A Space build installs the SDK version named on its card *alongside* the
+packages in `requirements.txt`. So the card's `sdk_version` and the `gradio`
+requirement in `pyproject.toml` are one setting written in two files, and when
+they disagree pip refuses to install anything. That is what broke the demo:
+the package moved to `gradio>=6.0,<7` while the card still said `5.29.0`.
+
+Two checks now hold them together:
+
+- `tests/test_hf_space.py` fails in `make check` when the card's SDK falls
+  outside the requirement
+- `scripts/hf_space.py` refuses to write the Space at all when it does
+
+Raising the Gradio floor in `pyproject.toml` therefore means editing
+`sdk_version` in `.github/hf-space/README.md` in the same commit. The test
+names the pair that broke, so there is nothing to remember.
 
 ## Troubleshooting
 
@@ -58,6 +87,12 @@ You can also manually trigger the sync from GitHub:
 - Check the Actions tab: https://github.com/wagner-austin/turkic_transliteration/actions
 - Verify your secrets are set correctly
 - Make sure your HF token has write permissions
+
+**Workflow failed at "Wait for the Space to build"?**
+- The push landed; the build did not. The step prints Hugging Face's own
+  error message, and the full log is under the Space's Logs → Build tab
+- A dependency conflict there is nearly always the card-versus-pyproject pair
+  described above, or a package the Space installs that the wheel cannot
 
 **Want to update Space immediately after PyPI release?**
 - Option 1: Push your version bump commit to main

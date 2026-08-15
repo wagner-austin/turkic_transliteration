@@ -6987,7 +6987,7 @@ type = ["pytest-mypy"]
 
 [extras]
 corpus = ["datasets", "pyarrow"]
-dev = ["build", "make", "mypy", "pandas-stubs", "panphon", "protobuf", "pytest", "pytest-cov", "pytest-timeout", "pytest-xdist", "ruff", "sentry-sdk", "twine", "types-PyYAML", "types-tqdm"]
+dev = ["build", "make", "mypy", "packaging", "pandas-stubs", "panphon", "protobuf", "pytest", "pytest-cov", "pytest-timeout", "pytest-xdist", "ruff", "sentry-sdk", "twine", "types-PyYAML", "types-tqdm"]
 examples = ["flask", "jupyterlab", "streamlit"]
 sentry = ["sentry-sdk"]
 winlid = []
@@ -6995,4 +6995,4 @@ winlid = []
 [metadata]
 lock-version = "2.1"
 python-versions = ">=3.10"
-content-hash = "5dd579672ee198c17ebb49cc358acbc6a9c31a5e3607aa074861caa846befd19"
+content-hash = "cfb2d6dc6aeba5f1daa429cb4f4a8338090f4fcb7c3fd8a4e87b3e253e4b9e03"

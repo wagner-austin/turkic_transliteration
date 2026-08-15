@@ -1,9 +1,23 @@
 name: Sync to Hugging Face Space
 
-# Runs on any push to main that touches source or packaging metadata. The
-# workflow keeps the Hugging Face Space's ``requirements.txt`` in lockstep
-# with the version declared in ``pyproject.toml`` — every release then
-# needs only a bump in pyproject and a push. No manual demo edits.
+# One push to main updates the demo, and nothing on huggingface.co is
+# ever edited by hand. The Space's card, its entry point and its pinned
+# requirement are all written from this repository by
+# ``scripts/hf_space.py``, so the two copies cannot drift.
+#
+# They drifted once and it cost the demo a day. The Space's card still
+# declared ``sdk_version: 5.29.0`` after the package moved its Gradio
+# floor to 6.0, and a Space build installs the SDK named on its card
+# alongside the packages in requirements.txt, so pip was handed
+# ``gradio==5.29.0`` and ``gradio>=6.0`` in one resolution and refused
+# both. Neither file was wrong on its own, which is why the pair is
+# what ``tests/test_hf_space.py`` asserts and what the renderer refuses
+# to publish when it does not hold.
+#
+# The job then waits for the build it triggered and fails when that
+# build fails. The version before this one pushed and reported success
+# without looking, so a Space that could not install looked exactly
+# like a Space that could.
 
 on:
   push:
@@ -11,8 +25,15 @@ on:
       - main
     paths:
       - 'src/**'
+      - 'app.py'
       - 'pyproject.toml'
+      - '.github/hf-space/**'
+      - 'scripts/hf_space.py'
+      - '.github/workflows/sync-to-hf-space.yml'
   workflow_dispatch:
+
+env:
+  SPACE_NAME: turkic-transliteration-demo
 
 jobs:
   sync-space:
@@ -20,14 +41,20 @@ jobs:
     steps:
       - name: Checkout main repo
         uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
 
-      - name: Extract version from pyproject.toml
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install the renderer's one dependency
+        run: python -m pip install --upgrade packaging
+
+      - name: Read the version from pyproject.toml
         id: version
         run: |
-          VERSION=$(grep -E '^version = ' pyproject.toml | sed -E 's/version = "(.*)"/\1/')
-          echo "version=$VERSION" >> $GITHUB_OUTPUT
+          VERSION="$(python -m scripts.hf_space --print-version)"
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
           echo "Detected version: $VERSION"
 
       - name: Wait for PyPI to publish the new version
@@ -51,42 +78,85 @@ jobs:
           HF_TOKEN: ${{ secrets.HF_TOKEN }}
           HF_USERNAME: ${{ secrets.HF_USERNAME }}
         run: |
-          git clone "https://$HF_USERNAME:$HF_TOKEN@huggingface.co/spaces/$HF_USERNAME/turkic-transliteration-demo" hf-space
+          git clone "https://$HF_USERNAME:$HF_TOKEN@huggingface.co/spaces/$HF_USERNAME/$SPACE_NAME" hf-space
           cd hf-space
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
 
-      - name: Bump turkic-translit pin in requirements.txt
-        working-directory: hf-space
-        run: |
-          VERSION="${{ steps.version.outputs.version }}"
-          if [ ! -f requirements.txt ]; then
-            echo "ERROR: requirements.txt not found on the Space." >&2
-            exit 1
-          fi
-          # Replace `turkic-translit[extras]==X.Y.Z` with the new version.
-          # Preserves the extras marker so the UI extra stays in place.
-          sed -i -E "s|^(turkic-translit(\[[^]]+\])?)==[0-9]+(\.[0-9]+)*(\.[0-9A-Za-z_-]+)?|\1==${VERSION}|" requirements.txt
-          echo "requirements.txt after bump:"
-          grep -E '^turkic-translit' requirements.txt
+      # Refuses to write anything when the card's SDK falls outside the
+      # package's Gradio requirement, so the resolution that broke the
+      # build cannot be pushed even if the tests were never run.
+      - name: Render the Space from this repository
+        run: python -m scripts.hf_space --space hf-space
 
-      - name: Append sync marker to README
-        working-directory: hf-space
+      # What the Space reports now, so the wait below can tell the build
+      # this push triggers from the one that preceded it.
+      - name: Note the stage the Space is in before the push
+        id: before
+        env:
+          HF_USERNAME: ${{ secrets.HF_USERNAME }}
         run: |
-          echo "" >> README.md
-          echo "<!-- Last synced: $(date -u +"%Y-%m-%d %H:%M:%S UTC") from main repo version ${{ steps.version.outputs.version }} -->" >> README.md
+          stage="$(curl -sf "https://huggingface.co/api/spaces/$HF_USERNAME/$SPACE_NAME/runtime" \
+            | python -c 'import json,sys; print(json.load(sys.stdin).get("stage",""))' || true)"
+          echo "stage=$stage" >> "$GITHUB_OUTPUT"
+          echo "The Space is currently $stage."
 
       - name: Commit and push
         working-directory: hf-space
-        env:
-          HF_TOKEN: ${{ secrets.HF_TOKEN }}
         run: |
-          if git diff --quiet; then
-            echo "No effective changes to commit; creating empty commit to trigger rebuild."
-            git commit --allow-empty -m "Trigger rebuild for PyPI version ${{ steps.version.outputs.version }}"
+          git add README.md requirements.txt app.py
+          if git diff --cached --quiet; then
+            echo "The rendered files match what the Space already holds; forcing a rebuild."
+            git commit --allow-empty -m "Rebuild on turkic-translit==${{ steps.version.outputs.version }}"
           else
-            git add requirements.txt README.md
-            git commit -m "Sync: bump turkic-translit==${{ steps.version.outputs.version }}"
+            git commit -m "Sync: turkic-translit==${{ steps.version.outputs.version }}"
           fi
           git push origin main
-          echo "Successfully pushed to Hugging Face Space; rebuild will follow automatically."
+
+      - name: Wait for the Space to build
+        env:
+          HF_USERNAME: ${{ secrets.HF_USERNAME }}
+          PREVIOUS_STAGE: ${{ steps.before.outputs.stage }}
+        run: |
+          API="https://huggingface.co/api/spaces/$HF_USERNAME/$SPACE_NAME/runtime"
+          attempts=160
+          settled=0
+
+          for attempt in $(seq 1 $attempts); do
+            runtime="$(curl -sf "$API" || true)"
+            stage="$(printf '%s' "$runtime" \
+              | python -c 'import json,sys; print(json.load(sys.stdin).get("stage",""))' || true)"
+
+            case "$stage" in
+              BUILDING|APP_STARTING|RUNNING_BUILDING|RUNNING_APP_STARTING)
+                # The build this push triggered has started, so whatever
+                # the Space settles on next is this run's result.
+                settled=1
+                echo "Attempt $attempt/$attempts: $stage."
+                ;;
+              RUNNING|SLEEPING|PAUSED)
+                if [ "$settled" = "1" ] || [ "$stage" != "$PREVIOUS_STAGE" ]; then
+                  echo "The Space is $stage: https://huggingface.co/spaces/$HF_USERNAME/$SPACE_NAME"
+                  exit 0
+                fi
+                echo "Attempt $attempt/$attempts: still $stage from before the push."
+                ;;
+              BUILD_ERROR|CONFIG_ERROR|RUNTIME_ERROR|NO_APP_FILE)
+                if [ "$settled" = "1" ] || [ "$stage" != "$PREVIOUS_STAGE" ]; then
+                  echo "::error::The Space is $stage after this push."
+                  printf '%s' "$runtime" \
+                    | python -c 'import json,sys; print(json.load(sys.stdin).get("errorMessage",""))' \
+                    || true
+                  exit 1
+                fi
+                echo "Attempt $attempt/$attempts: still $stage from before the push."
+                ;;
+              *)
+                echo "Attempt $attempt/$attempts: stage reported as '$stage'."
+                ;;
+            esac
+            sleep 15
+          done
+
+          echo "::error::The Space had not settled 40 minutes after the push; last stage '$stage'."
+          exit 1

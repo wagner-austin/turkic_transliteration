@@ -112,6 +112,10 @@ dev = [
     "types-PyYAML>=6.0",   # Type stubs for the corpus source registry loader
     "pandas-stubs>=2.0",   # Type stubs for the web UI's token table
     "types-tqdm>=4.66",    # Type stubs for the corpus and encoding progress bars
+    # scripts/hf_space.py compares the Gradio SDK the Space installs
+    # against the requirement declared above. Both sides are PEP 440,
+    # and this is the library that reads PEP 440 correctly.
+    "packaging>=23.0",
     # 0.21.x imports pkg_resources, which setuptools 81 removed, so the
     # module cannot be imported at all below 0.22.
     "panphon>=0.22,<0.23",  # Phonological features; only tests/test_verification.py

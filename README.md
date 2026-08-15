@@ -1,22 +1,12 @@
----
-title: Turkic Transliteration Demo
-emoji: 🌖
-colorFrom: green
-colorTo: green
-sdk: gradio
-sdk_version: 5.29.0
-app_file: app.py
-pinned: false
-license: apache-2.0
-short_description: Transliteration of Turkic languages into Latin and IPA
----
-
 # Turkic Transliteration
 
-*(The YAML block above is Hugging Face Space configuration — this repo doubles as
-the deployment source for the live demo.)*
-
 **Try it:** <https://huggingface.co/spaces/AustinWagner/turkic-transliteration-demo>
+
+*(This repo is the deployment source for that demo. The Space's card lives at
+`.github/hf-space/README.md`; a push to `main` writes it, `app.py` and the
+pinned requirement onto the Space. This README used to carry a second copy of
+that card, which is how the Space came to install a Gradio the package no
+longer accepted.)*
 
 Deterministic Latin and IPA transliteration for Turkic languages, plus helper
 utilities for corpus building, tokenizer/LM training, and Russian-token
