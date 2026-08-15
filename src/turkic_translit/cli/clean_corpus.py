@@ -128,6 +128,8 @@ def render(report: CleanReport) -> str:
             f"(duplicate {stats['dropped_duplicate']:,}, "
             f"short {stats['dropped_short']:,}, "
             f"junk {stats['dropped_low_ipa']:,}), "
+            f"dropped {stats['dropped_foreign_tokens']:,} foreign tokens, "
+            f"replaced {stats['chars_replaced']:,} chars, "
             f"wrote {stats['chars_written']:,} chars"
         )
     lines.append(
