@@ -5,7 +5,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "turkic-translit"
-version = "0.5.5"
+version = "0.5.6"
 description = "Deterministic Latin and IPA transliteration for Kazakh, Kyrgyz, Uzbek, Turkish, Azerbaijani, Uyghur, Finnish, plus tokenizer/glue scripts."
 authors = [ {name="Austin Wagner", email="austinwagner@msn.com"} ]
 # 3.10 is the real floor, and was already the floor everywhere except
@@ -104,7 +104,6 @@ examples = [
     "streamlit",
     "jupyterlab",
 ]
-winlid = []
 sentry = [
     "sentry-sdk>=2.0",
 ]
@@ -142,13 +141,11 @@ dev = [
 
 [project.scripts]
 turkic-translit = "turkic_translit.cli:main"
-turkic-pyicu-install = "turkic_translit.pyicu_install:main"
 turkic-filter-russian = "turkic_translit.cli.filter_russian:main"
 turkic-download-corpus = "turkic_translit.cli.download_corpus:cli"
 turkic-clean-corpus = "turkic_translit.cli.clean_corpus:cli"
 turkic-build-spm = "turkic_translit.cli.build_spm:main"
 turkic-leven = "turkic_translit.cli.run_leven:main"
-turkic-web = "turkic_translit.web.web_demo:main"
 turkic-train-lm = "turkic_translit.cli.train_lm:cli"
 turkic-eval-lm  = "turkic_translit.cli.eval_lm:cli"
 turkic-train-spm = "turkic_translit.cli.train_spm:main"
@@ -214,8 +211,11 @@ allowed-confusables = [
     "Р", "р", "С", "с", "Т", "У", "у", "Х", "х", "І", "і",
     "Ј", "Ѕ", "ѕ", "һ", "ґ", "ғ", "б", "г", "з", "п", "ч", "ү",
     # Turkish and Azerbaijani dotless i, and the Uzbek modifier apostrophes
-    # in both codepoints web text spells them with
-    "ı", "ʻ", "ʼ",
+    # in both codepoints web text spells them with. The left quotation
+    # mark and the right half ring join them because the apostrophe
+    # character class the rules match spells all of these, and a test
+    # that states that class has to be able to write it out.
+    "ı", "ʻ", "ʼ", "‘", "ʾ",
     # Guillemets, the linguistic convention for citing an orthographic form
     "‹", "›",
     # Greek gamma as Ragagnin's Turcological transcription prints it

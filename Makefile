@@ -3,11 +3,11 @@ SHELL := powershell.exe
 
 .PHONY: install lint guard test check clean build web
 
-# Install dependencies, including the Windows PyICU wheel which PyPI rules
-# prevent pip from resolving automatically.
+# Install dependencies. ICU arrives with them: pyicu-wheels publishes the
+# extension prebuilt, so there is no wheel to fetch by hand any more, on
+# Windows or anywhere else.
 install:
 	poetry install --extras dev --no-ansi
-	if ($$IsWindows -or $$env:OS -eq 'Windows_NT') { poetry run python -m turkic_translit.pyicu_install }
 
 # Guards: no Any/cast/object/type-ignore/TypeAlias/suppress, no silent excepts,
 # no print in src, no weak or fake tests. Covers src, tests and scripts.
@@ -41,4 +41,4 @@ build: clean install
 	poetry run python -m build
 
 web: install
-	poetry run python turkic_tools.py web
+	poetry run turkic-translit web

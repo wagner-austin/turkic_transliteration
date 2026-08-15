@@ -46,34 +46,23 @@ def without_pyicu() -> Iterator[None]:
     _icu_trans.cache_clear()
 
 
-@pytest.mark.parametrize(
-    ("platform", "expected"),
-    [
-        ("win32", "turkic-pyicu-install"),
-        ("linux", "libicu-dev"),
-        ("darwin", "brew install icu4c"),
-    ],
-)
-def test_each_known_platform_gets_its_own_command(platform: str, expected: str) -> None:
-    """The message names the command that works on that platform.
+@pytest.mark.parametrize("platform", ["win32", "linux", "darwin", "aix"])
+def test_the_message_names_the_platform_and_the_one_command(platform: str) -> None:
+    """Every platform gets the same instruction, because it is the same.
+
+    ICU is a declared dependency now, so a missing one means the
+    install is incomplete rather than that the reader must go and
+    prepare their operating system. The message said the opposite for
+    as long as PyICU had to be built by hand, and named a different
+    command per platform to say it.
 
     Args:
         platform: Value of ``sys.platform``.
-        expected: A fragment of the command for that platform.
     """
     message = missing_icu_message("3.11", platform)
 
-    assert expected in message
-    assert "PyICU missing on Python 3.11" in message
-    assert platform in message
-
-
-def test_an_unrecorded_platform_gets_generic_advice() -> None:
-    """A platform with no recorded command still gets a usable message."""
-    message = missing_icu_message("3.11", "aix")
-
-    assert "Please install the ICU C++ libraries for your platform." in message
-    assert "PyICU missing on Python 3.11 (aix)" in message
+    assert f"PyICU missing on Python 3.11 ({platform})" in message
+    assert "pip install --force-reinstall turkic-translit" in message
 
 
 def test_an_absent_pyicu_is_reported_with_install_advice(without_pyicu: None) -> None:

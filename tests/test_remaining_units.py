@@ -9,10 +9,7 @@ one.
 
 from __future__ import annotations
 
-import json
 import logging
-import platform
-import subprocess
 import sys
 from collections.abc import Iterator
 from contextlib import ExitStack
@@ -31,7 +28,6 @@ from turkic_translit.lid.registry import get_spec, resolve_model_path
 from turkic_translit.lid.spec import decode_lid_model_spec, encode_lid_model_spec
 from turkic_translit.logging_config import JSON_FORMAT, default_level, setup
 from turkic_translit.tokenizer import DEFAULT_MODEL_NAME, default_model_path
-from turkic_translit.wheels import PLATFORM_TAG, ReleaseAsset, encode_release_asset
 
 
 def as_url(path: Path) -> str:
@@ -159,65 +155,6 @@ def test_the_encoded_specification_carries_every_field() -> None:
         "script_aware",
         "url",
     ]
-
-
-def test_the_running_interpreter_reports_this_process() -> None:
-    """The production interpreter answers about the process running it."""
-    reader = _test_hooks.RunningInterpreter()
-
-    assert reader.platform_name() == platform.system()
-    assert reader.version() == (sys.version_info.major, sys.version_info.minor)
-    assert reader.executable() == sys.executable
-
-
-def test_the_release_index_reads_and_validates_a_release(tmp_path: Path) -> None:
-    """A captured API response decodes into validated assets."""
-    wheel: ReleaseAsset = {
-        "name": f"pyicu-2.15-cp313-cp313-{PLATFORM_TAG}.whl",
-        "download_url": "https://example.invalid/wheel.whl",
-    }
-    response = tmp_path / "release.json"
-    response.write_text(
-        json.dumps({"assets": [encode_release_asset(wheel), "not an object"]}),
-        encoding="utf-8",
-    )
-
-    assets = _test_hooks.GitHubReleaseIndex().latest_assets(as_url(response))
-
-    assert assets == (wheel,)
-
-
-def test_a_release_that_is_not_an_object_publishes_nothing(tmp_path: Path) -> None:
-    """A response that is a list carries no assets to choose from."""
-    response = tmp_path / "release.json"
-    response.write_text(json.dumps(["unexpected"]), encoding="utf-8")
-
-    assert _test_hooks.GitHubReleaseIndex().latest_assets(as_url(response)) == ()
-
-
-def test_a_release_whose_assets_are_not_a_list_publishes_nothing(tmp_path: Path) -> None:
-    """A malformed ``assets`` field is the same as an empty release."""
-    response = tmp_path / "release.json"
-    response.write_text(json.dumps({"assets": {"name": "x"}}), encoding="utf-8")
-
-    assert _test_hooks.GitHubReleaseIndex().latest_assets(as_url(response)) == ()
-
-
-def test_the_release_index_downloads_to_the_named_path(tmp_path: Path) -> None:
-    """The wheel's bytes land at the destination the caller chose."""
-    source = tmp_path / "source.whl"
-    source.write_bytes(b"wheel bytes")
-    destination = tmp_path / "downloaded.whl"
-
-    _test_hooks.GitHubReleaseIndex().download(as_url(source), destination)
-
-    assert destination.read_bytes() == b"wheel bytes"
-
-
-def test_the_pip_installer_reports_a_failed_installation(tmp_path: Path) -> None:
-    """A wheel that does not exist makes pip exit non-zero, and it raises."""
-    with pytest.raises(subprocess.CalledProcessError):
-        _test_hooks.PipInstaller().install(sys.executable, tmp_path / "absent.whl")
 
 
 def test_the_input_sentinel_selects_standard_input() -> None:

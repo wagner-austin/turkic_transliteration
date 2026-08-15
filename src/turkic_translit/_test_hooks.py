@@ -21,18 +21,11 @@ The module is private because the seam is internal to this package.
 
 from __future__ import annotations
 
-import json
 import os
-import platform
-import subprocess
-import sys
 import time
-import urllib.request
-from collections.abc import Mapping, Sequence
+from collections.abc import Mapping
 from pathlib import Path
 from typing import Protocol
-
-from turkic_translit.wheels import ReleaseAsset, decode_release_asset
 
 
 class Environment(Protocol):
@@ -93,221 +86,6 @@ class MappingEnvironment:
             The stored value, or ``None`` when it was not provided.
         """
         return self._values.get(name)
-
-
-class Interpreter(Protocol):
-    """The facts about the running interpreter the bootstrap branches on."""
-
-    def platform_name(self) -> str:
-        """Name the operating system.
-
-        Returns:
-            The platform name, e.g. ``Windows`` or ``Linux``.
-        """
-        ...
-
-    def version(self) -> tuple[int, int]:
-        """Report the running Python version.
-
-        Returns:
-            Major and minor version numbers.
-        """
-        ...
-
-    def executable(self) -> str:
-        """Name the interpreter to invoke for child processes.
-
-        Returns:
-            Path to the running interpreter.
-        """
-        ...
-
-
-class RunningInterpreter:
-    """Interpreter facts read from the live process."""
-
-    def platform_name(self) -> str:
-        """Name the operating system.
-
-        Returns:
-            The value :func:`platform.system` reports.
-        """
-        return platform.system()
-
-    def version(self) -> tuple[int, int]:
-        """Report the running Python version.
-
-        Returns:
-            The major and minor components of ``sys.version_info``.
-        """
-        major, minor = sys.version_info[:2]
-        return (major, minor)
-
-    def executable(self) -> str:
-        """Name the running interpreter.
-
-        Returns:
-            The value of ``sys.executable``.
-        """
-        return sys.executable
-
-
-class DescribedInterpreter:
-    """Interpreter facts stated outright rather than probed.
-
-    A real implementation of :class:`Interpreter`, not a mock: it answers
-    the three questions and records nothing, so a test can only observe
-    what the code under test did with the answers.
-
-    Args:
-        platform_name: Operating system to report.
-        version: Major and minor Python version to report.
-        executable: Interpreter path to report.
-    """
-
-    def __init__(self, platform_name: str, version: tuple[int, int], executable: str) -> None:
-        """Store the three facts this interpreter reports."""
-        self._platform_name = platform_name
-        self._version = version
-        self._executable = executable
-
-    def platform_name(self) -> str:
-        """Return the stated operating system.
-
-        Returns:
-            The name given at construction.
-        """
-        return self._platform_name
-
-    def version(self) -> tuple[int, int]:
-        """Return the stated Python version.
-
-        Returns:
-            The version given at construction.
-        """
-        return self._version
-
-    def executable(self) -> str:
-        """Return the stated interpreter path.
-
-        Returns:
-            The path given at construction.
-        """
-        return self._executable
-
-
-class ReleaseIndex(Protocol):
-    """The GitHub releases the bootstrap takes wheels from."""
-
-    def latest_assets(self, api_url: str) -> tuple[ReleaseAsset, ...]:
-        """List every asset attached to the latest release.
-
-        Args:
-            api_url: Releases endpoint to query.
-
-        Returns:
-            The assets, in the order the API published them.
-
-        Raises:
-            FieldError: If an asset is missing its name or its URL.
-        """
-        ...
-
-    def download(self, url: str, destination: Path) -> None:
-        """Fetch a wheel to a local path.
-
-        Args:
-            url: Absolute URL of the wheel.
-            destination: Path to write the bytes to.
-
-        Raises:
-            URLError: If the URL is unreachable or does not exist.
-        """
-        ...
-
-
-class GitHubReleaseIndex:
-    """Release index backed by the GitHub API and plain HTTP downloads."""
-
-    def latest_assets(self, api_url: str) -> tuple[ReleaseAsset, ...]:
-        """Read the latest release's assets from the API.
-
-        A response that is not an object, or whose ``assets`` is not a
-        list, yields no assets rather than an exception: the caller
-        reports "this release publishes no wheel for you", which is the
-        same outcome and names the interpreter that needs one.
-
-        Args:
-            api_url: Releases endpoint to query.
-
-        Returns:
-            The validated assets, in API order.
-
-        Raises:
-            FieldError: If an asset is missing its name or its URL.
-        """
-        with urllib.request.urlopen(api_url) as response:
-            document = json.load(response)
-        if not isinstance(document, Mapping):
-            return ()
-        assets = document.get("assets")
-        if not isinstance(assets, list):
-            return ()
-        return tuple(decode_release_asset(asset) for asset in assets if isinstance(asset, Mapping))
-
-    def download(self, url: str, destination: Path) -> None:
-        """Fetch a wheel to a local path.
-
-        Args:
-            url: Absolute URL of the wheel.
-            destination: Path to write the bytes to.
-
-        Raises:
-            URLError: If the URL is unreachable or does not exist.
-        """
-        urllib.request.urlretrieve(url, destination)
-
-
-class TableReleaseIndex:
-    """Release index answering from stated assets and recording downloads.
-
-    A real implementation of :class:`ReleaseIndex`, not a mock: it holds
-    no assertion helpers, so a test can only inspect the wheels it was
-    asked for and the files it wrote.
-
-    Args:
-        assets: The assets this index reports for any queried endpoint.
-        contents: Bytes to write for a downloaded wheel.
-    """
-
-    def __init__(self, assets: Sequence[ReleaseAsset], contents: bytes = b"wheel") -> None:
-        """Store the assets and start an empty download log."""
-        self._assets = tuple(assets)
-        self._contents = contents
-        self.queried: list[str] = []
-        self.downloaded: list[tuple[str, Path]] = []
-
-    def latest_assets(self, api_url: str) -> tuple[ReleaseAsset, ...]:
-        """Record the query and return the stated assets.
-
-        Args:
-            api_url: Releases endpoint the caller asked about.
-
-        Returns:
-            The assets given at construction.
-        """
-        self.queried.append(api_url)
-        return self._assets
-
-    def download(self, url: str, destination: Path) -> None:
-        """Record the download and write the stated bytes.
-
-        Args:
-            url: Absolute URL the caller asked for.
-            destination: Path the bytes are written to.
-        """
-        self.downloaded.append((url, destination))
-        destination.write_bytes(self._contents)
 
 
 # Attribute names belonging to a foreign binding, held as data so that no
@@ -525,60 +303,6 @@ class RecordingErrorReporter:
         self.initialised.append((dsn, environment, traces_sample_rate, release))
 
 
-class Installer(Protocol):
-    """Installs a wheel into an interpreter."""
-
-    def install(self, interpreter: str, wheel: Path) -> None:
-        """Install one wheel.
-
-        Args:
-            interpreter: Path of the interpreter to install into.
-            wheel: Path of the wheel file.
-
-        Raises:
-            CalledProcessError: If the installation exits non-zero.
-        """
-        ...
-
-
-class PipInstaller:
-    """Installer backed by ``python -m pip install``."""
-
-    def install(self, interpreter: str, wheel: Path) -> None:
-        """Install one wheel with pip.
-
-        Args:
-            interpreter: Path of the interpreter to install into.
-            wheel: Path of the wheel file. Output is inherited so the
-                developer sees pip's progress.
-
-        Raises:
-            CalledProcessError: If pip exits non-zero.
-        """
-        subprocess.check_call([interpreter, "-m", "pip", "install", str(wheel)])
-
-
-class RecordingInstaller:
-    """Installer that logs what it was asked to install and installs nothing.
-
-    A real implementation of :class:`Installer`, not a mock: it holds no
-    assertion helpers, so a test can only read the log it kept.
-    """
-
-    def __init__(self) -> None:
-        """Start an empty installation log."""
-        self.installed: list[tuple[str, Path]] = []
-
-    def install(self, interpreter: str, wheel: Path) -> None:
-        """Record the request without running anything.
-
-        Args:
-            interpreter: Path of the interpreter that was named.
-            wheel: Path of the wheel that was named.
-        """
-        self.installed.append((interpreter, wheel))
-
-
 class RuleText(Protocol):
     """Reader for the text of a rule file."""
 
@@ -645,43 +369,28 @@ clock: Clock = SystemClock()
 icu: IcuProvider = InstalledIcu()
 rule_text: RuleText = FileRuleText()
 environment: Environment = ProcessEnvironment()
-interpreter: Interpreter = RunningInterpreter()
-releases: ReleaseIndex = GitHubReleaseIndex()
-installer: Installer = PipInstaller()
 reporter: ErrorReporter = SentryReporter()
 
 __all__ = [
     "AbsentIcu",
     "Clock",
-    "DescribedInterpreter",
     "Environment",
     "ErrorReporter",
     "FileRuleText",
-    "GitHubReleaseIndex",
     "IcuProvider",
     "IcuTransliterator",
     "InstalledIcu",
-    "Installer",
-    "Interpreter",
     "MappingEnvironment",
     "MappingRuleText",
-    "PipInstaller",
     "ProcessEnvironment",
     "RecordingClock",
     "RecordingErrorReporter",
-    "RecordingInstaller",
-    "ReleaseIndex",
     "RuleCompiler",
     "RuleText",
-    "RunningInterpreter",
     "SentryReporter",
     "SystemClock",
-    "TableReleaseIndex",
     "clock",
     "environment",
     "icu",
-    "installer",
-    "interpreter",
-    "releases",
     "reporter",
 ]

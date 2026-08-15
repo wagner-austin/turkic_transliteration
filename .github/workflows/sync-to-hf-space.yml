@@ -65,13 +65,6 @@ jobs:
         with:
           python-version: "3.11"
 
-      # PyICU builds from source on Linux, and every transliteration
-      # this package performs goes through it.
-      - name: Install the ICU headers PyICU compiles against
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y libicu-dev pkg-config
-
       - name: Build the wheel this commit would publish
         run: |
           python -m pip install --upgrade build packaging
@@ -80,6 +73,10 @@ jobs:
       # The Space installs the package and the SDK its card names, so
       # this installs the same two things into an environment holding
       # neither dev extras nor anything this project did not ask for.
+      #
+      # No ICU headers are installed on this runner, deliberately: the
+      # package declares pyicu-wheels, and a build that needed headers
+      # would mean it had stopped being installable by pip alone.
       - name: Install it the way the Space installs it
         run: |
           SDK="$(python -m scripts.hf_space --print-sdk-version)"

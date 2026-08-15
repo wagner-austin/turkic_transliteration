@@ -1,9 +1,10 @@
 #!/usr/bin/env python
 """Set up a development environment for this project.
 
-Installs the package in editable mode with its development extras,
-bootstraps PyICU on Windows where no wheel resolves automatically, and
-reports which developer tools are on PATH.
+Installs the package in editable mode with its development extras and
+reports which developer tools are on PATH. It used to bootstrap PyICU on
+Windows as well, because no wheel resolved there; ICU now arrives with
+the dependencies, on every platform.
 
 Every effect this script performs and every fact it branches on — running
 a subprocess, reading from the terminal, ending the process, and what the
@@ -21,7 +22,6 @@ from scripts import _test_hooks
 
 PROJECT_ROOT = pathlib.Path(__file__).resolve().parent.parent
 DEVELOPER_TOOLS: tuple[str, ...] = ("ruff", "mypy", "pytest")
-WINDOWS = "Windows"
 
 
 def confirm_outside_virtual_env() -> None:
@@ -53,23 +53,6 @@ def install_editable() -> None:
             f"{PROJECT_ROOT}[dev]",
         ]
     )
-
-
-def ensure_pyicu() -> None:
-    """Bootstrap PyICU, which has no wheel pip can resolve on Windows.
-
-    On every other platform PyICU is an ordinary declared dependency and
-    is already installed by :func:`install_editable`.
-    """
-    if _test_hooks.interpreter.platform_name() != WINDOWS:
-        return
-    executable = _test_hooks.interpreter.executable()
-    print("\n=== Checking PyICU ===")
-    if _test_hooks.commands.succeeds([executable, "-c", "import icu"]):
-        print("PyICU is already installed")
-        return
-    print("PyICU is not installed; running the bundled installer")
-    _test_hooks.commands.require([executable, "-m", "turkic_translit.pyicu_install"])
 
 
 def report_tools(tools: Sequence[str]) -> list[str]:
@@ -110,7 +93,6 @@ def main() -> None:
 
     confirm_outside_virtual_env()
     install_editable()
-    ensure_pyicu()
     missing = report_tools(DEVELOPER_TOOLS)
     report_next_steps()
 

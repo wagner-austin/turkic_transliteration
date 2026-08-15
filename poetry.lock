@@ -4070,15 +4070,91 @@ files = [
 windows-terminal = ["colorama (>=0.4.6)"]
 
 [[package]]
-name = "pyicu"
+name = "pyicu-wheels"
 version = "2.15.2"
-description = "Python extension wrapping the ICU C++ API"
+description = "Wheels for PyICU"
 optional = false
-python-versions = "*"
+python-versions = ">=3.10"
 groups = ["main"]
-markers = "sys_platform != \"win32\""
 files = [
-    {file = "pyicu-2.15.2.tar.gz", hash = "sha256:561e77eedff17cec6839f26211f7a5ce3c071b776e8a0ec9d1207f46cbce598f"},
+    {file = "pyicu_wheels-2.15.2-cp310-cp310-macosx_15_0_arm64.whl", hash = "sha256:49d9dfd8ec227bdbde4abf4602b56a4c07d377e0ce120c997d91148be2e882d8"},
+    {file = "pyicu_wheels-2.15.2-cp310-cp310-macosx_15_0_x86_64.whl", hash = "sha256:67750d7b8e6f51a5e70f286c249c9c6327f6b39ed9d4d08598959ade99f48dac"},
+    {file = "pyicu_wheels-2.15.2-cp310-cp310-manylinux2010_i686.manylinux2014_i686.manylinux_2_12_i686.manylinux_2_17_i686.whl", hash = "sha256:a5aaa500387cec3fbfd30a93213feb46e4a940be93bba4577eadc0dae59c3c9d"},
+    {file = "pyicu_wheels-2.15.2-cp310-cp310-manylinux_2_27_aarch64.manylinux_2_28_aarch64.whl", hash = "sha256:5472c9050a92d69bc3ca8f2588201f9c61e64c64ca8260784643ea3c8a71d310"},
+    {file = "pyicu_wheels-2.15.2-cp310-cp310-manylinux_2_27_ppc64le.manylinux_2_28_ppc64le.whl", hash = "sha256:626fddfc9b885fb3d99c6fe5c7da081ba96e877bc0dc00169e28a19ccde0b4b5"},
+    {file = "pyicu_wheels-2.15.2-cp310-cp310-manylinux_2_27_x86_64.manylinux_2_28_x86_64.whl", hash = "sha256:ccf9857e563efe2894facf5c1aedd19b25cdd999d97d344ad52992e46c77015d"},
+    {file = "pyicu_wheels-2.15.2-cp310-cp310-musllinux_1_2_aarch64.whl", hash = "sha256:e418d3cbfea42d2af8c70746fed3f1b6137312b4e97ed19e54c160719ebd81e5"},
+    {file = "pyicu_wheels-2.15.2-cp310-cp310-musllinux_1_2_i686.whl", hash = "sha256:d35ab1e739a8cc333d6dd92bbfdf86d13ff6d9a1fbd8086ef1b4c3dddea74399"},
+    {file = "pyicu_wheels-2.15.2-cp310-cp310-musllinux_1_2_ppc64le.whl", hash = "sha256:d2a291f8c4331d4dc454930bde8d134a3bb813489269c9530d696ef114255212"},
+    {file = "pyicu_wheels-2.15.2-cp310-cp310-musllinux_1_2_x86_64.whl", hash = "sha256:181b4dbb0f01e2b1ffa5bbfafe1c39e2b01f9f530fa8bca45d550d502f107b52"},
+    {file = "pyicu_wheels-2.15.2-cp310-cp310-win32.whl", hash = "sha256:8d1227a1b3b4b9c17b28d2e13bcdae76887bb45e01dd72ee71f40d948d4b15a0"},
+    {file = "pyicu_wheels-2.15.2-cp310-cp310-win_amd64.whl", hash = "sha256:3371a685649b1c5da965f36506c76fe448b112f9349c7a9fa7d7032e9c6eed24"},
+    {file = "pyicu_wheels-2.15.2-cp310-cp310-win_arm64.whl", hash = "sha256:94118965632ecea821f49d964169c8f3a0b0e0534a0c22f2b5dc9fdd731dbe56"},
+    {file = "pyicu_wheels-2.15.2-cp311-cp311-macosx_15_0_arm64.whl", hash = "sha256:8f9d65e514b8fa89a9637bed540394ee808688a5577b6791ea7c162ef124e7d4"},
+    {file = "pyicu_wheels-2.15.2-cp311-cp311-macosx_15_0_x86_64.whl", hash = "sha256:429edfadefcb41ae8ebd728fbf089c87e5b853b13c425e2f8f5e6179bd521c65"},
+    {file = "pyicu_wheels-2.15.2-cp311-cp311-manylinux2010_i686.manylinux2014_i686.manylinux_2_12_i686.manylinux_2_17_i686.whl", hash = "sha256:3224cdc38c0d6ca8b188536c8d9fc363edf384634502def047aaf7a22443df9c"},
+    {file = "pyicu_wheels-2.15.2-cp311-cp311-manylinux_2_27_aarch64.manylinux_2_28_aarch64.whl", hash = "sha256:5fe8056104579d1ebdcc825d1f2a94399cb33f082d9b631a2c1a2a4b35dd99ef"},
+    {file = "pyicu_wheels-2.15.2-cp311-cp311-manylinux_2_27_ppc64le.manylinux_2_28_ppc64le.whl", hash = "sha256:14b2f318a4fbc8f5d290612809780584d6d2efdb41716eb494b2814eccd8a44e"},
+    {file = "pyicu_wheels-2.15.2-cp311-cp311-manylinux_2_27_x86_64.manylinux_2_28_x86_64.whl", hash = "sha256:e2d4644af883f511f73e5f10e6fc997017c10f02ca2f4288e6e1121c6b2cd832"},
+    {file = "pyicu_wheels-2.15.2-cp311-cp311-musllinux_1_2_aarch64.whl", hash = "sha256:083aee321faf41db0927aef1b2f184b38a54461e0e38508c97b051a2ecd089ef"},
+    {file = "pyicu_wheels-2.15.2-cp311-cp311-musllinux_1_2_i686.whl", hash = "sha256:f8fbbfb2a210300e071743697d06d79e2a3a40d5efcb01c2bb59de75abdfffb0"},
+    {file = "pyicu_wheels-2.15.2-cp311-cp311-musllinux_1_2_ppc64le.whl", hash = "sha256:fa58365a10624616ba6d78345cae5c9a583d3e30d1243338a25a28f9ea2f9572"},
+    {file = "pyicu_wheels-2.15.2-cp311-cp311-musllinux_1_2_x86_64.whl", hash = "sha256:a80f97374bba4b12b4b40aaa51bcb3068374c0f740527264b2461889d833b0b0"},
+    {file = "pyicu_wheels-2.15.2-cp311-cp311-win32.whl", hash = "sha256:06660d45e5c6380f6c3dda62fd4752423a75b921a8d18ebb950cc8b94961e91f"},
+    {file = "pyicu_wheels-2.15.2-cp311-cp311-win_amd64.whl", hash = "sha256:5b303d1980917a7ebf681fab24db1bb5e1a32d2d02254353ce5726d1a9ae1345"},
+    {file = "pyicu_wheels-2.15.2-cp311-cp311-win_arm64.whl", hash = "sha256:6d19f49663667ec8fbf29f93555b57c578020514ab0d308b037cfc96a2a16840"},
+    {file = "pyicu_wheels-2.15.2-cp312-cp312-macosx_15_0_arm64.whl", hash = "sha256:e3f3c9f3cbda6d40299fd2f08600d7a51e5fb8d6d05cdcbb15672dac71f4d172"},
+    {file = "pyicu_wheels-2.15.2-cp312-cp312-macosx_15_0_x86_64.whl", hash = "sha256:179f3634a45c3a8bb50f0d5f1a068f30cc5d44948ddc58e816edf82c94c87651"},
+    {file = "pyicu_wheels-2.15.2-cp312-cp312-manylinux2010_i686.manylinux2014_i686.manylinux_2_12_i686.manylinux_2_17_i686.whl", hash = "sha256:dc5aad587b2c61d27bd1eca7c07721c4d1171f5c2e4cd7b6df1428b77f318ebd"},
+    {file = "pyicu_wheels-2.15.2-cp312-cp312-manylinux_2_27_aarch64.manylinux_2_28_aarch64.whl", hash = "sha256:e66cadf0dcf3fec2040ce9431bf566c73a159c85f48cde85577bd20f35143840"},
+    {file = "pyicu_wheels-2.15.2-cp312-cp312-manylinux_2_27_ppc64le.manylinux_2_28_ppc64le.whl", hash = "sha256:0d36d7201f3416b17563785918765ae9a0ca9ae75963b10d47f17a69bc85bd14"},
+    {file = "pyicu_wheels-2.15.2-cp312-cp312-manylinux_2_27_x86_64.manylinux_2_28_x86_64.whl", hash = "sha256:d788588b9f64b6bb7e32941781d0232f7aca1694e8638a44d7354cb0757a57fe"},
+    {file = "pyicu_wheels-2.15.2-cp312-cp312-musllinux_1_2_aarch64.whl", hash = "sha256:0c5db031d3e6ce29f18041ab13cfadef952a33fe7d80a24d2ff7da0e8d95ac16"},
+    {file = "pyicu_wheels-2.15.2-cp312-cp312-musllinux_1_2_i686.whl", hash = "sha256:7d80edfffd2358edfbbdc3df8a4eff2194c0d0a3032b377b8a5af8ef3d18b45b"},
+    {file = "pyicu_wheels-2.15.2-cp312-cp312-musllinux_1_2_ppc64le.whl", hash = "sha256:6717232ba3597dc4ec942536f05a9f1a898ffc6fa7c1a04c1c519d1ad9cbccbe"},
+    {file = "pyicu_wheels-2.15.2-cp312-cp312-musllinux_1_2_x86_64.whl", hash = "sha256:e02d3333b39bb727fadd88f32e63933e346ca8fdc47ce10cec7e89529bb27f82"},
+    {file = "pyicu_wheels-2.15.2-cp312-cp312-win32.whl", hash = "sha256:5b447566bf2c2daf7dd26d72a88582c780262f78519d3036b279e63b383768b1"},
+    {file = "pyicu_wheels-2.15.2-cp312-cp312-win_amd64.whl", hash = "sha256:4a4b881fd4c647a5871bc0277232a5ed93a0b278dba224a305f5ec2f040aa5c7"},
+    {file = "pyicu_wheels-2.15.2-cp312-cp312-win_arm64.whl", hash = "sha256:6fbc3708822070c5f8605a7ecbaeaa4a0ab2f7bdf6997cb5d862e48e088ca56d"},
+    {file = "pyicu_wheels-2.15.2-cp313-cp313-macosx_15_0_arm64.whl", hash = "sha256:bec386a6a28f10af5371e173084a7ef18d8731471fd3b77f6c865fc5283e0815"},
+    {file = "pyicu_wheels-2.15.2-cp313-cp313-macosx_15_0_x86_64.whl", hash = "sha256:f24511341c73dbfb6c730b1ccc72f278ee5db410dd3785d74b6a4b8e749c1877"},
+    {file = "pyicu_wheels-2.15.2-cp313-cp313-manylinux2010_i686.manylinux2014_i686.manylinux_2_12_i686.manylinux_2_17_i686.whl", hash = "sha256:55793ba3f834af5eea1dba9bc14a031ceeba280e51175cd5c3a6f4bbbc03e4b5"},
+    {file = "pyicu_wheels-2.15.2-cp313-cp313-manylinux_2_27_aarch64.manylinux_2_28_aarch64.whl", hash = "sha256:71cd17cc99cb26fa3d565909ce7f7782fb244474c1dc6fc95cf109f065aa67ed"},
+    {file = "pyicu_wheels-2.15.2-cp313-cp313-manylinux_2_27_ppc64le.manylinux_2_28_ppc64le.whl", hash = "sha256:6568e5959cb78ae4150cac8d5f82fb22ea9a2b322209a12a147d72ec300d55a5"},
+    {file = "pyicu_wheels-2.15.2-cp313-cp313-manylinux_2_27_x86_64.manylinux_2_28_x86_64.whl", hash = "sha256:b2b9d10296f7c767b7231ae0cd1882d6144687c3dffaa4a3c4537003ffc05ef3"},
+    {file = "pyicu_wheels-2.15.2-cp313-cp313-musllinux_1_2_aarch64.whl", hash = "sha256:580e07aff130414eb18d06826e03304c686d1d5c2c9bcdb8b1bdfb34df7425b8"},
+    {file = "pyicu_wheels-2.15.2-cp313-cp313-musllinux_1_2_i686.whl", hash = "sha256:4c954ed7ff5ca65a51066a74cf77c7e2339ac36ec1f1be8430f162ef7b476889"},
+    {file = "pyicu_wheels-2.15.2-cp313-cp313-musllinux_1_2_ppc64le.whl", hash = "sha256:94a413c25b8157bedc0dc08c753d7a8517f5b772ddf425a65f5b7b645e86bcdb"},
+    {file = "pyicu_wheels-2.15.2-cp313-cp313-musllinux_1_2_x86_64.whl", hash = "sha256:51c97c3c730780dfcee15388271a2f15dd4fb40b2bb535c034b23aabcbd57fdf"},
+    {file = "pyicu_wheels-2.15.2-cp313-cp313-win32.whl", hash = "sha256:418775dbd1229f0ddf5cda4328600c15062edb59f379844bd92b86e832e19d4c"},
+    {file = "pyicu_wheels-2.15.2-cp313-cp313-win_amd64.whl", hash = "sha256:e32d113c13a801173c1bfe5988db1699a3c3549b92aa8927b744cd64c47c5e28"},
+    {file = "pyicu_wheels-2.15.2-cp313-cp313-win_arm64.whl", hash = "sha256:ea217a8a3dc0e06e37ac04b5fbd676e76cce9fedfd66a7cf324d78c8bd63df7b"},
+    {file = "pyicu_wheels-2.15.2-cp314-cp314-macosx_15_0_arm64.whl", hash = "sha256:a0bf469f9c01f67c038a12316731a19b909d29ee84b38a618d97ac13370fbee2"},
+    {file = "pyicu_wheels-2.15.2-cp314-cp314-macosx_15_0_x86_64.whl", hash = "sha256:4621467d6c1e0696e80d10452983968b44bac5d904fc652544d579fb73d20c3d"},
+    {file = "pyicu_wheels-2.15.2-cp314-cp314-manylinux2010_i686.manylinux2014_i686.manylinux_2_12_i686.manylinux_2_17_i686.whl", hash = "sha256:5a55af12c6d422051ba3d585a682bb5062c9c1c04f80c0b2023c954e2b92388b"},
+    {file = "pyicu_wheels-2.15.2-cp314-cp314-manylinux_2_27_aarch64.manylinux_2_28_aarch64.whl", hash = "sha256:454e32089cb7bfbbb729cabc1639580cc286cae6d2734532babd780c14b03690"},
+    {file = "pyicu_wheels-2.15.2-cp314-cp314-manylinux_2_27_ppc64le.manylinux_2_28_ppc64le.whl", hash = "sha256:fb361d1be5bb36299dac1172c51b04de2e99a0d18233a6d625ff4ff71351b0e2"},
+    {file = "pyicu_wheels-2.15.2-cp314-cp314-manylinux_2_27_x86_64.manylinux_2_28_x86_64.whl", hash = "sha256:9528156670ddac14ba5f589ecbede9899ee9f1c1519538d0fbdb1d9e35d6b50c"},
+    {file = "pyicu_wheels-2.15.2-cp314-cp314-musllinux_1_2_aarch64.whl", hash = "sha256:1ddb7f90b6d66bec235a8ab1213b47d1983fc56488d0d4f481a3d4bf2f1b7da2"},
+    {file = "pyicu_wheels-2.15.2-cp314-cp314-musllinux_1_2_i686.whl", hash = "sha256:27c1867aedb18b0f8869bdfd5ad32582d7adb9c9bffc85d0c26629ab1963ffe4"},
+    {file = "pyicu_wheels-2.15.2-cp314-cp314-musllinux_1_2_ppc64le.whl", hash = "sha256:bacab5f49ae82eada268ff5da50f0bf319fab17910589e160f6912a9cadbcf22"},
+    {file = "pyicu_wheels-2.15.2-cp314-cp314-musllinux_1_2_x86_64.whl", hash = "sha256:e337cd7d01daf393859dc8cc3c976ec1f8fc8160904048baab0a27692ab961b1"},
+    {file = "pyicu_wheels-2.15.2-cp314-cp314-win32.whl", hash = "sha256:91b22f65ae53265d28fb53801dba4aee7e255ac741e843ad20cb8929ef80fb91"},
+    {file = "pyicu_wheels-2.15.2-cp314-cp314-win_amd64.whl", hash = "sha256:42a110ba8209e23302d0eef61c32c23713a99d6d1f49748f83f9e712e582f1e0"},
+    {file = "pyicu_wheels-2.15.2-cp314-cp314-win_arm64.whl", hash = "sha256:f142c9e6a84949b94601243bb3f3aaf15a099d96f3819a3c4ca3d02a8665c602"},
+    {file = "pyicu_wheels-2.15.2-cp314-cp314t-macosx_15_0_arm64.whl", hash = "sha256:dc420c8d284c84566be96da4520558b4368c044b0db8701ab83c7a5a2ae74511"},
+    {file = "pyicu_wheels-2.15.2-cp314-cp314t-macosx_15_0_x86_64.whl", hash = "sha256:3c0670c645129c29e0c87fcd03726dd0b0d856546ea9238cb23cbf8e7fac5f0f"},
+    {file = "pyicu_wheels-2.15.2-cp314-cp314t-manylinux2010_i686.manylinux2014_i686.manylinux_2_12_i686.manylinux_2_17_i686.whl", hash = "sha256:2648dc97391b1ea0c408131ae2aa18109491fd1d618e0b8c385adc8a13c33a2a"},
+    {file = "pyicu_wheels-2.15.2-cp314-cp314t-manylinux_2_27_aarch64.manylinux_2_28_aarch64.whl", hash = "sha256:4ed27a1119bf93629593d0db31bea6f96fc62e9b8bee1d416edc34ef59f95e06"},
+    {file = "pyicu_wheels-2.15.2-cp314-cp314t-manylinux_2_27_ppc64le.manylinux_2_28_ppc64le.whl", hash = "sha256:8c82db0d6198bfeb1f2a90f495d5516261d04327f4b1256c4921cd41e8f44e58"},
+    {file = "pyicu_wheels-2.15.2-cp314-cp314t-manylinux_2_27_x86_64.manylinux_2_28_x86_64.whl", hash = "sha256:c7426da673bb424adc04b5b63e5ae4c3733683c99ca7001397020c7f44984c81"},
+    {file = "pyicu_wheels-2.15.2-cp314-cp314t-musllinux_1_2_aarch64.whl", hash = "sha256:e443807eedc88f97f68fbae7a20aa8c90cd291b7f62d1e35166f6dc5703a48dd"},
+    {file = "pyicu_wheels-2.15.2-cp314-cp314t-musllinux_1_2_i686.whl", hash = "sha256:47d3357313c4b3066f3b78e33c697426e67dfbe8f53e1b78d62824584c9327e0"},
+    {file = "pyicu_wheels-2.15.2-cp314-cp314t-musllinux_1_2_ppc64le.whl", hash = "sha256:7bdbc3fe816f20034f622c4f6bbc9f9d74accde6d4c24c1672ae4f882d30470c"},
+    {file = "pyicu_wheels-2.15.2-cp314-cp314t-musllinux_1_2_x86_64.whl", hash = "sha256:6d40748a664eaa26df9256ba694c9bdbe05e24149a2a26f9477ff47a92221717"},
+    {file = "pyicu_wheels-2.15.2-cp314-cp314t-win32.whl", hash = "sha256:36cb5a705b7d198b413e243e48c11d02a7ebc33bda5958a0ec9c852f31478a5f"},
+    {file = "pyicu_wheels-2.15.2-cp314-cp314t-win_amd64.whl", hash = "sha256:ce369461880be7db5eaf60d640f34ddee78b70c225bd03f9f7df2932ef5a09b9"},
+    {file = "pyicu_wheels-2.15.2-cp314-cp314t-win_arm64.whl", hash = "sha256:2d193aab4f69df4da72dcc53dcbbefb2a31eca927589573766cc8beed82f9d58"},
 ]
 
 [[package]]
@@ -6268,9 +6344,8 @@ cffi = ["cffi (>=1.17,<2.0) ; platform_python_implementation != \"PyPy\" and pyt
 dev = ["build", "make", "mypy", "packaging", "pandas-stubs", "panphon", "protobuf", "pytest", "pytest-cov", "pytest-timeout", "pytest-xdist", "ruff", "sentry-sdk", "twine", "types-PyYAML", "types-tqdm"]
 examples = ["flask", "jupyterlab", "streamlit"]
 sentry = ["sentry-sdk"]
-winlid = []
 
 [metadata]
 lock-version = "2.1"
 python-versions = ">=3.10"
-content-hash = "013f81c2cbf37a65f3ebf1bf3374990d20b8946f42cf515069ef75b8361f6ffd"
+content-hash = "163891e595d48431977ba83224fa8927ed36659236b9f7ff7ac543af03cabcc5"

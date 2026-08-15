@@ -47,11 +47,9 @@ def test_the_project_declares_console_scripts() -> None:
         "turkic-eval-lm",
         "turkic-filter-russian",
         "turkic-leven",
-        "turkic-pyicu-install",
         "turkic-train-lm",
         "turkic-train-spm",
         "turkic-translit",
-        "turkic-web",
     ]
 
 

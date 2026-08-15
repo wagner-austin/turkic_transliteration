@@ -4,53 +4,36 @@ This document provides detailed setup instructions for the Turkic Transliteratio
 
 ## Environment Setup
 
-This project uses **Poetry** and supports **Python 3.9+**. The quickest path is
-the dev setup script, which also installs the Windows PyICU wheel:
+Python **3.10–3.14**, any platform. To use the package:
 
 ```bash
-python scripts/setup_dev.py
+pip install turkic-translit
+turkic-translit web
 ```
 
-Or set up with Poetry directly:
+To work on it:
 
 ```bash
-poetry install          # creates the virtualenv and installs everything
-poetry run pytest       # verify (all tests should pass)
+git clone https://github.com/wagner-austin/turkic_transliteration.git
+cd turkic_transliteration
+pip install -e .[dev]     # or: python scripts/setup_dev.py
+make check                # the full gate: guards, ruff, mypy, tests
 ```
 
-## PyICU Installation on Windows
+Optional extras: `dev` (ruff, mypy, pytest) · `examples` (Flask, Streamlit,
+JupyterLab) · `sentry` (error reporting).
 
-Windows users need to manually install the correct PyICU wheel:
+## ICU
 
-1. Download the appropriate wheel for your Python version:
-   - For Python 3.10: [pyicu-2.15-cp310-cp310-win_amd64.whl](https://github.com/cgohlke/pyicu-build/releases/download/v2.15/pyicu-2.15-cp310-cp310-win_amd64.whl)
-   - For Python 3.11: [pyicu-2.15-cp311-cp311-win_amd64.whl](https://github.com/cgohlke/pyicu-build/releases/download/v2.15/pyicu-2.15-cp311-cp311-win_amd64.whl)
-   - For Python 3.12: [pyicu-2.15-cp312-cp312-win_amd64.whl](https://github.com/cgohlke/pyicu-build/releases/download/v2.15/pyicu-2.15-cp312-cp312-win_amd64.whl)
-   - For Python 3.13: [pyicu-2.15-cp313-cp313-win_amd64.whl](https://github.com/cgohlke/pyicu-build/releases/download/v2.15/pyicu-2.15-cp313-cp313-win_amd64.whl)
+ICU is a dependency and installs with the package. It is taken as
+`pyicu-wheels`, which publishes the extension prebuilt for Linux, macOS and
+Windows.
 
-2. Install the wheel:
-   ```bash
-   pip install ./pyicu-2.15-cpXXX-cpXXX-win_amd64.whl
-   ```
-   (Replace XXX with your Python version)
-
-3. Alternatively, use the helper script provided with the package:
-   ```bash
-   turkic-pyicu-install
-   ```
-
-## Package Installation
-
-```bash
-# Install the package with development and UI tools
-pip install -e .[dev,ui]
-
-# On Windows, if you need fasttext-wheel for language ID:
-pip install -e .[dev,ui,winlid]
-
-# Optional: error service (Sentry)
-pip install -e .[sentry]
-```
+This used to be the hardest part of installing the project. PyICU itself
+publishes no wheels — sdist only, every platform — so an install compiled
+against ICU headers the machine usually lacked, and Windows had no workable
+path at all. That is why the project once shipped a wheel fetcher, a vendored
+wheel directory, and two troubleshooting guides. All of it is gone as of 0.5.6.
 
 ## Required Dependencies
 

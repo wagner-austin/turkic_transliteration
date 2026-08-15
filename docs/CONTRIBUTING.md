@@ -70,6 +70,6 @@ language, add its `{lang}_{ipa,lat}.rules` file there; see
 
 ## Demos
 
-Demo entry points live in `turkic_tools.py` (`web`, `demo`, `full-demo`) and
+The demo is served by `turkic-translit web`, and
 the Gradio UI in `src/turkic_translit/web/`. There is no separate `examples/`
 directory — all runnable code belongs in `src/turkic_translit/`.

@@ -25,39 +25,36 @@ and Turkish (diacritic folding to ASCII).
 
 ## Install
 
-This project uses **Poetry**. Python **3.10–3.13** (the PyICU wheel installer
-covers exactly those versions).
+Python **3.10–3.14**, whichever platform: `pyicu-wheels` publishes the ICU
+extension for all of them.
 
 ```bash
-# Simplest: the dev setup script (also installs the Windows PyICU wheel)
-python scripts/setup_dev.py
-
-# Or with Poetry directly
-poetry install
-
-# Or with pip (editable, with dev + web-UI extras)
-pip install -e .[dev,ui]        # add ,winlid on Windows for the fasttext wheel
+pip install turkic-translit
+turkic-translit web          # or any of the commands below
 ```
 
-Optional extras: `dev` (ruff, mypy, pytest) · `ui` (Gradio demo) ·
-`winlid` (Windows fasttext wheel for language ID) · `sentry` (error reporting).
+Nothing else: ICU arrives with it. That was not true before 0.5.6 — PyICU
+publishes no wheels on any platform, so an install had to compile against ICU
+headers, and this project shipped a Windows wheel fetcher to work around it.
+The dependency is `pyicu-wheels`, which publishes the same extension prebuilt
+for Linux, macOS and Windows.
 
-### Windows & PyICU
-
-PyPI rules prevent the correct Windows PyICU wheel from installing automatically
-during `pip install`. After installing, Windows users run:
+To work on the project rather than use it:
 
 ```bash
-turkic-pyicu-install
+git clone https://github.com/wagner-austin/turkic_transliteration.git
+cd turkic_transliteration
+pip install -e .[dev]        # or: python scripts/setup_dev.py
+turkic-translit web
 ```
 
-which fetches the right PyICU wheel for your Python version. `scripts/setup_dev.py`
-does this for you.
+Optional extras: `dev` (ruff, mypy, pytest) · `examples` (Flask, Streamlit,
+JupyterLab) · `sentry` (error reporting).
 
 ### Package names
 
 - Import path: `turkic_translit`
-- PyPI distributable: `turkic_transliterate`
+- PyPI distributable: `turkic-translit`
 - Primary CLI entry point: `turkic-translit`
 
 ## Development
@@ -104,14 +101,13 @@ Console entry points defined in `pyproject.toml`:
 | Command | Purpose |
 |---------|---------|
 | `turkic-translit` | Transliterate text to Latin and/or IPA |
+| `turkic-translit web` | Launch the Gradio web demo |
 | `turkic-filter-russian` | Drop or mask Russian tokens from a stream |
 | `turkic-download-corpus` | Download/prepare OSCAR corpora |
 | `turkic-clean-corpus` | Clean and harmonize downloaded corpora |
 | `turkic-build-spm` / `turkic-train-spm` | Train a SentencePiece tokenizer |
 | `turkic-train-lm` / `turkic-eval-lm` | Train / evaluate a language model |
 | `turkic-leven` | Levenshtein-based comparison utility |
-| `turkic-web` | Launch the Gradio web demo |
-| `turkic-pyicu-install` | Install the correct PyICU wheel (Windows) |
 
 ### `turkic-translit translit` usage
 
@@ -145,25 +141,14 @@ turkic-build-spm --input corpora/kk_lat.txt,corpora/ky_lat.txt \
 cat uz_raw.txt | turkic-filter-russian --mode drop > uz_clean.txt
 ```
 
-## Demos via `turkic_tools.py`
-
-```bash
-python turkic_tools.py [command]
-```
-
-- `web` — launch the Gradio web interface
-- `demo` — simple CLI demo
-- `full-demo` — comprehensive multi-language demo
-- `help` — list commands
 
 ## Project Organization
 
 - `src/turkic_translit/` — core package (`core.py`, `transliterate.py`,
   `rules/`, `cli/`, `web/`, `lm/`, language-ID and filtering modules)
 - `data/` — sample data and language resources
-- `docs/` — documentation and setup/troubleshooting guides
+- `docs/` — documentation and guides
 - `scripts/` — dev + release utilities (`setup_dev.py`, `run.ps1`, `release/`)
-- `vendor/` — pre-built PyICU wheels for Windows
 - `tests/` — test suite (per-language IPA coverage for all supported languages)
 - `cronjob/` — scheduled-task assets for the hosted demo
 - `app.py` — Hugging Face Space entry point for the web UI

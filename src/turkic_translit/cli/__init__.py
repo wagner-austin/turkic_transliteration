@@ -31,6 +31,7 @@ from .filter_russian import main as _filter_russian
 from .train_lm import cli as _train_lm
 from .train_spm import main as _train_spm
 from .translit import translit as _translit
+from .web import cli as _web
 
 
 @click.group()
@@ -55,6 +56,7 @@ def main(log_level: str) -> None:
 
 
 main.add_command(_translit, "translit")
+main.add_command(_web, "web")
 main.add_command(_build_spm, "build-spm")
 main.add_command(_download_corpus, "download-corpus")
 main.add_command(_filter_russian, "filter-russian")

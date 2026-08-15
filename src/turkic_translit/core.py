@@ -1,13 +1,15 @@
 """Public API for Latin and IPA transliteration.
 
-PyICU is loaded at call time, not at import time. That lets
-``import turkic_translit`` (and ``import turkic_translit.core``)
-succeed in environments where PyICU has not yet been installed —
-notably the ``turkic-pyicu-install`` console script, which needs to
-be importable in order to *install* PyICU into the current
-environment. A missing PyICU is reported by :func:`_require_icu` on
-first use of a function that actually needs it, with a message that
-names the caller's platform and the exact install command.
+PyICU is loaded at call time rather than at import time, so importing
+this package tells a caller nothing about whether ICU is present; the
+first function that needs it says so, through :func:`_require_icu`.
+
+ICU now arrives with this package. It is declared as pyicu-wheels,
+which publishes the extension prebuilt for Linux, macOS and Windows,
+so a missing ICU means an incomplete installation rather than a
+platform the user must go and prepare by hand. It used to mean the
+latter, which is why this module once carried a table of per-platform
+build instructions and the project shipped a wheel installer beside it.
 """
 
 from __future__ import annotations
@@ -25,49 +27,36 @@ _RULE_DIR = Path(__file__).with_suffix("").parent / "rules"
 # ICU's UTRANS_FORWARD: apply the rules left to right, as written.
 FORWARD = 0
 
-_INSTALL_INSTRUCTIONS: dict[str, str] = {
-    "win32": (
-        "On Windows, run:\n"
-        "  turkic-pyicu-install\n"
-        "or manually install a wheel from "
-        "https://github.com/cgohlke/pyicu-build/releases ."
-    ),
-    "linux": (
-        "On Debian/Ubuntu, run:\n"
-        "  sudo apt-get install -y libicu-dev\n"
-        "In a Hugging Face Space, add 'libicu-dev' to your packages.txt.\n"
-        "Then, reinstall the package."
-    ),
-    "darwin": (
-        "On macOS, run:\n  brew install icu4c\nThen, reinstall the package with CFLAGS from brew."
-    ),
-}
-
 
 def missing_icu_message(python_version: str, platform: str) -> str:
-    """Explain how to install PyICU on one platform.
+    """Explain that ICU is missing and how it is meant to arrive.
 
     Args:
         python_version: Version the caller is running, e.g. ``3.11``.
         platform: Value of ``sys.platform``.
 
     Returns:
-        The message, naming the platform's install command, or generic
-        advice for a platform with no recorded command.
+        The message. It names one command, because ICU is a declared
+        dependency now: an install that lacks it is incomplete, whatever
+        the platform. Building from source is mentioned last, for a
+        platform nobody publishes a wheel for.
     """
-    instruction = _INSTALL_INSTRUCTIONS.get(
-        platform, "Please install the ICU C++ libraries for your platform."
+    return (
+        f"PyICU missing on Python {python_version} ({platform}).\n\n"
+        "ICU is a dependency of this package and normally installs with "
+        "it. Reinstall:\n"
+        "  pip install --force-reinstall turkic-translit\n"
+        "If no wheel is published for this platform, build PyICU from "
+        "source against the ICU C++ libraries."
     )
-    return f"PyICU missing on Python {python_version} ({platform}).\n\n{instruction}"
 
 
 def _require_icu() -> RuleCompiler:
     """Return PyICU's rule compiler, or explain how to install PyICU.
 
-    Deferred to call time so ``import turkic_translit`` succeeds even
-    when PyICU is missing. This is what lets the
-    ``turkic-pyicu-install`` console script bootstrap PyICU without
-    requiring PyICU to already be installed.
+    Deferred to call time so that importing this package does not
+    depend on ICU being importable, and so the failure names itself
+    where it happens rather than at an import nobody wrote.
 
     Returns:
         ICU's bound rule-compiling classmethod.

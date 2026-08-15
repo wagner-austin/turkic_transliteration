@@ -99,41 +99,6 @@ def test_install_names_the_project_root_and_dev_extra(hooks: None) -> None:
     ]
 
 
-def test_pyicu_is_left_alone_off_windows(hooks: None) -> None:
-    """Elsewhere PyICU is an ordinary dependency and needs no bootstrap."""
-    describe(platform_name=LINUX)
-    runner = _test_hooks.RecordingCommandRunner({})
-    _test_hooks.commands = runner
-
-    setup_dev.ensure_pyicu()
-
-    assert runner.probed == []
-    assert runner.required == []
-
-
-def test_pyicu_already_present_is_not_reinstalled(hooks: None) -> None:
-    """An importable icu module ends the check."""
-    describe(platform_name=setup_dev.WINDOWS)
-    runner = _test_hooks.RecordingCommandRunner({INTERPRETER: True})
-    _test_hooks.commands = runner
-
-    setup_dev.ensure_pyicu()
-
-    assert runner.probed == [(INTERPRETER, "-c", "import icu")]
-    assert runner.required == []
-
-
-def test_pyicu_absent_runs_the_bundled_installer(hooks: None) -> None:
-    """A failing import triggers the project's own PyICU installer."""
-    describe(platform_name=setup_dev.WINDOWS)
-    runner = _test_hooks.RecordingCommandRunner({})
-    _test_hooks.commands = runner
-
-    setup_dev.ensure_pyicu()
-
-    assert runner.required == [(INTERPRETER, "-m", "turkic_translit.pyicu_install")]
-
-
 def test_tool_report_names_only_the_missing_ones(hooks: None) -> None:
     """Every tool is probed and the unusable ones are returned."""
     describe()

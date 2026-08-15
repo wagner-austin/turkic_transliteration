@@ -2,6 +2,63 @@
 
 All notable changes to the Turkic Transliteration project will be documented in this file.
 
+## [0.5.6] - 2026-08-15
+
+### Changed
+
+**`pip install turkic-translit` now installs something that works.** It
+did not before, on any operating system. PyICU — which compiles every
+rule file and produces every transliteration this project performs —
+publishes no wheels at all, only sdists, so installing it meant
+compiling against ICU headers the machine usually lacked: `libicu-dev`
+on Linux, Homebrew's `icu4c` on macOS, and on Windows a wheel fetched
+from a third-party build server by a console script shipped for the
+purpose.
+
+The dependency is now `pyicu-wheels`, which publishes the same extension
+prebuilt for Linux, macOS and Windows across Python 3.10–3.14. Verified
+on a clean Windows virtual environment with no compiler and no ICU
+headers: one `pip install`, then `to_ipa("құс", "kk")` returns `qʊs`.
+
+So the whole install is:
+
+```bash
+pip install turkic-translit
+turkic-translit web
+```
+
+**The web demo is a subcommand.** `turkic-translit --help` listed seven
+commands and never mentioned that a web interface existed, while the
+demo was reachable three separate ways — a `turkic-web` script, a
+`turkic_tools.py web` runner, and a `make web` target wrapping the
+second. It is now `turkic-translit web`, listed where a new user looks.
+
+### Removed
+
+* `turkic-pyicu-install` and the module behind it, `turkic_translit.wheels`
+  (the wheel-selection logic), the release-index and installer hooks in
+  `turkic_translit._test_hooks`, and `core.py`'s table of per-platform
+  build instructions. None of it has anything left to do.
+* `turkic_tools.py`. Its `web` command duplicated the console script and
+  its other two, `demo` and `full-demo`, had pointed at an `examples/`
+  directory deleted in `da1eb62` — so they failed with a missing-file
+  error, while the README and the contributing guide went on documenting
+  them.
+* The `turkic-web` console script, replaced by the subcommand.
+* The empty `winlid` extra, which installed nothing while the README
+  described it as providing the Windows FastText wheel.
+* `docs/windows_pyicu_guide.md` and
+  `docs/windows-installation-troubleshooting.md`, 250 lines about a
+  problem that no longer exists, and `vendor/`, which held Windows PyICU
+  wheels for the same reason.
+
+### Fixed
+
+* The README, `docs/setup_guide.md` and `docs/index.md` documented a
+  `ui` extra that has never existed, an install command using it, and
+  `turkic_transliterate` as the PyPI name — which is the deprecated
+  redirect package, not this one.
+
 ## [0.5.5] - 2026-08-14
 
 ### Removed
