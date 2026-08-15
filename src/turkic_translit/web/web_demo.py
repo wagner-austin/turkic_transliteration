@@ -89,20 +89,18 @@ def build_ui() -> gr.Blocks:
     # server hook.
     blocks: gr.Blocks = gr.Blocks(title="Turkic Transliteration Suite")
     with blocks:
+        # One heading and one sentence. It was three blocks saying the
+        # same thing — a title, a subtitle restating it, and a paragraph
+        # telling the reader that tabs are tabs — above a page whose two
+        # tabs are already visible and labelled.
+        #
+        # No warning is raised here either: a tab says what it needs when
+        # a visitor asks for the feature that needs it.
         gr.Markdown(
             """
             # Turkic Transliteration Suite
-            ## Web Interface for exploring Turkic language transliteration tools
-            """
-        )
-
-        # Avoid surfacing global warnings at load; tabs will surface notices
-        # contextually if a dependency is needed when a feature is used.
-
-        gr.Markdown(
-            """
-            Explore IPA transliteration for Turkic languages.
-            Navigate through the tabs below to access different features.
+            Deterministic IPA and Latin transliteration for Turkic languages,
+            from rule files derived from published descriptions of each language.
             """
         )
 
@@ -132,11 +130,14 @@ def build_ui() -> gr.Blocks:
             with gr.Tab("📥 Download Corpus", id="corpus"):
                 _corpus_tab()
 
+        # The footer restated the title and then explained the tabs a
+        # second time. What a reader might actually want from a footer
+        # is where the rules come from.
         gr.Markdown(
             """
             <footer>
-            <p>Turkic Transliteration Suite - A tool for transliterating Turkic languages between different writing systems</p>
-            <p>Use the tabs above to explore different features</p>
+            <p>Rule files and sources:
+            <a href="https://github.com/wagner-austin/turkic_transliteration">wagner-austin/turkic_transliteration</a></p>
             </footer>
             """
         )

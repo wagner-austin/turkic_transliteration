@@ -163,30 +163,24 @@ def register() -> None:
             """
         )
 
-        # Text input and file upload
+        # Input on the left and output on the right, as the corpus tab
+        # arranges them. The previous layout put the input box across the
+        # top at double width, which left it beside an empty column, and
+        # pushed the output down into a narrow strip off to one side.
         with gr.Row():
-            with gr.Column(scale=2):
+            with gr.Column(scale=1):
                 translit_textbox = gr.Textbox(
                     label="Input Text",
-                    lines=4,
+                    lines=6,
                     elem_id="translit-input-text",
-                    placeholder="Enter Turkic language text in Cyrillic script...",
+                    placeholder="Enter text in the language selected below...",
                 )
-            with gr.Column(scale=1):
-                gr.Markdown("**Or upload a text file:**")
                 translit_upload_file = gr.File(
-                    label="Upload .txt file",
+                    label="Or upload a .txt file, which replaces the text above",
                     file_types=[".txt"],
                     type="filepath",
                     elem_id="translit-file-upload",
                 )
-                gr.Markdown(
-                    "*File content replaces text input*",
-                    elem_classes=["file-upload-note"],
-                )
-
-        with gr.Row():
-            with gr.Column(scale=3):
                 # Only expose languages that have an `{lang}_ipa.rules` file,
                 # named as the corpus tab names them rather than by bare code.
                 lang_choices = ipa_languages()
@@ -195,11 +189,12 @@ def register() -> None:
                     label="Language",
                     value=lang_choices[0],
                 )
+                btn = gr.Button("Transliterate", variant="primary")
 
-            with gr.Column(scale=7):
+            with gr.Column(scale=1):
                 output = gr.Textbox(
                     label="Output (IPA)",
-                    lines=4,
+                    lines=6,
                     interactive=False,
                     buttons=["copy"],
                 )
@@ -212,19 +207,15 @@ def register() -> None:
                     visible=False,
                 )
 
-        with gr.Row(elem_classes=["examples-row"]):
-            gr.Examples(
-                examples=[[EXAMPLE_WORDS[code], code, None] for code in lang_choices],
-                inputs=[
-                    translit_textbox,
-                    lang,
-                    translit_upload_file,
-                ],
-                outputs=[output, stats, download_file],
-                fn=transliterated_download,
-                label="Try these examples",
-            )
-            btn = gr.Button("Transliterate", variant="primary")
+        # Below both columns, so the examples span the tab rather than
+        # sharing a row with the button that acts on them.
+        gr.Examples(
+            examples=[[EXAMPLE_WORDS[code], code, None] for code in lang_choices],
+            inputs=[translit_textbox, lang, translit_upload_file],
+            outputs=[output, stats, download_file],
+            fn=transliterated_download,
+            label="Try these examples",
+        )
 
         # Typing, switching language and uploading all show the result;
         # only the button writes a file, because only the button was

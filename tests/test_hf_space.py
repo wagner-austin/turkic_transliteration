@@ -105,7 +105,7 @@ def test_the_card_names_an_entry_point_this_repository_has() -> None:
 
     app_file = hf_space.front_matter_value(card, "app_file")
 
-    assert "build_ui" in (root / app_file).read_text(encoding="utf-8")
+    assert "turkic_translit.web.web_demo" in (root / app_file).read_text(encoding="utf-8")
 
 
 def test_a_field_is_read_from_the_front_matter() -> None:

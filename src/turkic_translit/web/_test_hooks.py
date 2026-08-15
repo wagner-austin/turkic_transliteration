@@ -32,12 +32,31 @@ class Server(Protocol):
         ...
 
 
+# Every colour here is one of Gradio's own theme variables, so the page
+# follows the reader's light or dark setting. The previous stylesheet
+# wrote #ddd, #555 and #666 outright, which is legible on a white page
+# and nearly invisible on a dark one — grey text on a dark background,
+# and borders that disappeared into it.
 STYLESHEET = """
 .container { margin: 0 auto; }
-.tab-content { padding: 10px 15px; border: 1px solid #ddd; border-top: none; border-radius: 0 0 5px 5px; }
+.tab-content {
+    padding: 10px 15px;
+    border: 1px solid var(--border-color-primary);
+    border-top: none;
+    border-radius: 0 0 5px 5px;
+}
 .examples-row { margin-top: 10px; }
-.file-info { margin-top: -5px; font-size: 0.85em; color: #555; }
-footer { margin-top: 20px; text-align: center; font-size: 0.8em; color: #666; }
+.file-info {
+    margin-top: -5px;
+    font-size: 0.85em;
+    color: var(--body-text-color-subdued);
+}
+footer {
+    margin-top: 20px;
+    text-align: center;
+    font-size: 0.8em;
+    color: var(--body-text-color-subdued);
+}
 """
 
 

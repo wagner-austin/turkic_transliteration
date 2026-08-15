@@ -2,6 +2,58 @@
 
 All notable changes to the Turkic Transliteration project will be documented in this file.
 
+## [0.5.4] - 2026-08-14
+
+### Removed
+
+**The `datasets` dependency, and the `corpus` extra with it.** Listing
+OSCAR's languages used to download and execute the dataset's own loading
+script — that is how `datasets` reads a script-published corpus — so
+drawing a dropdown ran third-party code and inherited its dependencies.
+That is how `zstandard` reached this project without ever being
+declared, and it would have stopped working entirely under `datasets` 4,
+which removes loading scripts.
+
+The layout that script describes is public and simple: one directory per
+language of Zstandard-compressed JSON lines. `corpus/hub.py` states the
+naming rules and `corpus/_test_hooks.py` reads them, so languages come
+from the repository's file listing — served without a credential, though
+the shards themselves are gated — and text comes from the shards,
+decompressed as it streams. Eleven transitive packages left with
+`datasets`, including the whole `aiohttp` stack.
+
+`pyarrow` was then the only thing left in the `corpus` extra and nothing
+imports it, so `pip install turkic-translit[corpus]` is now just
+`pip install turkic-translit`.
+
+### Fixed
+
+* A refused corpus read reaches the interface as this package's own
+  `CorpusStreamError` rather than as `urllib.error.HTTPError`. The web
+  tab reports the former and would have shown a visitor a traceback for
+  the latter.
+* **The Hugging Face Space served an unthemed page.** Gradio 6 takes the
+  theme and stylesheet at `launch`, and only the server hook passed
+  them; the Space's entry point built the interface and launched it
+  itself, so inputs rendered near-invisible against their own
+  background. The entry point now calls the same `main()` the
+  `turkic-web` console script calls.
+* The stylesheet's hardcoded `#ddd`, `#555` and `#666` became Gradio
+  theme variables, so borders and secondary text are legible in dark
+  mode as well as light.
+
+### Changed
+
+* The Transliterate tab is two columns: input, upload, language and the
+  button on the left, output on the right — the arrangement the corpus
+  tab already used. Previously the input box spanned the top at double
+  width beside an empty column, and the output sat in a narrow strip
+  below it.
+* The page header was a title, a subtitle restating it, and a paragraph
+  explaining that tabs are tabs; it is now one heading and one sentence.
+  The footer points at the rule files and their sources instead of
+  repeating the title.
+
 ## [0.5.3] - 2026-08-14
 
 ### Fixed
