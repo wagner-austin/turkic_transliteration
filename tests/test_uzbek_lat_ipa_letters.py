@@ -68,6 +68,25 @@ O_CONTRAST: tuple[tuple[str, str, str], ...] = (
     ("yol", "jɔl", "the yo digraph carries the open vowel, like plain o"),
 )
 
+# Sequences where a shorter digraph rule used to steal a letter from the
+# apostrophe letter behind it: <yoʻ> is y + oʻ and <ngʻ> is n + gʻ,
+# because the apostrophe exists only as part of oʻ and gʻ. The expected
+# values compose from the letter values Ido prints (y=j, oʻ=o, gʻ=ʁ,
+# ng=ŋ), and the Cyrillic spelling of each word writes the same parse
+# with plain letters, so both alphabets are checked and must agree.
+SEAMS: tuple[tuple[str, str, str, str], ...] = (
+    ("yo'l", "йўл", "jol", "road"),
+    ("yo'q", "йўқ", "joq", "absent"),
+    ("qo'ng'iz", "қўнғиз", "qonʁiz", "beetle"),
+    ("to'ng'ich", "тўнғич", "tonʁit͡ʃ", "firstborn"),
+    ("jing", "жинг", "d͡ʒiŋ", "complaints, plain ng stays the velar nasal"),
+)
+
+# The corpora spell the modifier with several codepoints; the rules
+# declare them equivalent in $Apo, so the parse must not depend on which
+# one a text uses.
+APOSTROPHES: tuple[str, ...] = ("'", "ʻ", "’", "ʼ")
+
 
 def as_this_project_writes_it(published: str) -> str:
     """Apply the declared deviations to a published transcription.
@@ -100,6 +119,36 @@ def test_keyword_transliterates_as_the_source_prints_it(
     assert page == 154
     assert gloss != ""
     assert to_ipa(orthography, "uz") == as_this_project_writes_it(published)
+
+
+@pytest.mark.parametrize(
+    ("latin", "cyrillic", "expected", "gloss"), SEAMS, ids=[s[0] for s in SEAMS]
+)
+def test_digraph_boundary_parses_as_the_orthography_defines(
+    latin: str, cyrillic: str, expected: str, gloss: str
+) -> None:
+    """The apostrophe letter binds tighter than the digraph before it.
+
+    Args:
+        latin: The word in Latin orthography, apostrophe written ASCII.
+        cyrillic: The same word in Cyrillic orthography.
+        expected: The transcription composed from the pinned letter values.
+        gloss: What the word means, for the reader.
+    """
+    assert gloss != ""
+    assert to_ipa(latin, "uz") == expected
+    assert to_ipa(cyrillic, "uzc") == expected
+
+
+@pytest.mark.parametrize("mark", APOSTROPHES, ids=[f"U+{ord(m):04X}" for m in APOSTROPHES])
+def test_the_parse_does_not_depend_on_the_apostrophe_codepoint(mark: str) -> None:
+    """Every declared apostrophe variant yields the same parse.
+
+    Args:
+        mark: One apostrophe-like codepoint from the rules' $Apo class.
+    """
+    assert to_ipa(f"yo{mark}l", "uz") == "jol"
+    assert to_ipa(f"qo{mark}ng{mark}iz", "uz") == "qonʁiz"
 
 
 @pytest.mark.parametrize(("orthography", "expected", "reason"), O_CONTRAST)

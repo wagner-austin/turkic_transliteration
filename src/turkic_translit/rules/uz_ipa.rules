@@ -30,6 +30,13 @@ $Apo    = [ʼ ' ‘ ’ ʻ ʾ] ;          # apostrophe-like marks used in oʻ, g
 
 # ng, sh, ch, ts are treated as single segments
 
+# <ngʻ> is n + gʻ, not ng + a stray mark: the apostrophe exists only as
+# part of the letters oʻ and gʻ. Cyrillic spells it н-ғ (қўнғиз).
+ng $Apo > nʁ ;
+NG $Apo > nʁ ;
+Ng $Apo > nʁ ;
+nG $Apo > nʁ ;
+
 ng  > ŋ ;
 NG  > ŋ ;
 Ng  > ŋ ;
@@ -57,6 +64,11 @@ tS  > t͡s ;
 # The vowel here is the one plain <o> carries, not the one <oʻ>
 # does: Ido gives yol 'mane' as /jɔl/ (p. 154). Writing <o> instead
 # put the close vowel on every <yo> in the corpus.
+# <yoʻ> is y + oʻ, not yo + a stray mark; Cyrillic spells it й-ў (йўл).
+yo $Apo > jo ;
+Yo $Apo > jo ;
+YO $Apo > jo ;
+
 yo  > jɔ ;
 Yo  > jɔ ;
 YO  > jɔ ;

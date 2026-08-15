@@ -56,9 +56,17 @@ dependencies = [
     "numpy>=1.26",
     "pandas",
     # PyICU produces every transliteration and every IPA string: to_ipa and
-    # to_latin compile rules/<lang>_ipa.rules through it. Windows users must
-    # install the wheel manually; see README and turkic-pyicu-install.
-    "PyICU>=2.13,<2.16; sys_platform != 'win32'",
+    # to_latin compile rules/<lang>_ipa.rules through it.
+    #
+    # Taken as pyicu-wheels rather than as PyICU because PyICU publishes
+    # no wheels at all — sdist only, every platform — so installing it
+    # means compiling against ICU headers the machine probably lacks.
+    # That is why this project shipped a Windows wheel installer and two
+    # troubleshooting guides, and why `pip install turkic-translit`
+    # produced something that could not transliterate on any operating
+    # system. pyicu-wheels publishes the same extension, same import
+    # name, for manylinux, musllinux, macOS and Windows.
+    "pyicu-wheels==2.15.2",
     "pycountry>=23.12",             # ISO language names for dropdown labels
     # 3.1 is the first release with the pythonjsonlogger.json module this
     # imports; the older pythonjsonlogger.jsonlogger path is not typed.
@@ -205,8 +213,9 @@ allowed-confusables = [
     "А", "а", "В", "Е", "е", "К", "М", "Н", "О", "о",
     "Р", "р", "С", "с", "Т", "У", "у", "Х", "х", "І", "і",
     "Ј", "Ѕ", "ѕ", "һ", "ґ", "ғ", "б", "г", "з", "п", "ч", "ү",
-    # Turkish and Azerbaijani dotless i, and the Uzbek modifier apostrophe
-    "ı", "ʻ",
+    # Turkish and Azerbaijani dotless i, and the Uzbek modifier apostrophes
+    # in both codepoints web text spells them with
+    "ı", "ʻ", "ʼ",
     # Guillemets, the linguistic convention for citing an orthographic form
     "‹", "›",
     # Greek gamma as Ragagnin's Turcological transcription prints it
