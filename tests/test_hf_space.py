@@ -24,11 +24,21 @@ CARD = """\
 ---
 title: Demo
 sdk: gradio
-sdk_version: 6.22.0
+sdk_version: 6.17.3
 app_file: app.py
 ---
 
 # Demo
+"""
+
+LOCK = """\
+[[package]]
+name = "click"
+version = "8.4.2"
+
+[[package]]
+name = "gradio"
+version = "6.17.3"
 """
 
 PYPROJECT = """\
@@ -44,13 +54,16 @@ dependencies = [
 APP = "from turkic_translit.web.web_demo import build_ui\n"
 
 
-def build_repository(root: Path, card: str = CARD, pyproject: str = PYPROJECT) -> Path:
+def build_repository(
+    root: Path, card: str = CARD, pyproject: str = PYPROJECT, lock: str = LOCK
+) -> Path:
     """Write a repository the renderer can read.
 
     Args:
         root: Directory to build under.
         card: Contents of the Space card.
         pyproject: Contents of ``pyproject.toml``.
+        lock: Contents of ``poetry.lock``.
 
     Returns:
         The repository root, so a caller can pass it straight on.
@@ -58,22 +71,25 @@ def build_repository(root: Path, card: str = CARD, pyproject: str = PYPROJECT) -
     (root / hf_space.CARD).parent.mkdir(parents=True, exist_ok=True)
     (root / hf_space.CARD).write_text(card, encoding="utf-8")
     (root / "pyproject.toml").write_text(pyproject, encoding="utf-8")
+    (root / "poetry.lock").write_text(lock, encoding="utf-8")
     (root / "app.py").write_text(APP, encoding="utf-8")
     return root
 
 
-def test_the_cards_sdk_is_one_the_package_accepts() -> None:
-    """The real card's SDK sits inside the real package's Gradio range.
+def test_the_card_names_the_gradio_this_project_resolves() -> None:
+    """The real card's SDK is the version in the real lock file.
 
     This is the check the broken build did not have. It fails on the
-    commit that raises the floor in pyproject without moving the card,
-    rather than eight minutes into a Space build that nobody watches.
+    commit that moves Gradio in pyproject or in the lock without moving
+    the card, rather than a minute into a Space build that nobody
+    watches.
     """
     root = hf_space.PROJECT_ROOT
     card = (root / hf_space.CARD).read_text(encoding="utf-8")
     pyproject = (root / "pyproject.toml").read_text(encoding="utf-8")
+    lock = (root / "poetry.lock").read_text(encoding="utf-8")
 
-    assert hf_space.sdk_matches_package(card, pyproject) is True
+    assert hf_space.sdk_mismatch(card, pyproject, lock) is None
 
 
 def test_the_card_names_an_entry_point_this_repository_has() -> None:
@@ -131,11 +147,46 @@ def test_a_pyproject_without_gradio_is_refused() -> None:
         hf_space.gradio_requirement('[project]\ndependencies = ["click>=8.1"]\n')
 
 
-def test_an_sdk_outside_the_requirement_does_not_match() -> None:
-    """The exact pair that broke the build reports as mismatched."""
-    stale = CARD.replace("6.22.0", "5.29.0")
+def test_the_locked_version_is_read_from_the_lock_file() -> None:
+    """The resolved version comes from the package's own stanza."""
+    assert hf_space.locked_version(LOCK, "gradio") == "6.17.3"
 
-    assert hf_space.sdk_matches_package(stale, PYPROJECT) is False
+
+def test_a_package_the_lock_does_not_resolve_is_refused() -> None:
+    """An absent stanza is an error rather than a silently skipped check."""
+    with pytest.raises(ValueError, match="resolves no gradio"):
+        hf_space.locked_version("", "gradio")
+
+
+def test_an_sdk_outside_the_requirement_is_reported() -> None:
+    """The card that took the demo down the first time is named as wrong."""
+    stale = CARD.replace("6.17.3", "5.29.0")
+
+    reported = hf_space.sdk_mismatch(stale, PYPROJECT, LOCK)
+
+    assert reported == (
+        "the Space card declares sdk_version 5.29.0, which gradio>=6.0,<7 does not admit"
+    )
+
+
+def test_an_sdk_the_lock_does_not_resolve_is_reported() -> None:
+    """The card that took it down the second time is named as wrong too.
+
+    6.22.0 is inside ``gradio>=6.0,<7`` and was still unbuildable: from
+    6.20 onwards Gradio requires huggingface-hub 1.2 or newer, which
+    this package's transformers and datasets bounds forbid. Only the
+    lock knows that, so only the lock can decide it.
+    """
+    ahead = CARD.replace("6.17.3", "6.22.0")
+
+    reported = hf_space.sdk_mismatch(ahead, PYPROJECT, LOCK)
+
+    assert reported == (
+        "the Space card declares sdk_version 6.22.0, but poetry.lock resolves "
+        "gradio 6.17.3. The Space installs the SDK the card names, so naming any "
+        "other version asks it to resolve a dependency set this project has never "
+        "resolved"
+    )
 
 
 def test_the_requirements_name_the_package_and_nothing_else() -> None:
@@ -162,9 +213,9 @@ def test_rendering_writes_the_card_the_pin_and_the_entry_point(tmp_path: Path) -
     assert (space / "app.py").read_text(encoding="utf-8") == APP
 
 
-def test_a_mismatched_pair_is_never_written(tmp_path: Path) -> None:
-    """The renderer refuses the pair rather than publishing a broken Space."""
-    root = build_repository(tmp_path / "repo", card=CARD.replace("6.22.0", "5.29.0"))
+def test_a_mismatched_card_is_never_written(tmp_path: Path) -> None:
+    """The renderer refuses the card rather than publishing a broken Space."""
+    root = build_repository(tmp_path / "repo", card=CARD.replace("6.17.3", "5.29.0"))
     space = tmp_path / "space"
     space.mkdir()
 

@@ -63,23 +63,36 @@ this repository, so the only way to change the demo is to push here.
    if it settles on an error**. A broken Space is a red workflow run, not a
    green one
 
-### The pair that has to agree
+### The card's `sdk_version` must be the Gradio in `poetry.lock`
 
 A Space build installs the SDK version named on its card *alongside* the
-packages in `requirements.txt`. So the card's `sdk_version` and the `gradio`
-requirement in `pyproject.toml` are one setting written in two files, and when
-they disagree pip refuses to install anything. That is what broke the demo:
-the package moved to `gradio>=6.0,<7` while the card still said `5.29.0`.
+packages in `requirements.txt`. So the card's `sdk_version` is not decoration:
+it is a hard pin on `gradio`, resolved together with everything the package
+depends on. When it disagrees with them, pip installs nothing at all.
 
-Two checks now hold them together:
+That took the demo down twice in a row, for two different reasons:
 
-- `tests/test_hf_space.py` fails in `make check` when the card's SDK falls
-  outside the requirement
-- `scripts/hf_space.py` refuses to write the Space at all when it does
+- **`5.29.0`** — the card was never updated when the package moved to
+  `gradio>=6.0,<7`, so pip was handed `gradio==5.29.0` and `gradio>=6.0`
+- **`6.22.0`** — inside the declared range, and still unbuildable. Gradio 6.20
+  and later require `huggingface-hub>=1.2`, while `transformers<5` and
+  `datasets<4` both cap it below `1.0`
 
-Raising the Gradio floor in `pyproject.toml` therefore means editing
-`sdk_version` in `.github/hf-space/README.md` in the same commit. The test
-names the pair that broke, so there is nothing to remember.
+The second one is why the check is against the lock file rather than the
+range. `poetry.lock` names the version whose *whole* dependency set is known
+to resolve, and it is the version the test suite actually ran against.
+
+Two things enforce it:
+
+- `tests/test_hf_space.py` fails in `make check` when the card's SDK is not
+  the version `poetry.lock` resolves for `gradio`
+- `scripts/hf_space.py` refuses to write the Space at all when it is not
+
+So moving Gradio — in `pyproject.toml`, or by relocking — means editing
+`sdk_version` in `.github/hf-space/README.md` in the same commit, and the test
+says so by name. To move the Space to a newer Gradio than the lock holds, bump
+the dependency, relock, run `make check`, and set the card to whatever the lock
+then resolves.
 
 ## Troubleshooting
 

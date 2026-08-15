@@ -13,10 +13,20 @@ build installs the SDK named on its card alongside the packages in
 
 Three things follow, and each is enforced rather than described. The
 card lives at ``.github/hf-space/README.md`` in this repository, so a
-push updates it. :func:`render` refuses to write a card whose SDK falls
-outside the range pyproject declares, so a bad pair cannot be published.
-And ``tests/test_hf_space.py`` asserts the same thing about the real
-files, so the pair is checked before anything is pushed at all.
+push updates it. :func:`render` refuses to write a card whose SDK is not
+the Gradio this project resolves. And ``tests/test_hf_space.py`` asserts
+the same of the real files, so the card is checked before anything is
+pushed at all.
+
+That last check is against ``poetry.lock`` rather than against the range
+in pyproject, because the range alone was not enough. The first attempt
+at this fix moved the card to 6.22.0, which ``gradio>=6.0,<7`` admits
+and which nothing else in the dependency set does: Gradio 6.20 onwards
+requires ``huggingface-hub>=1.2``, while ``transformers<5`` and
+``datasets<4`` cap it below 1.0. The build failed a second time, on a
+version the specifier permitted. What the lock names is the version
+whose whole set is known to resolve, and it is the version the tests
+ran against.
 
 Run with:
 
@@ -40,6 +50,13 @@ PROJECT_ROOT = Path(__file__).resolve().parent.parent
 CARD = Path(".github") / "hf-space" / "README.md"
 
 PYPROJECT = "pyproject.toml"
+
+LOCKFILE = "poetry.lock"
+
+_LOCKED_PACKAGE = re.compile(
+    r'^\[\[package\]\]\nname = "(?P<name>[^"]+)"\nversion = "(?P<version>[^"]+)"',
+    re.MULTILINE,
+)
 
 CARD_NAME = "README.md"
 
@@ -143,19 +160,60 @@ def gradio_requirement(pyproject_text: str) -> str:
     raise ValueError(f"pyproject.toml declares no {GRADIO} dependency")
 
 
-def sdk_matches_package(card_text: str, pyproject_text: str) -> bool:
-    """Report whether the card's SDK satisfies the package's requirement.
+def locked_version(lock_text: str, package: str) -> str:
+    """Read the version Poetry resolved for one package.
+
+    Args:
+        lock_text: Contents of ``poetry.lock``.
+        package: Name of the package to look up.
+
+    Returns:
+        The locked version, such as ``6.17.3``.
+
+    Raises:
+        ValueError: If the lock resolves no such package.
+    """
+    for match in _LOCKED_PACKAGE.finditer(lock_text):
+        if match.group("name") == package:
+            return match.group("version")
+    raise ValueError(f"poetry.lock resolves no {package}")
+
+
+def sdk_mismatch(card_text: str, pyproject_text: str, lock_text: str) -> str | None:
+    """Explain why the card's SDK is wrong, or report that it is not.
+
+    Being inside the declared range is necessary and not sufficient, as
+    the second failed build showed. ``gradio>=6.0,<7`` admits 6.22.0,
+    but 6.20 onwards requires ``huggingface-hub>=1.2`` while this
+    package's ``transformers<5`` and ``datasets<4`` both cap it below
+    1.0, so pip could satisfy the card or the package and not both. The
+    version Poetry resolved is the one whose whole dependency set is
+    known to hold together, and it is the one the tests ran against, so
+    it is the one the Space installs.
 
     Args:
         card_text: The Space card, front matter included.
         pyproject_text: Contents of ``pyproject.toml``.
+        lock_text: Contents of ``poetry.lock``.
 
     Returns:
-        True when the Gradio version the Space installs is one the
-        package accepts, which is the condition the failed build broke.
+        A sentence naming the disagreement, or ``None`` when the card
+        names the Gradio this project both requires and resolves.
     """
-    specifier = Requirement(gradio_requirement(pyproject_text)).specifier
-    return Version(front_matter_value(card_text, "sdk_version")) in specifier
+    sdk = front_matter_value(card_text, "sdk_version")
+    requirement = gradio_requirement(pyproject_text)
+    if Version(sdk) not in Requirement(requirement).specifier:
+        return f"the Space card declares sdk_version {sdk}, which {requirement} does not admit"
+
+    resolved = locked_version(lock_text, GRADIO)
+    if sdk != resolved:
+        return (
+            f"the Space card declares sdk_version {sdk}, but poetry.lock resolves "
+            f"{GRADIO} {resolved}. The Space installs the SDK the card names, so "
+            f"naming any other version asks it to resolve a dependency set this "
+            f"project has never resolved"
+        )
+    return None
 
 
 def requirements_text(version: str) -> str:
@@ -205,14 +263,11 @@ def render(root: Path, space: Path) -> tuple[Path, ...]:
     """
     card_text = (root / CARD).read_text(encoding="utf-8")
     pyproject_text = (root / PYPROJECT).read_text(encoding="utf-8")
+    lock_text = (root / LOCKFILE).read_text(encoding="utf-8")
 
-    if not sdk_matches_package(card_text, pyproject_text):
-        sdk = front_matter_value(card_text, "sdk_version")
-        raise ValueError(
-            f"the Space card declares sdk_version {sdk}, which "
-            f"{gradio_requirement(pyproject_text)} does not admit; "
-            f"update {CARD.as_posix()} to a version the package accepts"
-        )
+    mismatch = sdk_mismatch(card_text, pyproject_text, lock_text)
+    if mismatch is not None:
+        raise ValueError(f"{mismatch}; fix {CARD.as_posix()} before syncing")
 
     app_file = front_matter_value(card_text, "app_file")
     return (
