@@ -20,6 +20,17 @@
 % description is still accurate, and the counts and the binding language are
 % the parts that moved. Table~\ref{tab:corpora} needs regenerating from the v3
 % manifest.
+%
+% The NOTE TO CO-AUTHORS at the foot of this file still stands as written:
+% lid218e was never wired into the released package, so the raw-corpus
+% filtering step is not reproducible from the tool.
+%
+% What does NOT undercut the claim, despite a 2026-08-28 assertion to the
+% contrary that was wrong: v3's rules_fingerprint. All eight entries match
+% this package today. symbol_map is hashed as the PARSED TABLE re-encoded as
+% JSON (corpus/clean.py, rules_fingerprint), not as symbol_map.csv; its seven
+% siblings are file digests, which is what made the wrong comparison look
+% right. The transliteration half of the pipeline is accounted for.
 % =============================================================================
 % Tu+ Conference Proceedings — Training Datasets section
 % Draft author: Austin Wagner
