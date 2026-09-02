@@ -25,11 +25,13 @@ from turkic_translit.core import _RULE_DIR, to_ipa
 
 APOSTROPHES: Final = ("'", "ʻ", "’", "ʼ")
 
+_RUSSIAN_LETTERS: Final = "абвгдеёжзийклмнопрстуфхцчшщъыьэюя"
+
 _CYRILLIC_LETTERS: Final = (
-    "абвгдеёжзийклмнопрстуфхцчшщъыьэюя"  # Russian
-    "әғқңөұүһі"  # Kazakh
-    "ңөүҥѳ"  # Kyrgyz
-    "ўқғҳ"  # Uzbek
+    _RUSSIAN_LETTERS  # Russian
+    + "әғқңөұүһі"  # Kazakh
+    + "ңөүҥѳ"  # Kyrgyz
+    + "ўқғҳ"  # Uzbek
 )
 
 
@@ -54,6 +56,10 @@ def source_alphabets() -> dict[str, str]:
         "kk": _CYRILLIC_LETTERS,
         "ky": _CYRILLIC_LETTERS,
         "uzc": _CYRILLIC_LETTERS,
+        # Russian maps the 33 letters of its own alphabet and no more; the
+        # Turkic files above additionally map the letters their orthographies
+        # add, which is why they take the combined set and this one does not.
+        "ru": _RUSSIAN_LETTERS,
         "az": "abcçdeəfgğhxıijkqlmnoöprsştuüvyz",
         "tr": "abcçdefgğhıijklmnoöprsştuüvyz",
         "uz": "abdefghijklmnopqrstuvxyz",

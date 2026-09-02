@@ -18,6 +18,7 @@ from tests import test_azerbaijani_ragagnin_words as az_words
 from tests import test_finnish_karlsson_words as fi_words
 from tests import test_kazakh_routledge_words as kk_words
 from tests import test_kyrgyz_words_mccollum as ky_words
+from tests import test_russian_ipa_letters as ru_letters
 from tests import test_turkish_routledge_words as tr_words
 from tests import test_uyghur_mfa_agreement as ug_words
 from tests import test_uzbek_cyr_ipa_letters as uzc_letters
@@ -35,6 +36,7 @@ PINNED_WORDS: dict[str, frozenset[str]] = {
     "fi": frozenset(word for word, *_rest in fi_words.WORDS),
     "kk": frozenset(word for word, *_rest in kk_words.WORDS),
     "ky": frozenset(ky_words.GOLD),
+    "ru": frozenset(word for word, *_rest in ru_letters.KEYWORDS),
     "tr": frozenset(word for word, *_rest in tr_words.WORDS),
     "ug": frozenset(word for word, _prons in ug_words.ROWS),
     "uz": frozenset(word for word, *_rest in uz_letters.KEYWORDS),

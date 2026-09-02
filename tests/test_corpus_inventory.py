@@ -54,7 +54,7 @@ def test_every_language_has_an_alphabet_and_letters_to_sweep() -> None:
     """The inventory serves the full language set with real content."""
     alphabets = source_alphabets()
 
-    assert set(alphabets) == {"az", "fi", "kk", "ky", "tr", "ug", "uz", "uzc"}
+    assert set(alphabets) == {"az", "fi", "kk", "ky", "ru", "tr", "ug", "uz", "uzc"}
     assert "ب" in alphabets["ug"]
     assert len(seam_inputs("uz")) > len(alphabets["uz"]) ** 2
 

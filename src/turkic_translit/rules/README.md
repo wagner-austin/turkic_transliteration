@@ -20,6 +20,7 @@ The following languages have rule files and are exposed through the API:
 - **Uzbek (uz)**: `uz_ipa.rules`, `uzc_ipa.rules` (Cyrillic variant)
 - **Uyghur (ug)**: `ug_ipa.rules`
 - **Azerbaijani (az)**: `az_ipa.rules`
+- **Russian (ru)**: `ru_ipa.rules` (contact language, not Turkic)
 
 Additional rule files exist but are not currently exposed through the API configuration.
 
@@ -74,6 +75,19 @@ Ghaffarvand Mokari, P. & Werner, S. (2017). "Azerbaijani". Journal of the Intern
 tr_ipa.rules
 test_turkish_ipa_letters.py
 Zimmer, K. & Orgun, O. (1992). "Turkish". Journal of the International Phonetic Association, 22(1-2): 43-45. https://doi.org/10.1017/S0025100300004588
+
+### Russian
+
+ru_ipa.rules
+test_russian_ipa_letters.py
+Yanushevskaya, I. & Bunčić, D. (2015). "Russian". Journal of the International Phonetic Association, 45(2): 221-228. https://doi.org/10.1017/S0025100314000395
+
+Russian is not a Turkic language. It is here as the contact language the
+Turkic corpora borrow from, which is also what `turkic-filter-russian` and
+`lang_filter.py` exist for. The file marks the palatalisation contrast the
+Illustration makes phonemic and declares vowel reduction, devoicing and
+assimilation out of scope, because orthography does not determine those
+without stress.
 
 tr_lat.rules
 Arslan, A. (2016). "DeASCIIfication approach to handle diacritics in Turkish information retrieval". Information Processing & Management, 52(2): 326-339. https://doi.org/10.1016/j.ipm.2015.08.004

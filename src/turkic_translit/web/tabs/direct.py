@@ -43,6 +43,7 @@ EXAMPLE_WORDS: Mapping[str, str] = {
     "fi": "rengas",  # 'tyre', Karlsson p. 14
     "kk": "құс",  # 'bird', Abish p. 337
     "ky": "көл",  # McCollum, monosyllabic roots, Table 3
+    "ru": "пяльцы",  # 'embroidery hoop', Yanushevskaya & Bunčić p. 222
     "tr": "dağ",  # soft g lengthens the vowel, Routledge p. 195
     "ug": "ئوخشاش",  # Montreal Forced Aligner dictionary sample
     "uz": "besh",  # 'five', Ido p. 154

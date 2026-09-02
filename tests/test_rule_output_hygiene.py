@@ -46,7 +46,7 @@ CYRILLIC_LETTERS = (
     "ўқғҳ"  # Uzbek
 )
 
-CYRILLIC_LANGUAGES = ("kk", "ky", "uzc")
+CYRILLIC_LANGUAGES = ("kk", "ky", "uzc", "ru")
 
 # The property tests need no source to adjudicate, but the contextual
 # pins below state expected strings, and those inherit from the sources
@@ -77,7 +77,7 @@ def test_every_expected_language_has_an_ipa_rule_file() -> None:
     A test that derives its own parameters reports success when it finds
     nothing, so the set it discovers is pinned here.
     """
-    assert set(LANGUAGES) == {"az", "fi", "kk", "ky", "tr", "ug", "uz", "uzc"}
+    assert set(LANGUAGES) == {"az", "fi", "kk", "ky", "ru", "tr", "ug", "uz", "uzc"}
 
 
 @pytest.mark.parametrize("lang", CYRILLIC_LANGUAGES)
@@ -89,12 +89,19 @@ def test_no_cyrillic_letter_survives_into_the_output(lang: str) -> None:
     language and never in another, which reads as a difference between
     the languages rather than as the gap in coverage it is.
 
+    The letters swept are the ones the language itself declares, not a
+    single union set. For the three Turkic files that declaration is the
+    union anyway, pinned below, so their coverage is unchanged; Russian
+    declares the 33 letters of its own alphabet, and holding it to
+    Kazakh ‹ә› or Uzbek ‹ў› would be asserting a requirement no source
+    places on it.
+
     Args:
         lang: The Cyrillic-script language whose rule file is checked.
     """
     leaked = {
         letter: to_ipa(letter, lang)
-        for letter in CYRILLIC_LETTERS
+        for letter in source_alphabets()[lang]
         if any(ud.name(c, "").startswith("CYRILLIC") for c in to_ipa(letter, lang))
     }
 
