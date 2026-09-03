@@ -100,6 +100,12 @@ KAZAKH_SENTENCES: tuple[str, ...] = (
     "деген шешімге келеді.",
     "Солтүстік жел бар күшімен жел үрлей бастайды, ол қатты үрлеген сайын жолаушы "
     "шапанына орана түседі.",
+    # Carries ‹щ›, ‹ц› and ‹ч›, the letters Kazakh uses only in Russian loans.
+    # None of the four passage sentences above contains one, and that hole is
+    # why this check ran clean for as long as ‹щ› emitted an alveolo-palatal
+    # the cited chart has no column for. A conformance check is only as wide
+    # as the text it is given.
+    "Революция кезінде борщ пен цирк туралы очерк шықты.",
 )
 
 # Finnish, from the vowel inventory of p. 20 and the consonant groups of
@@ -150,7 +156,6 @@ AZERBAIJANI_SENTENCES: tuple[str, ...] = (
 # tie bar over two components, each already listed, so they add nothing.
 RUSSIAN_INVENTORY = frozenset(
     "pbtdkɡmnrfvszʃʒxjl"  # consonants
-    "ɕ"  # ‹щ›, written alveolo-palatal as p. 223 allows and kk/ky/uzc write it
     "ʲ"  # the palatalised counterpart of almost every consonant above
     "ieaouɨ"  # vowels
 )

@@ -151,7 +151,17 @@ RUSSIAN_LOAN_LETTERS: dict[str, tuple[dict[str, str], str]] = {
     "з": ({"ru": "z", "kk": "z", "ky": "z", "uzc": "z"}, ""),
     "ц": ({"ru": "t͡s", "kk": "t͡s", "ky": "t͡s", "uzc": "t͡s"}, ""),
     "ш": ({"ru": "ʃ", "kk": "ʃ", "ky": "ʃ", "uzc": "ʃ"}, ""),
-    "щ": ({"ru": "ɕː", "kk": "ɕː", "ky": "ɕː", "uzc": "ɕː"}, ""),
+    "щ": (
+        {"ru": "ʃʲː", "kk": "ʃː", "ky": "ʃː", "uzc": "ʃː"},
+        "All four write the postalveolar; Russian adds the ʲ because ‹щ› is one "
+        "of its two unpaired SOFT consonants and palatalisation is contrastive "
+        "there (Yanushevskaya & Bunčić p. 222), while in the Turkic three the "
+        "letter occurs only in Russian loans and their descriptions record no "
+        "palatalisation opposition to place it in. Until 2026-09-03 all four "
+        "wrote ɕː, which McCollum & Chen's chart (p. 277) excludes: it has no "
+        "alveolo-palatal column, and the prose under it enumerates the "
+        "non-native sounds Kazakh takes on as [f], [v] and [h].",
+    ),
     "ж": (
         {"ru": "ʒ", "kk": "ʒ", "ky": "d͡ʒ", "uzc": "d͡ʒ"},
         "Kyrgyz and Uzbek ‹ж› is the affricate their sources print (McCollum "
@@ -178,10 +188,10 @@ def test_a_russian_loan_letter_is_spelled_one_way_or_says_why_not(
     """The four Cyrillic files agree on each borrowed letter, or declare why not.
 
     ‹щ› is the case this was written for. It was ʃʲː in Russian and ɕː in
-    the other three, which is one borrowed segment spelled two ways. A
-    character-level model reads that as a difference between the languages,
-    which is the defect the corpus symbol map exists to prevent, and nothing
-    was checking it because Russian sits outside the group above.
+    the other three, and the ɕː turned out to be excluded by the Kazakh
+    chart rather than merely different. All four now write the postalveolar
+    and differ only in the ʲ, where the languages themselves differ. Nothing
+    was checking any of it, because Russian sits outside the group above.
 
     Args:
         letter: The Cyrillic letter under test.

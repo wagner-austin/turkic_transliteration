@@ -113,7 +113,7 @@ def test_i_after_an_unpaired_hard_consonant_is_the_close_central_vowel(
 
 @pytest.mark.parametrize(
     ("letter", "alone", "before_i"),
-    [("ч", "t͡ʃʲ", "t͡ʃʲi"), ("щ", "ɕː", "ɕːi")],
+    [("ч", "t͡ʃʲ", "t͡ʃʲi"), ("щ", "ʃʲː", "ʃʲːi")],
     ids=list(IMMUTABLE_SOFT),
 )
 def test_an_immutable_soft_consonant_is_soft_however_it_is_written(
@@ -153,4 +153,4 @@ def test_no_letter_outside_the_mutable_list_is_palatalised_by_a_front_vowel() ->
     # The soft pair keeps whatever softness its own spelling carries and
     # gains nothing from the vowel: ‹ч› its ʲ, ‹щ› its alveolo-palatal symbol.
     assert to_ipa("че", "ru") == "t͡ʃʲe"
-    assert to_ipa("ще", "ru") == "ɕːe"
+    assert to_ipa("ще", "ru") == "ʃʲːe"
