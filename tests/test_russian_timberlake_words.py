@@ -29,7 +29,7 @@ from turkic_translit.rule_provenance import read_rule_source
 
 # The rule file's own cited source. This module corroborates it; it does not
 # replace it, and it must not silently become the only thing checked.
-ILLUSTRATION_SOURCE = "https://doi.org/10.1017/S0025100314000395"
+INHERITS_SOURCE = "https://doi.org/10.1017/S0025100314000395"
 
 # Timberlake 2004, p. 18: the consonants that can be either palatalised or
 # not. Ordered as the grammar prints them.
@@ -51,7 +51,7 @@ def test_the_rule_file_still_cites_the_illustration_this_corroborates() -> None:
     Args:
         None.
     """
-    assert read_rule_source(_RULE_DIR / "ru_ipa.rules")["identifier"] == ILLUSTRATION_SOURCE
+    assert read_rule_source(_RULE_DIR / "ru_ipa.rules")["identifier"] == INHERITS_SOURCE
 
 
 def test_the_three_classes_partition_the_consonant_letters() -> None:
@@ -112,25 +112,32 @@ def test_i_after_an_unpaired_hard_consonant_is_the_close_central_vowel(
 
 
 @pytest.mark.parametrize(
-    ("letter", "expected"),
-    [("ч", "t͡ʃʲi"), ("щ", "ʃʲːi")],
+    ("letter", "alone", "before_i"),
+    [("ч", "t͡ʃʲ", "t͡ʃʲi"), ("щ", "ɕː", "ɕːi")],
     ids=list(IMMUTABLE_SOFT),
 )
-def test_an_immutable_soft_consonant_carries_its_own_palatalisation(
-    letter: str, expected: str
+def test_an_immutable_soft_consonant_is_soft_however_it_is_written(
+    letter: str, alone: str, before_i: str
 ) -> None:
-    """‹ч щ› are intrinsically palatalised, so the ʲ is in the consonant itself.
+    """‹ч щ› are intrinsically palatalised, and neither needs a following vowel to be.
 
-    The vowel stays the close front one: the retraction to [ɨ] is a property
-    of the unpaired HARD consonants, and these two are unpaired soft.
+    The two are written differently and both are correct. ‹ч› carries an
+    explicit ʲ on a postalveolar; ‹щ› is written as an alveolo-palatal,
+    where softness is the symbol rather than a diacritic on it. Asserting
+    "contains ʲ" would therefore be asserting one spelling rather than the
+    property, so the transcriptions are pinned outright.
+
+    The vowel stays the close front one either way: retraction to [ɨ] is a
+    property of the unpaired HARD consonants, and these two are unpaired soft.
 
     Args:
         letter: One Cyrillic consonant from the grammar's immutable-soft list.
-        expected: The transcription these rules produce for letter plus ‹и›.
+        alone: The transcription of the bare consonant.
+        before_i: The transcription of the consonant plus ‹и›.
     """
-    assert PALATALISATION in to_ipa(letter, "ru")
-    assert CLOSE_CENTRAL not in expected
-    assert to_ipa(letter + "и", "ru") == expected
+    assert CLOSE_CENTRAL not in before_i
+    assert to_ipa(letter, "ru") == alone
+    assert to_ipa(letter + "и", "ru") == before_i
 
 
 def test_no_letter_outside_the_mutable_list_is_palatalised_by_a_front_vowel() -> None:
@@ -143,5 +150,7 @@ def test_no_letter_outside_the_mutable_list_is_palatalised_by_a_front_vowel() ->
     for letter in IMMUTABLE_HARD:
         assert PALATALISATION not in to_ipa(letter + "е", "ru")
 
-    for letter in IMMUTABLE_SOFT:
-        assert to_ipa(letter + "е", "ru").count(PALATALISATION) == 1
+    # The soft pair keeps whatever softness its own spelling carries and
+    # gains nothing from the vowel: ‹ч› its ʲ, ‹щ› its alveolo-palatal symbol.
+    assert to_ipa("че", "ru") == "t͡ʃʲe"
+    assert to_ipa("ще", "ru") == "ɕːe"

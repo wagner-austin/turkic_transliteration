@@ -38,6 +38,14 @@ INHERITS_SOURCE = "https://doi.org/10.1017/S0025100314000395"
 # is the same number of characters in every language a character-level
 # model compares. Notation, not phonology.
 NOTATION: tuple[tuple[str, str, str], ...] = (
+    (
+        "ʃʲː",
+        "ɕː",
+        "the Illustration sanctions both spellings for the one phoneme, "
+        "'a laminal palatalised post-alveolar (or alternatively, an "
+        "alveolo-palatal [ɕː])' (p. 223); ɕː is what kk, ky and uzc write "
+        "for the same borrowed segment, so the four files agree",
+    ),
     ("ts", "t͡s", "the tie bar binds the affricate, as in every sibling file"),
     ("tʃ", "t͡ʃ", "the tie bar binds the affricate, as in every sibling file"),
 )

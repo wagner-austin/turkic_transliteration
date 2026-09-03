@@ -150,6 +150,7 @@ AZERBAIJANI_SENTENCES: tuple[str, ...] = (
 # tie bar over two components, each already listed, so they add nothing.
 RUSSIAN_INVENTORY = frozenset(
     "pbtdkɡmnrfvszʃʒxjl"  # consonants
+    "ɕ"  # ‹щ›, written alveolo-palatal as p. 223 allows and kk/ky/uzc write it
     "ʲ"  # the palatalised counterpart of almost every consonant above
     "ieaouɨ"  # vowels
 )

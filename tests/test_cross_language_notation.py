@@ -137,3 +137,61 @@ def test_every_declared_contrast_is_a_shared_letter() -> None:
     """No declared contrast for a letter the groups do not test."""
     for letter in DECLARED_CONTRASTS:
         assert letter in CYRILLIC or letter in LATIN
+
+
+# The letters ‹ч щ ш ж ц з› carry, in the three Turkic Cyrillic files, the
+# sounds those files' own comments call Russian loan phonemes. Russian is
+# where they are native, so the four files describe one segment each and
+# should not spell it four ways. Russian is not folded into
+# CYRILLIC_LANGS above, because it differs from the Turkic three across
+# most of the alphabet for a real reason -- it marks a palatalisation
+# contrast none of them has -- and a whole-alphabet comparison would be a
+# list of genuine differences with these few notation questions lost in it.
+RUSSIAN_LOAN_LETTERS: dict[str, tuple[dict[str, str], str]] = {
+    "з": ({"ru": "z", "kk": "z", "ky": "z", "uzc": "z"}, ""),
+    "ц": ({"ru": "t͡s", "kk": "t͡s", "ky": "t͡s", "uzc": "t͡s"}, ""),
+    "ш": ({"ru": "ʃ", "kk": "ʃ", "ky": "ʃ", "uzc": "ʃ"}, ""),
+    "щ": ({"ru": "ɕː", "kk": "ɕː", "ky": "ɕː", "uzc": "ɕː"}, ""),
+    "ж": (
+        {"ru": "ʒ", "kk": "ʒ", "ky": "d͡ʒ", "uzc": "d͡ʒ"},
+        "Kyrgyz and Uzbek ‹ж› is the affricate their sources print (McCollum "
+        "2020 Table 3; Ido 2025), not the Russian fricative. Giving it the "
+        "Russian value is the defect test_kyrgyz_ipa_letters.py was written "
+        "to catch, so this contrast is the fix rather than drift.",
+    ),
+    "ч": (
+        {"ru": "t͡ʃʲ", "kk": "t͡ʃ", "ky": "t͡ʃ", "uzc": "t͡ʃ"},
+        "Russian ‹ч› is unpaired soft and always palatalised (Yanushevskaya & "
+        "Bunčić p. 222); the Turkic affricate is not. A real contrast.",
+    ),
+}
+
+
+@pytest.mark.parametrize(
+    ("letter", "expected", "reason"),
+    [(letter, expected, reason) for letter, (expected, reason) in RUSSIAN_LOAN_LETTERS.items()],
+    ids=list(RUSSIAN_LOAN_LETTERS),
+)
+def test_a_russian_loan_letter_is_spelled_one_way_or_says_why_not(
+    letter: str, expected: dict[str, str], reason: str
+) -> None:
+    """The four Cyrillic files agree on each borrowed letter, or declare why not.
+
+    ‹щ› is the case this was written for. It was ʃʲː in Russian and ɕː in
+    the other three, which is one borrowed segment spelled two ways. A
+    character-level model reads that as a difference between the languages,
+    which is the defect the corpus symbol map exists to prevent, and nothing
+    was checking it because Russian sits outside the group above.
+
+    Args:
+        letter: The Cyrillic letter under test.
+        expected: The transcription each of the four files produces.
+        reason: Why they differ, or empty when they agree.
+    """
+    produced = {lang: to_ipa(letter, lang) for lang in ("ru", "kk", "ky", "uzc")}
+
+    assert produced == expected
+    if reason == "":
+        assert len(set(produced.values())) == 1, f"{letter!r} differs with no reason given"
+    else:
+        assert len(set(produced.values())) > 1, f"{letter!r} agrees, so the reason is stale"
