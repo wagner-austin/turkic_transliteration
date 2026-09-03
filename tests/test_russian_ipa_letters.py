@@ -193,6 +193,49 @@ def test_a_glide_survives_where_the_orthography_really_has_one() -> None:
     assert to_ipa("статья", "ru") == "statʲja"
 
 
+def test_a_soft_sign_after_an_unpaired_consonant_adds_no_palatalisation() -> None:
+    """‹ь› there is orthographic: it marks noun class, not pronunciation.
+
+    The file's header takes ‹ж ш ц ч щ› as unpaired from Timberlake p. 18 and
+    says they "take no ʲ from this file", but the ‹ь› rule was unconditional
+    and contradicted it. ‹рожь› came out /roʒʲ/ and ‹мышь› /mɨʃʲ/, which are
+    not coarse transcriptions but phonemes Russian does not have -- ж and ш
+    are intrinsically hard and cannot be palatalised at all. ‹ночь› and
+    ‹вещь› doubled a mark their consonant already carried.
+
+    No earlier test caught it because none of the pinned words put a soft
+    sign after one of those five, the same coverage hole that let ‹щ› ship
+    outside the Kazakh inventory.
+    """
+    assert to_ipa("рожь", "ru") == "roʒ"
+    assert to_ipa("мышь", "ru") == "mɨʃ"
+    assert to_ipa("ночь", "ru") == "not͡ʃʲ"
+    assert to_ipa("вещь", "ru") == "vʲeʃʲː"
+
+
+def test_a_separating_soft_sign_keeps_its_glide_after_unpaired() -> None:
+    """The neighbouring case, kept beside it so the fix cannot overshoot.
+
+    Dropping the ʲ must not also drop the /j/: ‹чья› is /t͡ʃʲja/, where the
+    ʲ belongs to ‹ч› itself and the /j/ to the separating sign.
+    """
+    assert to_ipa("чья", "ru") == "t͡ʃʲja"
+    assert to_ipa("ружьё", "ru") == "ruʒjo"
+    assert to_ipa("мышью", "ru") == "mɨʃju"
+    assert to_ipa("вещью", "ru") == "vʲeʃʲːju"
+
+
+def test_a_pairable_consonant_still_takes_the_soft_sign() -> None:
+    """The regression the ‹ц› exclusion in the rule file exists to prevent.
+
+    /t͡s/ ends in the same s that $Cpair contains, so adding s to the
+    unpaired set would have stripped the ʲ from these.
+    """
+    assert to_ipa("рысь", "ru") == "rɨsʲ"
+    assert to_ipa("соль", "ru") == "solʲ"
+    assert to_ipa("жизнь", "ru") == "ʒɨznʲ"
+
+
 def test_the_declared_alphabet_is_the_post_1918_one_and_says_so() -> None:
     """The rules cover the modern 33 letters, and the pre-reform ones are outside.
 
