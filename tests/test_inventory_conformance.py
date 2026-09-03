@@ -30,6 +30,7 @@ INHERITS_SOURCE = {
     "kk": "https://doi.org/10.1017/S0025100319000185",
     "fi": "https://urn.fi/URN:ISBN:9789514289842",
     "az": "https://doi.org/10.1017/S0025100317000184",
+    "ru": "https://doi.org/10.1017/S0025100314000395",
 }
 
 TIE_BAR = "͡"
@@ -141,11 +142,32 @@ AZERBAIJANI_SENTENCES: tuple[str, ...] = (
     "Sonra Günəş isti şəfəqlənməyə başladı və bilavasitə səyahətçi əbasını çıxartdı.",
 )
 
+# Russian, from Yanushevskaya & Bunčić's consonant chart (p. 222) and the
+# six vowels of p. 224. The chart's palatalised series is written here as a
+# base consonant plus ʲ rather than as separate symbols, so ʲ is a member of
+# this set: it is a phoneme's second character, not a suprasegmental the way
+# the tie bar and the length mark are. The affricates are written with the
+# tie bar over two components, each already listed, so they add nothing.
+RUSSIAN_INVENTORY = frozenset(
+    "pbtdkɡmnrfvszʃʒxjl"  # consonants
+    "ʲ"  # the palatalised counterpart of almost every consonant above
+    "ieaouɨ"  # vowels
+)
+
+RUSSIAN_SENTENCES: tuple[str, ...] = (
+    "Однажды северный ветер и солнце поспорили, кто из них сильнее.",
+    "Как раз в это время они заметили закутанного в плащ путника, который шёл по дороге.",
+    "Тут северный ветер принялся дуть изо всех сил; но чем сильнее он дул, "
+    "тем сильнее кутался путник в свой плащ.",
+    "Тогда засияло солнышко, путник понемногу отогрелся и вскоре снял свой плащ.",
+)
+
 INVENTORIES = {
     "tr": (TURKISH_INVENTORY, TURKISH_SENTENCES),
     "kk": (KAZAKH_INVENTORY, KAZAKH_SENTENCES),
     "fi": (FINNISH_INVENTORY, FINNISH_SENTENCES),
     "az": (AZERBAIJANI_INVENTORY, AZERBAIJANI_SENTENCES),
+    "ru": (RUSSIAN_INVENTORY, RUSSIAN_SENTENCES),
 }
 
 

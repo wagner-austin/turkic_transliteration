@@ -193,6 +193,39 @@ def test_a_glide_survives_where_the_orthography_really_has_one() -> None:
     assert to_ipa("статья", "ru") == "statʲja"
 
 
+def test_the_declared_alphabet_is_the_post_1918_one_and_says_so() -> None:
+    """The rules cover the modern 33 letters, and the pre-reform ones are outside.
+
+    This is a scope boundary, recorded because it was measured rather than
+    assumed. Running 420,614 distinct Russian word forms from WikiPron and
+    the VoxCommunis lexicon through these rules leaves 479 of them carrying
+    un-transliterated Cyrillic, and every one is a letter the orthographic
+    reform of October 1918 abolished: yat 234, decimal i 119, izhitsa 89,
+    fita 36, ksi 1. WikiPron scrapes Wiktionary, which carries pre-reform
+    spellings such as ‹крѣпко›.
+
+    A letter with no rule is emitted unchanged, so anyone building a corpus
+    from a Wiktionary-derived list gets Cyrillic sitting among IPA. That is
+    a real consequence and it belongs to the caller, not to this file: the
+    cited descriptions are of modern Russian, pre-reform spelling encodes a
+    different orthography, and mapping ‹ѣ› to /e/ would be an orthographic
+    -history claim rather than anything either source states about the
+    sounds of the language.
+
+    So the boundary is asserted here rather than papered over. What this
+    pins is the declaration -- the alphabet these rules claim -- not the
+    passthrough. Widening the claim means widening the alphabet, with a
+    source for each added letter, and this test moves with it.
+    """
+    from turkic_translit.corpus.inventory import source_alphabets
+
+    declared = source_alphabets()["ru"]
+    abolished_in_1918 = "ѣіѵѳѯ"
+
+    assert len(declared) == 33
+    assert all(letter not in declared for letter in abolished_in_1918)
+
+
 def test_the_unpaired_consonants_take_no_palatalisation() -> None:
     """‹ж ш ц› stay hard and ‹и› after them is ɨ; ‹ч щ› carry their own ʲ.
 
