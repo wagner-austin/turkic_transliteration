@@ -19,7 +19,11 @@ from turkic_translit.corpus.manifest import (
     manifest_path_for,
     write_corpus_run_manifest,
 )
-from turkic_translit.corpus.normalize import PACKAGED_FOLDS, normalize_line
+from turkic_translit.corpus.normalize import (
+    PACKAGED_FOLDS,
+    normalization_record,
+    normalize_line,
+)
 from turkic_translit.corpus.sources import get_source_spec
 from turkic_translit.corpus.symbols import (
     apply_substitutions,
@@ -104,6 +108,7 @@ def download_corpus(
         # lines as they stream would agree with the run and could still
         # disagree with the file.
         output_sha256=sha256_of_file(output_path),
+        normalization=normalization_record(),
         lines_seen=lines_seen,
         lines_written=lines_written,
         filter_language=filter_language,

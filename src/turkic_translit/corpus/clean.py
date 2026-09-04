@@ -48,7 +48,6 @@ that was.
 from __future__ import annotations
 
 import hashlib
-import json
 import unicodedata as ud
 from collections.abc import Mapping
 from pathlib import Path
@@ -60,8 +59,8 @@ from turkic_translit.corpus.inventory import emitted_characters
 from turkic_translit.corpus.symbols import (
     SymbolRule,
     apply_substitutions,
-    encode_symbol_rule,
     substitutions_for,
+    symbol_table_digest,
 )
 from turkic_translit.validation import (
     require_non_empty_str,
@@ -476,8 +475,7 @@ def rules_fingerprint(languages: tuple[str, ...], rules: tuple[SymbolRule, ...])
     for language in languages:
         name = f"{language}_ipa.rules"
         fingerprint[name] = hashlib.sha256((_RULE_DIR / name).read_bytes()).hexdigest()
-    encoded = json.dumps([encode_symbol_rule(rule) for rule in rules], ensure_ascii=False)
-    fingerprint["symbol_map"] = hashlib.sha256(encoded.encode("utf-8")).hexdigest()
+    fingerprint["symbol_map"] = symbol_table_digest(rules)
     return fingerprint
 
 

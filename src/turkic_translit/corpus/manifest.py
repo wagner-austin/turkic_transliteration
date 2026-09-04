@@ -21,6 +21,11 @@ from collections.abc import Mapping
 from pathlib import Path
 from typing import Final, TypedDict
 
+from turkic_translit.corpus.normalize import (
+    NormalizationRecord,
+    decode_normalization_record,
+    encode_normalization_record,
+)
 from turkic_translit.digests import require_sha256_hex
 from turkic_translit.lid.factory import (
     LidRunRecord,
@@ -30,6 +35,7 @@ from turkic_translit.lid.factory import (
 from turkic_translit.validation import (
     ERR_FIELD_TYPE,
     FieldError,
+    require_mapping,
     require_non_empty_str,
     require_non_negative_int,
     require_optional_mapping,
@@ -51,6 +57,8 @@ class CorpusRunManifest(TypedDict):
         output_path: Path the corpus was written to.
         output_sha256: SHA-256 of the bytes written, so a manifest can be
             checked against the file it claims to describe.
+        normalization: What normaliser shaped the text, since the corpus
+            depends on it as much as on the source.
         lines_seen: Non-empty lines the source yielded, before filtering.
         lines_written: Lines that survived and reached the file.
         filter_language: Language the filter required, or ``None`` when
@@ -73,6 +81,7 @@ class CorpusRunManifest(TypedDict):
     language: str
     output_path: str
     output_sha256: str
+    normalization: NormalizationRecord
     lines_seen: int
     lines_written: int
     filter_language: str | None
@@ -115,6 +124,7 @@ def encode_corpus_run_manifest(
         "language": manifest["language"],
         "output_path": manifest["output_path"],
         "output_sha256": manifest["output_sha256"],
+        "normalization": encode_normalization_record(manifest["normalization"]),
         "lines_seen": manifest["lines_seen"],
         "lines_written": manifest["lines_written"],
         "filter_language": manifest["filter_language"],
@@ -148,6 +158,9 @@ def decode_corpus_run_manifest(
         language=require_non_empty_str("language", require_present("language", source)),
         output_path=require_non_empty_str("output_path", require_present("output_path", source)),
         output_sha256=require_sha256_hex("output_sha256", require_present("output_sha256", source)),
+        normalization=decode_normalization_record(
+            require_mapping("normalization", require_present("normalization", source))
+        ),
         lines_seen=require_non_negative_int("lines_seen", require_present("lines_seen", source)),
         lines_written=require_non_negative_int(
             "lines_written", require_present("lines_written", source)

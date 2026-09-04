@@ -21,6 +21,7 @@ from turkic_translit.corpus.manifest import (
     read_corpus_run_manifest,
     write_corpus_run_manifest,
 )
+from turkic_translit.corpus.normalize import NormalizationRecord
 from turkic_translit.lid.factory import LidRunRecord
 from turkic_translit.validation import (
     ERR_FIELD_MISSING,
@@ -35,6 +36,11 @@ FILTERED = CorpusRunManifest(
     language="uz",
     output_path="corpora/uz.txt",
     output_sha256="3f786850e387550fdab836ed7e6dc881de23001b3f786850e387550fdab836ed",
+    normalization=NormalizationRecord(
+        unicode_version="14.0.0",
+        format_category="Cf",
+        folds_sha256="721010b8496a02333bae132f8b7453851af4a31875aad90846246a4740c7f023",
+    ),
     lines_seen=25676,
     lines_written=14207,
     filter_language="uzn",
@@ -54,6 +60,11 @@ UNFILTERED = CorpusRunManifest(
     language="kk",
     output_path="corpora/kk.txt",
     output_sha256="e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    normalization=NormalizationRecord(
+        unicode_version="14.0.0",
+        format_category="Cf",
+        folds_sha256="721010b8496a02333bae132f8b7453851af4a31875aad90846246a4740c7f023",
+    ),
     lines_seen=40,
     lines_written=40,
     filter_language=None,
@@ -199,3 +210,54 @@ def test_decoding_requires_the_digest_to_be_present() -> None:
     with pytest.raises(FieldError) as excinfo:
         decode_corpus_run_manifest(encoded)
     assert excinfo.value.field == "output_sha256"
+
+
+def test_decoding_requires_the_normalisation_record() -> None:
+    """A corpus depends on its normaliser, so the record cannot be optional.
+
+    The 2026-08 archives are the case: downloaded two days before format
+    characters began to be stripped, so the same command on the same
+    shards now yields different text. Without this record a manifest
+    describes that corpus in a way that reads as complete.
+    """
+    encoded = encode_corpus_run_manifest(FILTERED)
+    del encoded["normalization"]
+    with pytest.raises(FieldError) as excinfo:
+        decode_corpus_run_manifest(encoded)
+    assert excinfo.value.field == "normalization"
+
+
+def test_decoding_validates_inside_the_normalisation_record() -> None:
+    """A malformed folds digest names the inner field, not the outer one."""
+    encoded = encode_corpus_run_manifest(FILTERED)
+    encoded["normalization"] = {
+        "unicode_version": "14.0.0",
+        "format_category": "Cf",
+        "folds_sha256": "not-a-digest",
+    }
+    with pytest.raises(FieldError) as excinfo:
+        decode_corpus_run_manifest(encoded)
+    assert excinfo.value.field == "folds_sha256"
+
+
+def test_the_normalisation_record_describes_this_build() -> None:
+    """The record reports the running Unicode database, not a pinned string.
+
+    NFKC is defined against a Unicode release, so a hardcoded version
+    would be right until the interpreter changed and wrong silently
+    afterwards, which is the failure mode the record exists to expose.
+    """
+    import unicodedata as ud
+
+    from turkic_translit.corpus.normalize import (
+        FORMAT_CATEGORY,
+        PACKAGED_FOLDS,
+        normalization_record,
+    )
+    from turkic_translit.corpus.symbols import read_symbol_map, symbol_table_digest
+
+    record = normalization_record()
+
+    assert record["unicode_version"] == ud.unidata_version
+    assert record["format_category"] == FORMAT_CATEGORY
+    assert record["folds_sha256"] == symbol_table_digest(read_symbol_map(PACKAGED_FOLDS))

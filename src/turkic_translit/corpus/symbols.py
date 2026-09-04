@@ -21,7 +21,9 @@ Turkish low vowel is written /a/ by convention in its Illustration and
 from __future__ import annotations
 
 import csv
+import hashlib
 import io
+import json
 from collections.abc import Iterable, Mapping
 from pathlib import Path
 from typing import Final, TypedDict
@@ -244,4 +246,29 @@ __all__ = [
     "read_symbol_map",
     "scopes_of",
     "substitutions_for",
+    "symbol_table_digest",
 ]
+
+
+def symbol_table_digest(rules: Iterable[SymbolRule]) -> str:
+    """Digest a parsed symbol table by its rows, not by its file bytes.
+
+    Args:
+        rules: Rows of a symbol map or folds table.
+
+    Returns:
+        SHA-256 of the rows re-encoded as JSON, lowercase hexadecimal.
+
+    Hashing the CSV bytes instead would move whenever a comment, a column
+    order or a line ending moved, and would not move when a row's meaning
+    changed through a different spelling of the same file. Digesting the
+    parsed rows pins what the table MEANS. That distinction has already
+    cost time here: ``CORPORA.md`` records 2026-08-28, when the CSV's own
+    hash was compared against this digest and the map was wrongly called
+    drifted.
+
+    Lifted from ``clean.py`` on 2026-09-03, which held the only copy while
+    the download manifest needed the same idiom for the folds table.
+    """
+    encoded = json.dumps([encode_symbol_rule(rule) for rule in rules], ensure_ascii=False)
+    return hashlib.sha256(encoded.encode("utf-8")).hexdigest()
