@@ -26,6 +26,7 @@ from turkic_translit.corpus.symbols import (
     read_symbol_map,
     substitutions_for,
 )
+from turkic_translit.digests import sha256_of_file
 
 logger = logging.getLogger(__name__)
 
@@ -98,6 +99,11 @@ def download_corpus(
         license=spec["license"],
         language=language,
         output_path=str(output_path),
+        # Digested after the writer closed, from the bytes on disk rather
+        # than from what this function believes it emitted. Hashing the
+        # lines as they stream would agree with the run and could still
+        # disagree with the file.
+        output_sha256=sha256_of_file(output_path),
         lines_seen=lines_seen,
         lines_written=lines_written,
         filter_language=filter_language,

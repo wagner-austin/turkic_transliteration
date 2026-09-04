@@ -21,6 +21,7 @@ from collections.abc import Mapping
 from pathlib import Path
 from typing import Final, TypedDict
 
+from turkic_translit.digests import require_sha256_hex
 from turkic_translit.lid.factory import (
     LidRunRecord,
     decode_lid_run_record,
@@ -48,12 +49,22 @@ class CorpusRunManifest(TypedDict):
         license: SPDX identifier the corpus is published under.
         language: Language code requested from that source.
         output_path: Path the corpus was written to.
+        output_sha256: SHA-256 of the bytes written, so a manifest can be
+            checked against the file it claims to describe.
         lines_seen: Non-empty lines the source yielded, before filtering.
         lines_written: Lines that survived and reached the file.
         filter_language: Language the filter required, or ``None`` when
             no filter ran.
         language_identification: Identity of the classifier that applied
             that filter, or ``None`` when no filter ran.
+
+    ``output_sha256`` was added on 2026-09-03 because a manifest without
+    one can describe a file it does not match, and one did. The Kazakh
+    manifest in the 2026-08 rebuild records a 150,000-line download beside
+    a 10,000-line file, and re-running the download with every recorded
+    parameter, on the same classifier weights, produced text differing from
+    line 0. Nothing had noticed, because ``lines_written`` is a claim about
+    a file rather than a property of it. A digest is the property.
     """
 
     source_id: str
@@ -61,6 +72,7 @@ class CorpusRunManifest(TypedDict):
     license: str
     language: str
     output_path: str
+    output_sha256: str
     lines_seen: int
     lines_written: int
     filter_language: str | None
@@ -102,6 +114,7 @@ def encode_corpus_run_manifest(
         "license": manifest["license"],
         "language": manifest["language"],
         "output_path": manifest["output_path"],
+        "output_sha256": manifest["output_sha256"],
         "lines_seen": manifest["lines_seen"],
         "lines_written": manifest["lines_written"],
         "filter_language": manifest["filter_language"],
@@ -134,6 +147,7 @@ def decode_corpus_run_manifest(
         license=require_non_empty_str("license", require_present("license", source)),
         language=require_non_empty_str("language", require_present("language", source)),
         output_path=require_non_empty_str("output_path", require_present("output_path", source)),
+        output_sha256=require_sha256_hex("output_sha256", require_present("output_sha256", source)),
         lines_seen=require_non_negative_int("lines_seen", require_present("lines_seen", source)),
         lines_written=require_non_negative_int(
             "lines_written", require_present("lines_written", source)

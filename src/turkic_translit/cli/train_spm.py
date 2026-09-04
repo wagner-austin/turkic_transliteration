@@ -15,7 +15,6 @@ recorded which had been used.
 
 from __future__ import annotations
 
-import hashlib
 import json
 import tempfile
 from pathlib import Path
@@ -30,31 +29,12 @@ from turkic_translit.corpus.manifest import (
 )
 from turkic_translit.corpus.run import download_corpus
 from turkic_translit.corpus.sources import known_source_ids
+from turkic_translit.digests import sha256_of_file
 from turkic_translit.lid.registry import known_model_ids
 from turkic_translit.tokenizer import sentencepiece_trainer
 
 DEFAULT_SOURCE: str = "oscar-2301"
 DEFAULT_THRESHOLD: float = 0.95
-_HASH_CHUNK_BYTES: int = 1 << 20
-
-
-def sha256_of_file(path: Path) -> str:
-    """Return the SHA-256 digest of a file, read in chunks.
-
-    Args:
-        path: File to digest.
-
-    Returns:
-        The digest as lowercase hexadecimal.
-    """
-    digest = hashlib.sha256()
-    with path.open("rb") as handle:
-        while True:
-            chunk = handle.read(_HASH_CHUNK_BYTES)
-            if not chunk:
-                break
-            digest.update(chunk)
-    return digest.hexdigest()
 
 
 def gather_corpora(

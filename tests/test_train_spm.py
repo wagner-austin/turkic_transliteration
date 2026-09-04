@@ -20,9 +20,9 @@ from turkic_translit.cli.train_spm import (
     build_manifest_document,
     build_trainer_arguments,
     main,
-    sha256_of_file,
 )
 from turkic_translit.corpus import _test_hooks as corpus_hooks
+from turkic_translit.digests import sha256_of_file
 from turkic_translit.lid import _test_hooks as lid_hooks
 from turkic_translit.lid.locations import default_search_dirs
 
@@ -283,6 +283,7 @@ def test_manifest_document_embeds_each_corpus_manifest(tmp_path: Path) -> None:
         license="CC0-1.0",
         language="kk",
         output_path=str(tmp_path / "kk.txt"),
+        output_sha256="a" * 64,
         lines_seen=10,
         lines_written=7,
         filter_language=None,
@@ -302,6 +303,7 @@ def test_manifest_document_embeds_each_corpus_manifest(tmp_path: Path) -> None:
             "license": "CC0-1.0",
             "language": "kk",
             "output_path": str(tmp_path / "kk.txt"),
+            "output_sha256": "a" * 64,
             "lines_seen": 10,
             "lines_written": 7,
             "filter_language": None,

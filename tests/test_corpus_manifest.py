@@ -34,6 +34,7 @@ FILTERED = CorpusRunManifest(
     license="CC0-1.0",
     language="uz",
     output_path="corpora/uz.txt",
+    output_sha256="3f786850e387550fdab836ed7e6dc881de23001b3f786850e387550fdab836ed",
     lines_seen=25676,
     lines_written=14207,
     filter_language="uzn",
@@ -52,6 +53,7 @@ UNFILTERED = CorpusRunManifest(
     license="CC-BY-SA-3.0",
     language="kk",
     output_path="corpora/kk.txt",
+    output_sha256="e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
     lines_seen=40,
     lines_written=40,
     filter_language=None,
@@ -159,3 +161,41 @@ def test_decoding_rejects_a_negative_line_count() -> None:
     with pytest.raises(FieldError) as excinfo:
         decode_corpus_run_manifest(encoded)
     assert excinfo.value.field == "lines_written"
+
+
+def test_decoding_rejects_a_digest_that_is_not_a_sha256() -> None:
+    """A manifest whose digest is malformed cannot verify anything.
+
+    The failure this guards is quiet rather than loud: a truncated or
+    upper-cased digest compares equal to no real digest, so a check built
+    on it never matches and never explains why.
+    """
+    encoded = encode_corpus_run_manifest(FILTERED)
+    encoded["output_sha256"] = "3f786850e387550f"
+    with pytest.raises(FieldError) as excinfo:
+        decode_corpus_run_manifest(encoded)
+    assert excinfo.value.field == "output_sha256"
+
+
+def test_decoding_rejects_an_uppercase_digest() -> None:
+    """hexdigest writes lowercase, so uppercase did not come from it."""
+    encoded = encode_corpus_run_manifest(FILTERED)
+    encoded["output_sha256"] = "3F786850E387550FDAB836ED7E6DC881DE23001B3F786850E387550FDAB836ED"
+    with pytest.raises(FieldError) as excinfo:
+        decode_corpus_run_manifest(encoded)
+    assert excinfo.value.field == "output_sha256"
+
+
+def test_decoding_requires_the_digest_to_be_present() -> None:
+    """An older manifest without a digest fails rather than reading as verified.
+
+    This is the whole point of the field. The Kazakh manifest that
+    prompted it had every other key and described a different file, and
+    treating an absent digest as "nothing to check" would preserve exactly
+    that state.
+    """
+    encoded = encode_corpus_run_manifest(FILTERED)
+    del encoded["output_sha256"]
+    with pytest.raises(FieldError) as excinfo:
+        decode_corpus_run_manifest(encoded)
+    assert excinfo.value.field == "output_sha256"
