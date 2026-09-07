@@ -27,6 +27,19 @@ APOSTROPHES: Final = ("'", "ʻ", "’", "ʼ")
 
 _RUSSIAN_LETTERS: Final = "абвгдеёжзийклмнопрстуфхцчшщъыьэюя"
 
+#: The pre-1918 letters ``ru_ipa.rules`` maps, sourced from Forbes (1916).
+#:
+#: Kept separate from :data:`_RUSSIAN_LETTERS` on purpose. That constant is
+#: also the base of :data:`_CYRILLIC_LETTERS`, and the Kazakh, Kyrgyz and
+#: Uzbek Cyrillic alphabets were created in the 1940s, decades after these
+#: letters were abolished. Folding them in would declare for three languages
+#: an alphabet none of them has ever had.
+#:
+#: ‹ѯ› is absent: Forbes gives it no Russian pronunciation because Russian
+#: writes ‹кс› instead, so the rule file maps nothing for it and the
+#: declaration must not claim otherwise.
+_RUSSIAN_PRE_1918_LETTERS: Final = "ѣіѵѳ"
+
 _CYRILLIC_LETTERS: Final = (
     _RUSSIAN_LETTERS  # Russian
     + "әғқңөұүһі"  # Kazakh
@@ -56,10 +69,11 @@ def source_alphabets() -> dict[str, str]:
         "kk": _CYRILLIC_LETTERS,
         "ky": _CYRILLIC_LETTERS,
         "uzc": _CYRILLIC_LETTERS,
-        # Russian maps the 33 letters of its own alphabet and no more; the
+        # Russian maps the 33 letters of its own alphabet plus the four
+        # pre-1918 letters Forbes (1916) supplies pronunciations for; the
         # Turkic files above additionally map the letters their orthographies
         # add, which is why they take the combined set and this one does not.
-        "ru": _RUSSIAN_LETTERS,
+        "ru": _RUSSIAN_LETTERS + _RUSSIAN_PRE_1918_LETTERS,
         "az": "abcçdeəfgğhxıijkqlmnoöprsştuüvyz",
         "tr": "abcçdefgğhıijklmnoöprsştuüvyz",
         "uz": "abdefghijklmnopqrstuvxyz",

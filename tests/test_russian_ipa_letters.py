@@ -263,10 +263,20 @@ def test_the_declared_alphabet_is_the_post_1918_one_and_says_so() -> None:
     from turkic_translit.corpus.inventory import source_alphabets
 
     declared = source_alphabets()["ru"]
-    abolished_in_1918 = "ѣіѵѳѯ"
 
-    assert len(declared) == 33
-    assert all(letter not in declared for letter in abolished_in_1918)
+    # The modern 33, plus the four pre-1918 letters Forbes (1916) states
+    # pronunciations for. This test said the claim moves when a source
+    # arrives for a letter, and one did: Forbes was published two years
+    # before the reform, so it describes the letters as a reader had to
+    # sound them rather than as spellings the reform later replaced.
+    assert len(declared) == 37
+    assert all(letter in declared for letter in "ѣіѵѳ")
+
+    # ‹ѯ› stays outside, and it is the one letter that is not a gap. Forbes
+    # gives no Russian pronunciation for it because Russian writes ‹кс›
+    # instead, so there is nothing to map it from. It was 1 occurrence of
+    # the 479, against yat's 234.
+    assert "ѯ" not in declared
 
 
 def test_the_unpaired_consonants_take_no_palatalisation() -> None:
@@ -281,3 +291,52 @@ def test_the_unpaired_consonants_take_no_palatalisation() -> None:
     assert to_ipa("жил", "ru") == "ʒɨl"
     assert to_ipa("цирк", "ru") == "t͡sɨrk"
     assert to_ipa("шест", "ru") == "ʃest"
+
+
+def test_yat_behaves_exactly_as_e_does() -> None:
+    """Forbes derives accented ѣ from accented е as "pronounced identically".
+
+    Asserted as an EQUIVALENCE against the modern spelling rather than
+    against literal strings, because that is the claim the source makes.
+    A mapping that merely produced some vowel would pass a literal
+    assertion and still be wrong about iotation.
+    """
+    assert to_ipa("бѣсъ", "ru") == to_ipa("бес", "ru")
+    assert to_ipa("вѣра", "ru") == to_ipa("вера", "ru")
+    assert to_ipa("крѣпко", "ru") == to_ipa("крепко", "ru")
+    # And the pairable consonant still palatalises through it.
+    assert to_ipa("сѣръ", "ru") == "sʲer"
+
+
+def test_decimal_i_and_izhitsa_behave_exactly_as_i_does() -> None:
+    """Forbes on the four i-letters: "These four letters represent only one sound".
+
+    The four are и, short i, decimal i and izhitsa. Named rather than
+    spelled here because two of them are ruff-ambiguous with Latin letters.
+    """
+    assert to_ipa("міръ", "ru") == to_ipa("мир", "ru")
+    assert to_ipa("мѵро", "ru") == to_ipa("миро", "ru")
+    assert to_ipa("теократію", "ru") == "tʲeokratʲiju"
+
+
+def test_fita_is_f_and_not_theta() -> None:
+    """Forbes heads ѳ as equal to f and gives Ѳома as pronounced Famá.
+
+    The letter descends from Greek theta and is written where Greek wrote
+    theta, which is exactly what makes θ the tempting and wrong mapping --
+    the one three Turkic rule files carried until this was sourced.
+    """
+    assert to_ipa("Ѳома", "ru") == to_ipa("Фома", "ru")
+    assert "θ" not in to_ipa("каѳисмахъ", "ru")
+    assert to_ipa("каѳисмахъ", "ru") == "kafʲismax"
+
+
+def test_ksi_is_still_passed_through_because_nothing_sources_it() -> None:
+    """The one pre-reform letter with no mapping, and it is not an oversight.
+
+    Forbes gives no Russian pronunciation for ѯ because Russian writes ‹кс›
+    instead, so there is nothing to map it from. Pinned so that a later
+    session adding a convenience mapping has to face this test and the
+    source question behind it.
+    """
+    assert "ѯ" in to_ipa("ѯ", "ru")
