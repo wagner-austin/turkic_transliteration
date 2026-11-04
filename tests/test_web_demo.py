@@ -291,38 +291,28 @@ def test_a_sweep_ignores_directories(cron_dir: Path) -> None:
     assert (directory / "nested").is_dir()
 
 
-def test_a_failing_sweep_is_reported_and_counted_as_nothing(cron_dir: Path) -> None:
-    """A filesystem error stops the sweep without stopping the janitor.
+def test_a_failing_sweep_ends_the_janitor_with_its_error(cron_dir: Path) -> None:
+    """A filesystem error ends the loop instead of being retried.
+
+    The download directory is replaced by a file, so creating it fails on
+    the first sweep, and the janitor neither waits nor sweeps again.
 
     Args:
-        cron_dir: The bound download directory, replaced by a file so the
-            sweep's directory listing fails.
+        cron_dir: The bound download directory, replaced by a file.
     """
-    previous = _test_hooks.environment
+    previous = (_test_hooks.environment, _test_hooks.clock)
     blocked = cron_dir.parent / "not-a-directory"
     blocked.write_text("this is a file", encoding="utf-8")
+    recording = _test_hooks.RecordingClock()
     _test_hooks.environment = _test_hooks.MappingEnvironment({"TURKIC_CRON_DIR": str(blocked)})
+    _test_hooks.clock = recording
     try:
-        assert web_utils.sweep_once(0) == 0
+        with pytest.raises(FileExistsError, match="not-a-directory"):
+            web_utils.run_janitor(0, lambda: True)
     finally:
-        _test_hooks.environment = previous
+        _test_hooks.environment, _test_hooks.clock = previous
 
-
-def test_a_successful_sweep_reports_what_it_removed(cron_dir: Path) -> None:
-    """The wrapper passes the count through unchanged.
-
-    Args:
-        cron_dir: The bound download directory.
-    """
-    import os
-    import time
-
-    directory = web_utils.download_dir()
-    stale = directory / "stale.txt"
-    stale.write_text("old", encoding="utf-8")
-    os.utime(stale, (time.time() - 100, time.time() - 100))
-
-    assert web_utils.sweep_once(50) == 1
+    assert recording.slept == []
 
 
 def test_the_janitor_sweeps_and_waits_each_round(cron_dir: Path) -> None:
