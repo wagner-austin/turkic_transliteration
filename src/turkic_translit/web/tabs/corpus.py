@@ -27,12 +27,9 @@ import gradio as gr
 from turkic_translit.corpus.errors import CorpusError
 from turkic_translit.error_service import error_markdown, error_response
 from turkic_translit.lid.errors import LidError
+from turkic_translit.web.corpus_download import download_corpus_to_file
 from turkic_translit.web.events import listener
-from turkic_translit.web.web_utils import (
-    direct_transliterate,
-    download_corpus_to_file,
-    labelise,
-)
+from turkic_translit.web.web_utils import direct_transliterate, labelise
 
 logger = logging.getLogger(__name__)
 

@@ -23,8 +23,9 @@ from pathlib import Path
 
 import gradio as gr
 
+from turkic_translit.web.downloads import download_dir
 from turkic_translit.web.events import listener
-from turkic_translit.web.web_utils import direct_transliterate, download_dir, labelise
+from turkic_translit.web.web_utils import direct_transliterate, labelise
 
 logger = logging.getLogger(__name__)
 
