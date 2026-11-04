@@ -456,13 +456,39 @@ def harmonized_emitted(language: str, rules: tuple[SymbolRule, ...]) -> frozense
     )
 
 
+def rule_digest(path: Path) -> str:
+    """SHA-256 of a rule file's text as the transliterator compiles it.
+
+    ``turkic_translit.core`` reads a rule file with ``read_text``, whose
+    universal-newline decoding turns CRLF into LF before ICU sees the
+    rules, so line endings are not part of the rules. Hashing the raw
+    bytes made one commit fingerprint two ways: a Windows checkout of
+    5c06eef's ``kk_ipa.rules`` hashed to ``c2d4eeec...`` and a Linux
+    checkout of the same commit to ``2b69fda4...``. Hashing the decoded
+    text gives every checkout the digest of the rules ICU compiled.
+
+    Args:
+        path: The rule file.
+
+    Returns:
+        Hex digest of the file's text, re-encoded as UTF-8.
+
+    Raises:
+        FileNotFoundError: When ``path`` does not exist.
+        UnicodeDecodeError: When the file is not UTF-8.
+    """
+    return hashlib.sha256(path.read_text(encoding="utf-8").encode("utf-8")).hexdigest()
+
+
 def rules_fingerprint(languages: tuple[str, ...], rules: tuple[SymbolRule, ...]) -> dict[str, str]:
     """SHA-256 of each rule file used, and of the symbol map applied.
 
     The rule files are hashed from the packaged directory because that
-    is where :func:`turkic_translit.core.to_ipa` reads them; the symbol
-    map is hashed from the rows the run actually applied, which may
-    have come from a caller-supplied file.
+    is where :func:`turkic_translit.core.to_ipa` reads them, by
+    :func:`rule_digest`, so the digest does not depend on the line
+    endings a checkout gave the file; the symbol map is hashed from the
+    rows the run actually applied, which may have come from a
+    caller-supplied file.
 
     Args:
         languages: The language codes cleaned in this run.
@@ -474,7 +500,7 @@ def rules_fingerprint(languages: tuple[str, ...], rules: tuple[SymbolRule, ...])
     fingerprint: dict[str, str] = {}
     for language in languages:
         name = f"{language}_ipa.rules"
-        fingerprint[name] = hashlib.sha256((_RULE_DIR / name).read_bytes()).hexdigest()
+        fingerprint[name] = rule_digest(_RULE_DIR / name)
     fingerprint["symbol_map"] = symbol_table_digest(rules)
     return fingerprint
 
@@ -554,6 +580,7 @@ __all__ = [
     "encode_clean_report",
     "encode_clean_stats",
     "harmonized_emitted",
+    "rule_digest",
     "rules_fingerprint",
     "sanitize_line",
     "transcription_ratio",
