@@ -27,6 +27,7 @@ import gradio as gr
 from turkic_translit.corpus.errors import CorpusError
 from turkic_translit.error_service import error_markdown, error_response
 from turkic_translit.lid.errors import LidError
+from turkic_translit.web.events import listener
 from turkic_translit.web.web_utils import (
     direct_transliterate,
     download_corpus_to_file,
@@ -311,12 +312,12 @@ def register() -> None:
                 gr.Markdown("### IPA Transliteration")
                 transliterate_cb = transliterate_checkbox(initial_lang)
 
-                lang_dd.change(
+                listener(lang_dd, "change")(
                     transliterate_checkbox,
                     inputs=[lang_dd],
                     outputs=[transliterate_cb],
                 )
-                source_dd.change(
+                listener(source_dd, "change")(
                     language_controls,
                     inputs=[source_dd],
                     outputs=[lang_dd, transliterate_cb],
@@ -342,13 +343,13 @@ def register() -> None:
                 )
 
         # Toggle the transliterated-file output visibility with the checkbox.
-        transliterate_cb.change(
+        listener(transliterate_cb, "change")(
             lambda x: gr.update(visible=x),
             inputs=[transliterate_cb],
             outputs=[file_out_translit],
         )
 
-        download_btn.click(
+        listener(download_btn, "click")(
             download_request,
             [
                 source_dd,

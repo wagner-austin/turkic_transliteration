@@ -23,6 +23,7 @@ from pathlib import Path
 
 import gradio as gr
 
+from turkic_translit.web.events import listener
 from turkic_translit.web.web_utils import direct_transliterate, download_dir, labelise
 
 logger = logging.getLogger(__name__)
@@ -222,7 +223,7 @@ def register() -> None:
         # only the button writes a file, because only the button was
         # asked for one.
         inputs = [translit_textbox, lang, translit_upload_file]
-        btn.click(transliterated_download, inputs, [output, stats, download_file])
-        translit_textbox.change(transliterate_request, inputs, [output, stats])
-        lang.change(transliterate_request, inputs, [output, stats])
-        translit_upload_file.change(transliterate_request, inputs, [output, stats])
+        listener(btn, "click")(transliterated_download, inputs, [output, stats, download_file])
+        listener(translit_textbox, "change")(transliterate_request, inputs, [output, stats])
+        listener(lang, "change")(transliterate_request, inputs, [output, stats])
+        listener(translit_upload_file, "change")(transliterate_request, inputs, [output, stats])
