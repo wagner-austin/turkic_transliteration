@@ -141,11 +141,19 @@ def test_the_score_is_symmetric() -> None:
 
 
 def test_representations_of_different_width_can_be_compared() -> None:
-    """Feature counts may differ; only the example counts must agree."""
+    """Feature counts may differ; only the example counts must agree.
+
+    Appending a rotated copy doubles the width and keeps the structure:
+    with ``A = X^T X`` and ``Y = [X, XQ]``, ``||Y^T X||^2 = 2||A||^2`` and
+    ``||Y^T Y|| = 2||A||``, so the score is exactly 1. It is compared as
+    1 within rounding because the last bit differs between BLAS builds:
+    pendragon's NumPy returned 1.0000000000000002 on 2026-11-04, which an
+    upper bound of 1.0 read as a failure.
+    """
     features = sample(20, 8, seed=10)
     widened = np.hstack([features, features @ orthogonal(8, seed=11)])
 
-    assert 0.0 <= linear_cka(features, widened) <= 1.0
+    assert linear_cka(features, widened) == pytest.approx(1.0, rel=1e-12)
 
 
 def test_comparing_different_example_counts_is_rejected() -> None:
