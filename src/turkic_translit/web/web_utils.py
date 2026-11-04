@@ -121,13 +121,17 @@ def purge_expired_downloads(max_age_sec: int) -> int:
     A file vanishing between the listing and the delete is the normal
     outcome of two sweeps overlapping, so ``missing_ok`` covers it and
     nothing is caught. Any other filesystem error is a real problem and
-    propagates to the janitor, which reports it.
+    propagates.
 
     Args:
         max_age_sec: Age beyond which a file is removed.
 
     Returns:
         The number of files deleted.
+
+    Raises:
+        OSError: When the download directory cannot be created, listed or
+            read, or an expired file cannot be deleted.
     """
     cutoff = time.time() - max_age_sec
     removed = 0
@@ -136,28 +140,6 @@ def purge_expired_downloads(max_age_sec: int) -> int:
             entry.unlink(missing_ok=True)
             removed += 1
     return removed
-
-
-def sweep_once(max_age_sec: int) -> int:
-    """Purge expired downloads, reporting a filesystem error rather than
-    letting it end the sweeping thread.
-
-    This is the only place an exception is absorbed in this module, and
-    the reason is that the caller is a daemon serving a long-lived UI: a
-    single file held open by the browser must not stop every later
-    sweep. The failure is logged with its traceback, not discarded.
-
-    Args:
-        max_age_sec: Age beyond which a download is removed.
-
-    Returns:
-        The number of files deleted, or zero when the sweep failed.
-    """
-    try:
-        return purge_expired_downloads(max_age_sec)
-    except OSError:
-        log.exception("janitor sweep failed")
-        return 0
 
 
 def forever() -> bool:
@@ -173,6 +155,16 @@ def forever() -> bool:
 def run_janitor(max_age_sec: int, running: Callable[[], bool]) -> int:
     """Sweep expired downloads until the loop condition says to stop.
 
+    A sweep's filesystem error ends the loop. On the thread
+    :func:`start_janitor` runs it on, that error reaches the thread's own
+    boundary, :func:`threading.excepthook`, which reports it with its
+    traceback as ``Exception in thread cron-janitor``. It used to be
+    logged and the next sweep tried anyway, on the grounds that a file
+    held open by the browser could not be deleted; that is Windows
+    behaviour, and on the platforms this project supports deleting an
+    open file succeeds, so an error here is a real fault that repeating
+    the sweep every interval would only hide.
+
     Args:
         max_age_sec: Age beyond which a download is removed, and the
             interval between sweeps.
@@ -181,10 +173,13 @@ def run_janitor(max_age_sec: int, running: Callable[[], bool]) -> int:
 
     Returns:
         The number of sweeps performed.
+
+    Raises:
+        OSError: From :func:`purge_expired_downloads`, ending the loop.
     """
     sweeps = 0
     while running():
-        sweep_once(max_age_sec)
+        purge_expired_downloads(max_age_sec)
         sweeps += 1
         _test_hooks.clock.sleep(max_age_sec)
     return sweeps
