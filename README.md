@@ -76,7 +76,8 @@ The Makefile wraps the common tasks (all via Poetry):
 
 ```bash
 make check   # lint + test (the full gate)
-make lint    # guards, then ruff check --fix + ruff format, then strict mypy
+make lint    # guards, then ruff check + ruff format --check, then strict mypy; writes nothing
+make format  # the one target that rewrites: ruff check --fix + ruff format
 make guard   # just the guard rules (scripts/guards/)
 make test    # pytest with 100% statement+branch coverage enforced
 make web     # launch the Gradio web UI

@@ -1,4 +1,4 @@
-.PHONY: install lint guard test check clean build web
+.PHONY: install format lint guard test check clean build web
 
 # Install dependencies. ICU arrives with them: pyicu-wheels publishes the
 # extension prebuilt, so there is no wheel to fetch by hand.
@@ -10,11 +10,20 @@ install:
 guard:
 	poetry run python -m scripts.guard
 
-# Lint: guards first (cheapest signal), then Ruff, then strict Mypy over
-# src, tests and scripts.
-lint: install guard
+# Format: the one target that rewrites files. Ruff applies its fixes and
+# its formatting; run it, read the diff, and commit what it changed.
+format: install
 	poetry run ruff check . --fix
 	poetry run ruff format .
+
+# Lint: guards first (cheapest signal), then Ruff, then strict Mypy over
+# src, tests and scripts. It reads and never writes: a check that rewrote
+# the tree would pass on code the commit does not hold, and on 2026-11-04
+# ruff --fix did exactly that to a test on the check run itself. A file
+# Ruff would change fails here instead; `make format` changes it.
+lint: install guard
+	poetry run ruff check .
+	poetry run ruff format --check .
 	poetry run mypy src tests scripts
 
 # Test: statement and branch coverage over src and scripts, 100% enforced by

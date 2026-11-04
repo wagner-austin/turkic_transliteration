@@ -4,6 +4,25 @@ All notable changes to the Turkic Transliteration project will be documented in 
 
 ## [Unreleased]
 
+### Changed
+
+**`make check` writes nothing.** `make lint` ran `ruff check --fix` and
+`ruff format`, so the check rewrote the tree it was checking: on
+2026-11-04 it changed an expression in a test on the very run that
+reported the suite green, a run that therefore passed on code the commit
+did not hold. Lint now runs `ruff check` and `ruff format --check`, and
+fails on anything Ruff would change; the new `make format` is the one
+target that rewrites.
+
+**The download janitor stops on a filesystem error.** `sweep_once`
+caught `OSError`, logged it, and the janitor swept again an interval
+later, on the grounds that a file the browser held open could not be
+deleted. That is Windows behaviour; where deleting an open file
+succeeds, an error here is a real fault, and retrying it every interval
+only hid it. `sweep_once` is gone: `run_janitor` calls
+`purge_expired_downloads` directly, and an error ends the janitor thread
+at `threading.excepthook`, which reports it with its traceback.
+
 ### Removed
 
 **The Windows code.** `scripts/run.ps1`, the PowerShell copy of the
