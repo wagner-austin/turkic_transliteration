@@ -238,3 +238,20 @@ def test_cli_requires_at_least_one_output(tmp_path: Path) -> None:
     result = _run_cli("--lang", "fi", "--in", str(input_file))
     assert result.returncode == 2, result.stderr
     assert "at least one of --out-latin or --out-ipa" in _click_error(result.stderr)
+
+
+def test_cli_writes_plain_utf8_with_no_byte_order_mark(tmp_path: Path) -> None:
+    """The output file is exactly the transliteration's UTF-8 bytes.
+
+    The command used to write a byte-order mark on Windows; it writes the
+    same bytes on every platform now, so the file's first bytes are the
+    text's own.
+    """
+    input_file = tmp_path / "input.txt"
+    input_file.write_text("мектеп\n", encoding="utf-8")
+    output_file = tmp_path / "output.ipa.txt"
+
+    result = _run_cli("--lang", "kk", "--in", str(input_file), "--out-ipa", str(output_file))
+
+    assert result.returncode == 0, result.stderr
+    assert output_file.read_bytes() == b"mektep\n"
