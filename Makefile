@@ -33,8 +33,14 @@ lint: install guard
 # child processes. Several tests exercise the real console scripts by
 # spawning them; without this their execution is invisible and the report
 # calls that code untested.
+#
+# -rs prints one line per skip reason with its count. The language-
+# identification cases in tests/test_verification.py skip when the real
+# fastText weights are absent, so without it a green run could not say
+# whether those models were exercised; with it, the run ends with
+# "SKIPPED [n] ...: <model> weights are not installed" for each that was not.
 test: install
-	COVERAGE_PROCESS_START="$(CURDIR)/pyproject.toml" poetry run pytest -n auto --cov=src --cov=scripts --cov-branch --cov-report=term-missing
+	COVERAGE_PROCESS_START="$(CURDIR)/pyproject.toml" poetry run pytest -n auto -rs --cov=src --cov=scripts --cov-branch --cov-report=term-missing
 
 check: lint test
 
