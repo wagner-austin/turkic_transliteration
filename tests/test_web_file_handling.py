@@ -16,7 +16,8 @@ from pathlib import Path
 import pytest
 
 from turkic_translit import _test_hooks
-from turkic_translit.web.web_utils import direct_transliterate, download_dir, median_levenshtein
+from turkic_translit.web.downloads import download_dir
+from turkic_translit.web.web_utils import direct_transliterate, median_levenshtein
 
 
 @dataclass(frozen=True)

@@ -25,7 +25,7 @@ from turkic_translit.corpus import _test_hooks as corpus_hooks
 from turkic_translit.lid import _test_hooks as lid_hooks
 from turkic_translit.lid.locations import default_search_dirs
 from turkic_translit.web import _test_hooks as web_hooks
-from turkic_translit.web import web_demo, web_utils
+from turkic_translit.web import downloads, ui_log, web_demo, web_utils
 from turkic_translit.web.tabs import corpus as corpus_tab
 
 ANSWERS = {"merhaba dunya": [("__label__tr", 0.99)]}
@@ -213,8 +213,8 @@ def test_the_production_server_really_serves() -> None:
 
 def test_the_shared_log_handler_is_created_once() -> None:
     """The UI handler is attached to the package logger and reused."""
-    first = web_utils.get_ui_log_handler()
-    second = web_utils.get_ui_log_handler()
+    first = ui_log.get_ui_log_handler()
+    second = ui_log.get_ui_log_handler()
 
     assert first is second
     assert first in logging.getLogger("turkic_translit").handlers
@@ -222,7 +222,7 @@ def test_the_shared_log_handler_is_created_once() -> None:
 
 def test_the_log_handler_buffers_and_drains() -> None:
     """Records accumulate until dumped, and the buffer then empties."""
-    handler = web_utils.GradioLogHandler()
+    handler = ui_log.GradioLogHandler()
     handler.setFormatter(logging.Formatter("%(message)s"))
 
     handler.emit(logging.LogRecord("t", logging.INFO, "p", 1, "first", None, None))
@@ -249,7 +249,7 @@ def test_the_ui_filter_drops_only_housekeeping(message: str, kept: bool) -> None
     """
     emitted = logging.LogRecord("t", logging.INFO, "p", 1, message, None, None)
 
-    assert web_utils.UiPrettyLogFilter().filter(emitted) is kept
+    assert ui_log.UiPrettyLogFilter().filter(emitted) is kept
 
 
 def test_language_codes_become_label_value_pairs() -> None:
@@ -263,7 +263,7 @@ def test_a_sweep_removes_only_expired_downloads(cron_dir: Path) -> None:
     Args:
         cron_dir: The bound download directory.
     """
-    directory = web_utils.download_dir()
+    directory = downloads.download_dir()
     stale = directory / "stale.txt"
     fresh = directory / "fresh.txt"
     stale.write_text("old", encoding="utf-8")
@@ -273,7 +273,7 @@ def test_a_sweep_removes_only_expired_downloads(cron_dir: Path) -> None:
 
     os.utime(stale, (time.time() - 100, time.time() - 100))
 
-    assert web_utils.purge_expired_downloads(50) == 1
+    assert downloads.purge_expired_downloads(50) == 1
     assert not stale.exists()
     assert fresh.exists()
 
@@ -284,10 +284,10 @@ def test_a_sweep_ignores_directories(cron_dir: Path) -> None:
     Args:
         cron_dir: The bound download directory.
     """
-    directory = web_utils.download_dir()
+    directory = downloads.download_dir()
     (directory / "nested").mkdir()
 
-    assert web_utils.purge_expired_downloads(0) == 0
+    assert downloads.purge_expired_downloads(0) == 0
     assert (directory / "nested").is_dir()
 
 
@@ -308,7 +308,7 @@ def test_a_failing_sweep_ends_the_janitor_with_its_error(cron_dir: Path) -> None
     _test_hooks.clock = recording
     try:
         with pytest.raises(FileExistsError, match="not-a-directory"):
-            web_utils.run_janitor(0, lambda: True)
+            downloads.run_janitor(0, lambda: True)
     finally:
         _test_hooks.environment, _test_hooks.clock = previous
 
@@ -326,7 +326,7 @@ def test_the_janitor_sweeps_and_waits_each_round(cron_dir: Path) -> None:
     _test_hooks.clock = recording
     rounds = iter([True, True, False])
     try:
-        swept = web_utils.run_janitor(30, lambda: next(rounds))
+        swept = downloads.run_janitor(30, lambda: next(rounds))
     finally:
         _test_hooks.clock = previous
 
@@ -336,7 +336,7 @@ def test_the_janitor_sweeps_and_waits_each_round(cron_dir: Path) -> None:
 
 def test_the_real_loop_condition_never_stops() -> None:
     """A production run sweeps for the life of the process."""
-    assert web_utils.forever() is True
+    assert downloads.forever() is True
 
 
 def test_starting_the_janitor_runs_it_on_another_thread(cron_dir: Path) -> None:
@@ -349,7 +349,7 @@ def test_starting_the_janitor_runs_it_on_another_thread(cron_dir: Path) -> None:
     _test_hooks.clock = _test_hooks.RecordingClock()
     rounds = iter([True, False])
     try:
-        thread = web_utils.start_janitor(1, lambda: next(rounds))
+        thread = downloads.start_janitor(1, lambda: next(rounds))
         thread.join(timeout=10)
     finally:
         _test_hooks.clock = previous

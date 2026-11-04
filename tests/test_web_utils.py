@@ -24,7 +24,7 @@ from turkic_translit.tokenizer import (
     default_model_path,
     sentencepiece_trainer,
 )
-from turkic_translit.web import web_utils
+from turkic_translit.web import corpus_download, web_utils
 
 CORPUS = [f"salem alem {index} qazaq tili birinshi" for index in range(120)]
 ANSWERS = {
@@ -44,7 +44,7 @@ class RecordingProgress:
     """A progress reporter that keeps what it was told.
 
     A real implementation of
-    :class:`~turkic_translit.web.web_utils.ProgressReporter`, not a mock:
+    :class:`~turkic_translit.web.corpus_download.ProgressReporter`, not a mock:
     it holds no assertion helpers, so a test can only read the reports
     the code under test produced.
     """
@@ -313,7 +313,7 @@ def test_progress_is_reported_every_tenth_line() -> None:
     reporter = RecordingProgress()
 
     for written in range(1, 21):
-        web_utils._report_progress(reporter, written, 20)
+        corpus_download._report_progress(reporter, written, 20)
 
     assert [progress for progress, _desc in reporter.reports] == [0.5, 1.0]
     assert reporter.reports[0][1] == "10/20 lines kept"
@@ -323,7 +323,7 @@ def test_progress_without_a_total_reports_a_running_count() -> None:
     """An unbounded run has no fraction to report, only a count."""
     reporter = RecordingProgress()
 
-    web_utils._report_progress(reporter, 10, None)
+    corpus_download._report_progress(reporter, 10, None)
 
     assert reporter.reports == [(None, "10 lines kept")]
 
@@ -332,19 +332,19 @@ def test_progress_never_exceeds_completion() -> None:
     """More lines than requested still reports a full bar, not more."""
     reporter = RecordingProgress()
 
-    web_utils._report_progress(reporter, 30, 20)
+    corpus_download._report_progress(reporter, 30, 20)
 
     assert [progress for progress, _desc in reporter.reports] == [1.0]
 
 
 def test_the_silent_reporter_discards_everything() -> None:
     """Outside the web UI there is nowhere to report progress to."""
-    assert web_utils.SilentProgress()(0.5, desc="ignored") is None
+    assert corpus_download.SilentProgress()(0.5, desc="ignored") is None
 
 
 def test_an_unknown_source_is_reported_without_writing_a_file() -> None:
     """The download helper rejects a source it does not have."""
-    path, info = web_utils.download_corpus_to_file("oscar-9999", "kk")
+    path, info = corpus_download.download_corpus_to_file("oscar-9999", "kk")
 
     assert path == ""
     assert "invalid_source" in info
@@ -353,7 +353,7 @@ def test_an_unknown_source_is_reported_without_writing_a_file() -> None:
 
 def test_the_summary_omits_the_filter_line_when_nothing_filtered(tmp_path: Path) -> None:
     """A run with no filter reports no removals, rather than zero."""
-    summary = web_utils._download_summary(
+    summary = corpus_download._download_summary(
         source="oscar-2301",
         lang="kk",
         written=2,
@@ -369,7 +369,7 @@ def test_the_summary_omits_the_filter_line_when_nothing_filtered(tmp_path: Path)
 
 def test_the_summary_reports_removals_when_a_filter_ran(tmp_path: Path) -> None:
     """A filtered run names how many lines the classifier rejected."""
-    summary = web_utils._download_summary(
+    summary = corpus_download._download_summary(
         source="oscar-2301",
         lang="kk",
         written=2,
@@ -441,7 +441,7 @@ def test_a_filtered_download_keeps_only_the_named_language(tmp_path: Path) -> No
     lid_hooks.model_loader = lid_hooks.FixedModelLoader(lid_hooks.TableFastTextModel(ANSWERS))
     web_utils.installed_classifier.cache_clear()
     try:
-        path, info = web_utils.download_corpus_to_file("oscar-2301", "kk", None, True, 0.95)
+        path, info = corpus_download.download_corpus_to_file("oscar-2301", "kk", None, True, 0.95)
     finally:
         corpus_hooks.dataset_texts = previous_streamer
         _test_hooks.environment = previous_environment
@@ -469,7 +469,7 @@ def test_a_filtered_download_gives_up_after_too_many_rejections(tmp_path: Path) 
     lid_hooks.model_loader = lid_hooks.FixedModelLoader(lid_hooks.TableFastTextModel(ANSWERS))
     web_utils.installed_classifier.cache_clear()
     try:
-        path, info = web_utils.download_corpus_to_file("oscar-2301", "kk", 1, True, 0.95)
+        path, info = corpus_download.download_corpus_to_file("oscar-2301", "kk", 1, True, 0.95)
     finally:
         corpus_hooks.dataset_texts = previous_streamer
         _test_hooks.environment = previous_environment
