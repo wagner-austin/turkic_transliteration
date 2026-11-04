@@ -150,6 +150,7 @@ of emittable characters is derived from its own rules, and a token
 carrying any letter outside that set is dropped whole.
 
 ```bash
+mkdir -p raw   # translit writes into an existing directory; it does not create one
 turkic-translit translit --lang kk --in kk.txt --out-ipa raw/kk_ipa.txt
 turkic-clean-corpus --input-dir raw --output-dir clean
 ```
