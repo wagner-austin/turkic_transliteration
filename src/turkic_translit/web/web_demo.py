@@ -4,6 +4,7 @@ import logging
 
 import gradio as gr
 
+from turkic_translit.lid import _test_hooks as lid_hooks
 from turkic_translit.lid.locations import default_search_dirs
 from turkic_translit.lid.registry import find_model_path
 from turkic_translit.web.web_utils import (
@@ -48,7 +49,11 @@ def _model_check() -> tuple[str, str]:
         missing.append(message)
         fasttext_info = f"Language model {LANGUAGE_MODEL_ID}: not installed"
     else:
-        size_mb = round(weights.stat().st_size / (1024 * 1024), 2)
+        # Measured through the same probe find_model_path found it with,
+        # as lid.factory does, so the size and the presence come from one
+        # source; a direct stat() here read the real filesystem while the
+        # lookup read the probe.
+        size_mb = round(lid_hooks.probe.size_bytes(weights) / (1024 * 1024), 2)
         fasttext_info = f"Language model {LANGUAGE_MODEL_ID}: {weights.name} ({size_mb} MB)"
         _logger.info("Language-identification model found at %s", weights)
 
