@@ -7,11 +7,9 @@ import gradio as gr
 from turkic_translit.lid import _test_hooks as lid_hooks
 from turkic_translit.lid.locations import default_search_dirs
 from turkic_translit.lid.registry import find_model_path
-from turkic_translit.web.web_utils import (
-    LANGUAGE_MODEL_ID,
-    get_ui_log_handler,
-    start_janitor,
-)
+from turkic_translit.web.downloads import start_janitor
+from turkic_translit.web.ui_log import get_ui_log_handler
+from turkic_translit.web.web_utils import LANGUAGE_MODEL_ID
 
 from ..error_service import init_error_service
 from ..logging_config import default_level

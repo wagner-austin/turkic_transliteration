@@ -1,3 +1,10 @@
+"""Helpers behind the web UI's transliteration, filtering and training tabs.
+
+The download directory and its janitor are in :mod:`.downloads`, the
+browser's log panel in :mod:`.ui_log`, and corpus streaming in
+:mod:`.corpus_download`; they were part of this module until 2026-11-04.
+"""
+
 from __future__ import annotations
 
 import functools
@@ -6,13 +13,9 @@ import logging
 import os
 import re
 import tempfile
-import threading
-import time
-from collections.abc import Callable
 from pathlib import Path
 from typing import Protocol
 
-import gradio as gr
 import pandas as pd
 
 from turkic_translit.lang_utils import pretty_lang
@@ -22,10 +25,7 @@ from turkic_translit.tokenizer import (
     sentencepiece_trainer,
 )
 
-from .. import _test_hooks
 from ..error_service import (
-    error_markdown,
-    error_response,
     set_correlation_id,
     set_request_context,
 )
@@ -37,13 +37,6 @@ from ..pipeline import TurkicTransliterationPipeline
 log = logging.getLogger(__name__)
 
 _ANSI = re.compile(r"\x1b\[[0-9;]*m")
-
-# How often, in lines kept, the progress bar is updated.
-_PROGRESS_EVERY = 10
-
-# How long a temporary download survives, and how long the janitor waits
-# between sweeps.
-JANITOR_INTERVAL_SECONDS = 600
 
 
 class NamedFile(Protocol):
@@ -64,156 +57,6 @@ class NamedFile(Protocol):
         ...
 
 
-class ProgressReporter(Protocol):
-    """The Gradio progress callback, as this module calls it."""
-
-    def __call__(self, progress: float | None, desc: str = "") -> None:
-        """Report progress to the user interface.
-
-        Args:
-            progress: Completed fraction, or ``None`` when the total is
-                unknown and only the description should update.
-            desc: Text shown beside the bar.
-        """
-        ...
-
-
-class SilentProgress:
-    """The reporter used when Gradio supplies none.
-
-    A real implementation of :class:`ProgressReporter` rather than a
-    null check at every call site: outside the web UI there is nowhere
-    to report progress to, and that is not an error condition.
-    """
-
-    def __call__(self, progress: float | None, desc: str = "") -> None:
-        """Discard the report.
-
-        Args:
-            progress: Ignored.
-            desc: Ignored.
-        """
-
-
-def download_dir() -> Path:
-    """Return the directory temporary corpus downloads are written to.
-
-    Resolved on each call rather than at import, so nothing is created as
-    a side effect of importing this module and a test can point the
-    directory somewhere disposable without touching the process.
-
-    Args:
-        None.
-
-    Returns:
-        The directory named by ``TURKIC_CRON_DIR``, or ``cronjob`` under
-        the working directory. It is created if it does not yet exist.
-    """
-    configured = _test_hooks.environment.get("TURKIC_CRON_DIR")
-    directory = Path(configured) if configured else Path.cwd() / "cronjob"
-    directory.mkdir(parents=True, exist_ok=True)
-    return directory
-
-
-def purge_expired_downloads(max_age_sec: int) -> int:
-    """Delete temporary downloads older than ``max_age_sec``.
-
-    A file vanishing between the listing and the delete is the normal
-    outcome of two sweeps overlapping, so ``missing_ok`` covers it and
-    nothing is caught. Any other filesystem error is a real problem and
-    propagates.
-
-    Args:
-        max_age_sec: Age beyond which a file is removed.
-
-    Returns:
-        The number of files deleted.
-
-    Raises:
-        OSError: When the download directory cannot be created, listed or
-            read, or an expired file cannot be deleted.
-    """
-    cutoff = time.time() - max_age_sec
-    removed = 0
-    for entry in download_dir().glob("*"):
-        if entry.is_file() and entry.stat().st_mtime < cutoff:
-            entry.unlink(missing_ok=True)
-            removed += 1
-    return removed
-
-
-def forever() -> bool:
-    """Report that the janitor should keep sweeping.
-
-    Returns:
-        True, always. This is the loop condition a real run uses; a test
-        supplies one that stops.
-    """
-    return True
-
-
-def run_janitor(max_age_sec: int, running: Callable[[], bool]) -> int:
-    """Sweep expired downloads until the loop condition says to stop.
-
-    A sweep's filesystem error ends the loop. On the thread
-    :func:`start_janitor` runs it on, that error reaches the thread's own
-    boundary, :func:`threading.excepthook`, which reports it with its
-    traceback as ``Exception in thread cron-janitor``. It used to be
-    logged and the next sweep tried anyway, on the grounds that a file
-    held open by the browser could not be deleted; that is Windows
-    behaviour, and on the platforms this project supports deleting an
-    open file succeeds, so an error here is a real fault that repeating
-    the sweep every interval would only hide.
-
-    Args:
-        max_age_sec: Age beyond which a download is removed, and the
-            interval between sweeps.
-        running: Consulted before each sweep. A real run passes
-            :func:`forever`.
-
-    Returns:
-        The number of sweeps performed.
-
-    Raises:
-        OSError: From :func:`purge_expired_downloads`, ending the loop.
-    """
-    sweeps = 0
-    while running():
-        purge_expired_downloads(max_age_sec)
-        sweeps += 1
-        _test_hooks.clock.sleep(max_age_sec)
-    return sweeps
-
-
-def start_janitor(
-    max_age_sec: int = JANITOR_INTERVAL_SECONDS,
-    running: Callable[[], bool] = forever,
-) -> threading.Thread:
-    """Start the background thread that purges temporary downloads.
-
-    Started by the application rather than by importing this module.
-    Sweeping on import meant every process that touched a web helper —
-    including every test run — spawned a thread and created a download
-    directory wherever it happened to be running.
-
-    Args:
-        max_age_sec: Age beyond which a download is removed, and the
-            interval between sweeps.
-        running: Loop condition, defaulting to sweeping indefinitely.
-
-    Returns:
-        The started daemon thread.
-    """
-    thread = threading.Thread(
-        target=run_janitor,
-        args=(max_age_sec, running),
-        daemon=True,
-        name="cron-janitor",
-    )
-    thread.start()
-    return thread
-
-
 def labelise(codes: list[str]) -> list[tuple[str, str]]:
     """Pair each language code with the name a dropdown should show.
 
@@ -224,74 +67,6 @@ def labelise(codes: list[str]) -> list[tuple[str, str]]:
         Label and value pairs, in the same order.
     """
     return [(pretty_lang(c), c) for c in codes]
-
-
-class GradioLogHandler(logging.Handler):
-    """Buffers log records so UI callbacks can flush them into the browser."""
-
-    def __init__(self) -> None:
-        """Start with an empty buffer."""
-        super().__init__()
-        self.buffer: list[str] = []
-
-    def emit(self, record: logging.LogRecord) -> None:
-        """Add one formatted record to the buffer.
-
-        Args:
-            record: The record being logged.
-        """
-        self.buffer.append(self.format(record))
-
-    def dump(self) -> str:
-        """Take everything buffered so far, leaving the buffer empty.
-
-        Returns:
-            The buffered records as one newline-separated block.
-        """
-        out, self.buffer = "\n".join(self.buffer), []
-        return out
-
-
-class UiPrettyLogFilter(logging.Filter):
-    """Skip verbose HTTP and housekeeping messages for UI logs."""
-
-    _SKIP_PHRASES = (
-        "HTTP Request:",
-        "turkic_model.model not found",
-    )
-
-    def filter(self, record: logging.LogRecord) -> bool:
-        """Decide whether a record belongs in the browser's log.
-
-        Args:
-            record: The record being logged.
-
-        Returns:
-            False for the housekeeping messages that would bury the ones
-            a user is actually watching for.
-        """
-        msg = record.getMessage()
-        return not any(p in msg for p in self._SKIP_PHRASES)
-
-
-_UI_LOG_HANDLER: GradioLogHandler | None = None
-
-
-def get_ui_log_handler() -> GradioLogHandler:
-    """Return the shared handler that feeds the browser's log panel.
-
-    Returns:
-        The handler, attached to the project logger on first call and
-        reused afterwards so records are buffered in one place.
-    """
-    global _UI_LOG_HANDLER
-    if _UI_LOG_HANDLER is None:
-        h = GradioLogHandler()
-        h.setFormatter(logging.Formatter("%(message)s"))
-        h.addFilter(UiPrettyLogFilter())
-        logging.getLogger("turkic_translit").addHandler(h)
-        _UI_LOG_HANDLER = h
-    return _UI_LOG_HANDLER
 
 
 def _make_pipeline() -> TurkicTransliterationPipeline:
@@ -500,192 +275,6 @@ def median_levenshtein(file_lat: NamedFile, file_ipa: NamedFile, sample: int | N
     return f"Median distance: {value:.4f}"
 
 
-# ──────────────────────────────────────────────────────────────────────────
-# NEW: lightweight corpus-to-file streaming helper
-
-
-def _report_progress(progress_fn: ProgressReporter, written: int, max_lines: int | None) -> None:
-    """Update the progress bar every tenth line kept.
-
-    Args:
-        progress_fn: Where to report.
-        written: Lines written so far.
-        max_lines: The cap, which makes the fraction meaningful, or
-            ``None`` when the run is unbounded.
-    """
-    if written % _PROGRESS_EVERY != 0:
-        return
-    if max_lines is None:
-        progress_fn(None, desc=f"{written:,} lines kept")
-        return
-    progress_fn(min(1.0, written / max_lines), desc=f"{written}/{max_lines} lines kept")
-
-
-def _download_summary(
-    *,
-    source: str,
-    lang: str,
-    written: int,
-    seen: int,
-    removed: int | None,
-    prob_threshold: float,
-    path: Path,
-) -> str:
-    """Render the Markdown summary shown beside the download link.
-
-    Args:
-        source: Registry key of the corpus streamed.
-        lang: Language code requested.
-        written: Lines written to the file.
-        seen: Sentences the source yielded.
-        removed: Lines the language filter rejected, or ``None`` when no
-            filter ran, which is what omits the line entirely.
-        prob_threshold: Threshold the filter applied.
-        path: The file written.
-
-    Returns:
-        The summary, as Markdown.
-    """
-    lines = [
-        "### ✅ Download complete\n",
-        f"- **Source:** `{source}`",
-        f"- **Language:** {pretty_lang(lang)}",
-        f"- **Lines written:** {written:,}",
-        f"- **Total sentences processed:** {seen:,}",
-    ]
-    if removed is not None:
-        lines.append(f"- **Lines removed by LangID filter:** {removed:,} (p ≥ {prob_threshold})")
-    lines.append(f"- **File:** `{path.name}`")
-    return "\n".join(lines) + "\n"
-
-
-def download_corpus_to_file(
-    source: str,
-    lang: str,
-    max_lines: int | None = None,
-    filter_langid: bool = False,
-    prob_threshold: float = 0.0,
-    *,
-    progress: gr.Progress | None = None,  # injected by Gradio
-) -> tuple[str, str]:
-    """Stream a corpus into a file the browser can download.
-
-    Args:
-        source: Registry key of the corpus source.
-        lang: Language code within that source.
-        max_lines: Stop after this many lines are kept, or ``None`` to
-            read the source to exhaustion.
-        filter_langid: Whether to keep only lines the classifier assigns
-            to ``lang``.
-        prob_threshold: Minimum probability a line must reach to be kept
-            when filtering.
-        progress: Gradio's progress reporter, or ``None`` to report
-            nowhere, which is what a caller outside the web UI wants.
-
-    Returns:
-        The path written and a Markdown summary of the run. An
-        unregistered source returns an empty path and an error payload
-        rendered as Markdown, because the caller displays this rather
-        than handling an exception.
-
-    Raises:
-        CorpusError: If the source is registered but cannot be read.
-        LidError: If filtering was asked for and the classifier's
-            weights are missing or unreadable.
-        OSError: If the output file cannot be written.
-    """
-    import logging
-    from pathlib import Path
-
-    from turkic_translit.corpus.drivers import stream_source
-    from turkic_translit.corpus.sources import SOURCE_REGISTRY, known_source_ids
-
-    logger = logging.getLogger(__name__)
-    # Correlation for this user action
-    set_correlation_id()
-    set_request_context(action="download_corpus", source=source, lang=lang)
-    logger.info(
-        f"Web UI corpus download: source={source}, lang={lang}, max_lines={max_lines}, filter_langid={filter_langid}"
-    )
-
-    if source not in SOURCE_REGISTRY:
-        payload = error_response(
-            f"Unknown corpus source {source!r}.",
-            status=400,
-            code="invalid_source",
-            details={"available": list(known_source_ids())},
-        )
-        return "", error_markdown(payload)
-
-    # Drivers no longer filter; they yield raw fragments and this function
-    # applies its own threshold-aware filter below.
-    base_iter = stream_source(
-        SOURCE_REGISTRY[source], lang, _test_hooks.environment.get("HF_TOKEN")
-    )
-
-    progress_fn: ProgressReporter = SilentProgress() if progress is None else progress
-
-    # Initial tick so the UI shows the bar immediately
-    progress_fn(0, desc="starting stream")
-
-    model = installed_classifier(LANGUAGE_MODEL_ID) if filter_langid else None
-
-    # Counters
-    i = 0  # lines written
-    removed = 0
-    total_processed = 0
-
-    target = download_dir() / f"{source}_{lang}_{int(time.time())}.txt"
-    with open(target, "w", encoding="utf8") as tmp:
-        tmp_path = tmp.name  # capture early so it is available after context closes
-        logger.info(f"Starting to process sentences (max_lines={max_lines})...")
-        # Ensure *i* is defined even when the iterator is empty
-        for sentence in base_iter:
-            # Check if we've already reached the limit before processing
-            if max_lines is not None and i >= max_lines:
-                logger.info(f"Reached max_lines limit: {i} >= {max_lines}")
-                break
-
-            total_processed += 1
-            # Safety-net: stop early if we've processed far more lines than requested
-            if max_lines is not None and filter_langid and total_processed >= max_lines * 50:
-                logger.warning(
-                    "Processing limit reached without enough lines kept; breaking early to avoid long hang."
-                )
-                break
-            clean_sentence = sentence.replace("\n", " ").replace("\r", " ").strip()
-            if not clean_sentence:
-                continue  # skip blank lines
-            # Apply LangID filter if requested - USE PREDICT() LIKE THE CLI DOES
-            if model is not None:
-                prediction = model.classify(clean_sentence)
-                pred_lang = prediction["label"]
-                pred_prob = prediction["probability"]
-                # Skip sentence if wrong language or below probability threshold
-                if pred_lang != lang or pred_prob < prob_threshold:
-                    removed += 1
-                    continue
-            tmp.write(clean_sentence + "\n")
-            i += 1
-
-            _report_progress(progress_fn, i, max_lines)
-
-    # Capture file path after context manager closes it
-    tmp_path = tmp.name
-    progress_fn(1.0, desc="completed")
-    logger.info("download complete: %d lines written from %d seen", i, total_processed)
-
-    return tmp_path, _download_summary(
-        source=source,
-        lang=lang,
-        written=i,
-        seen=total_processed,
-        removed=removed if filter_langid else None,
-        prob_threshold=prob_threshold,
-        path=Path(tmp_path),
-    )
-
-
 def train_sentencepiece_model(
     input_text: str,
     training_file: NamedFile | None = None,
@@ -794,8 +383,6 @@ same directory as the `tokenizer.py` file.
 
 __all__ = [
     "direct_transliterate",
-    "download_corpus_to_file",
-    "get_ui_log_handler",
     "labelise",
     "mask_russian",
     "median_levenshtein",
