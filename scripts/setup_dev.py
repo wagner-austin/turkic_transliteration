@@ -83,7 +83,8 @@ def report_next_steps() -> None:
         print("  make web  - Start the web UI")
         return
     print("\nGNU Make is not installed. Install it to use the documented targets:")
-    print("  choco install make    (from an elevated PowerShell)")
+    print("  sudo apt install make    (Debian, Ubuntu)")
+    print("  brew install make        (macOS)")
 
 
 def main() -> None:

@@ -12,7 +12,7 @@ This directory contains utility scripts for project maintenance.
 python scripts/setup_dev.py
 ```
 
-This script will install the package with all development dependencies, set up PyICU on Windows if needed, and verify that all development tools are working properly.
+This script installs the package in editable mode with all development dependencies and reports which development tools are on PATH.
 
 To see structured logs during development:
 
@@ -21,31 +21,10 @@ export TURKIC_LOG_LEVEL=DEBUG
 export TURKIC_LOG_FORMAT=json   # or 'rich'
 ```
 
-## Release Scripts
+## Releasing
 
-The `release/` directory contains scripts for building and publishing the package to PyPI:
-
-- `release.ps1` - PowerShell script for Windows users
-- `release.sh` - Bash script for Unix/Linux/Mac users
-
-### Usage
-
-#### Windows:
-
-```powershell
-cd scripts/release
-powershell -ExecutionPolicy Bypass -File release.ps1
-```
-
-#### Unix/Linux/MacOS:
-
-```bash
-cd scripts/release
-bash release.sh
-```
-
-Both scripts will:
-1. Clean up previous build artifacts
-2. Run tests to verify the package
-3. Build the package
-4. Upload it to PyPI (requires PyPI credentials)
+There is no release script. A push to `main` runs
+`.github/workflows/release.yml`, which publishes the version
+`pyproject.toml` declares if PyPI does not already have it, through PyPI's
+trusted publishing, and tags the commit `v<version>`. To release, raise the
+version in `pyproject.toml`, add its section to `CHANGELOG.md`, and push.
