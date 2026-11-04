@@ -6,6 +6,20 @@ All notable changes to the Turkic Transliteration project will be documented in 
 
 ### Changed
 
+**No Python file is longer than 600 lines, and the guard enforces it.**
+The new `file-length` rule (`scripts/guards/file_length_rules.py`) fails
+`make lint` for any file in `src`, `tests` or `scripts` past 600 lines,
+naming it and its count, with no allow-list. Six files were past it and
+were split by concern, their code moved unchanged: `scripts/guard.py`
+into the runner plus `guards/typing_rules.py` and
+`guards/exception_rules.py`; `guards/test_quality_rules.py` into itself,
+`patching_rules.py` and `translit_test_rules.py`; `web/web_utils.py` into
+itself, `downloads.py`, `ui_log.py` and `corpus_download.py`; and the
+tests beside them, with the shared `write_test_module` fixture in
+`tests/conftest.py` and the shared corpus builder in
+`tests/corpus_clean_helpers.py`. Nothing re-exports an old location; every
+importer names the new one.
+
 **`make check` writes nothing.** `make lint` ran `ruff check --fix` and
 `ruff format`, so the check rewrote the tree it was checking: on
 2026-11-04 it changed an expression in a test on the very run that
