@@ -201,8 +201,7 @@ def translit(
 ) -> None:
     """Transliterate ORTHOGRAPHY -> IPA and/or Latin using per-language rules.
 
-    Uses UTF-8 with a BOM on Windows so downstream editors correctly
-    detect the encoding; UTF-8 without BOM on other platforms.
+    Reads and writes UTF-8 without a byte-order mark on every platform.
 
     Args:
         lang: ISO 639-1 language code selected by ``--lang``.
@@ -219,7 +218,7 @@ def translit(
             contains bytes that are not valid in the chosen encoding.
     """
     _validate_output_selection(lang, latin_path, ipa_path)
-    encoding = "utf-8-sig" if sys.platform == "win32" else "utf-8"
+    encoding = "utf-8"
 
     _logger.info(
         "Starting transliteration: lang=%s, input=%s, out_latin=%s, out_ipa=%s, arabic=%s",
