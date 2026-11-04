@@ -5,7 +5,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "turkic-translit"
-version = "0.5.9"
+version = "0.5.10"
 description = "Deterministic Latin and IPA transliteration for Kazakh, Kyrgyz, Uzbek, Turkish, Azerbaijani, Uyghur, Finnish, plus tokenizer/glue scripts."
 authors = [ {name="Austin Wagner", email="austinwagner@msn.com"} ]
 # 3.10 is the floor pyicu-wheels publishes for, and the floor the
@@ -300,4 +300,13 @@ filterwarnings = [
     "ignore::pytest.PytestUnraisableExceptionWarning",
     "ignore::DeprecationWarning:websockets.*",
     "ignore::DeprecationWarning:uvicorn.*",
+    # panphon 0.22's segment.py has an invalid "\w" escape in a docstring.
+    # Python warns while COMPILING it, and a compile-time warning names the
+    # file's path as its module, so a package-name filter like the two
+    # above never matches it; this one names that one file by path. Under
+    # "error" the warning was a SyntaxError on any install that had not
+    # already compiled panphon, which a fresh one has not (measured
+    # 2026-11-04 on pendragon: "panphon" and "panphon\.segment" leave the
+    # import failing, this pattern lets it import).
+    "ignore:invalid escape sequence:DeprecationWarning:.*/panphon/segment",
 ]

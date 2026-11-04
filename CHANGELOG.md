@@ -2,6 +2,78 @@
 
 All notable changes to the Turkic Transliteration project will be documented in this file.
 
+## [0.5.10] - 2026-11-04
+
+This release carries the rule fixes made since 0.5.9, which never reached
+PyPI because the version was not raised when they were pushed: among
+them Kazakh, Kyrgyz and Cyrillic Uzbek ‹щ› now give `ʃː` where 0.5.9
+gives `ɕː` (5c06eef), and the Russian rules' palatalisation, soft sign
+and pre-1918 letters. Install 0.5.10 before building a corpus.
+
+### Fixed
+
+**`make check` passed only on a machine that had run the suite before.**
+Run on a fresh install for the first time on 2026-11-04 (pendragon,
+NixOS), it failed in four places, each on state a long-used checkout had
+accumulated and a new one lacks:
+
+- Mypy reported `attr-defined` on every Gradio event listener
+  (`Button.click`, `Textbox.change`): Gradio adds those methods at
+  runtime and writes `.pyi` stubs describing them into its own install
+  directory on first import, so they existed only once something had
+  imported Gradio. `web/events.py` reaches the listeners through a
+  Protocol instead, and `tests/test_web_events.py` registers handlers on
+  real components through it.
+- `web_demo._model_check` found the language-identification model
+  through the `lid` probe and then sized it with `Path.stat()`, so the
+  tests that bind the probe passed only where the 131 MB model had been
+  downloaded into the source tree. It now sizes it through the probe, as
+  `lid.factory` does.
+- `test_representations_of_different_width_can_be_compared` asserted
+  that a CKA score whose exact value is 1 was at most 1.0; NumPy's BLAS
+  on that machine returned `1.0000000000000002`. It now asserts the
+  exact value, within rounding.
+- panphon 0.22's `segment.py` has an invalid escape in a docstring,
+  which Python warns about while compiling it; under the suite's
+  warnings-as-errors that was a `SyntaxError` wherever panphon had not
+  already been compiled. The warning is ignored for that one file, by
+  path, since a compile-time warning names its file rather than its
+  package.
+
+**A rule file's fingerprint depended on the checkout's line endings.**
+`rules_fingerprint` hashed each rule file's raw bytes, and
+`.gitattributes` declared `*.rules text` without a line ending, so git
+gave the files CRLF on Windows and LF on Linux and one commit
+fingerprinted two ways. The transliterator never saw the difference:
+`core` reads rule files with `read_text`, which turns CRLF into LF
+before ICU compiles them, so no corpus was transliterated wrongly. What
+broke was the provenance check: a Linux rerun of the commit a Windows
+manifest named read as different rules.
+
+The new `rule_digest` hashes the decoded text, which is what ICU
+compiles, so every checkout of a commit gives one digest, the one an LF
+checkout's bytes already gave. `.gitattributes` now declares
+`*.rules text eol=lf`, so every checkout holds LF bytes as well.
+`tests/test_rule_digest.py` writes both forms of `kk_ipa.rules` and
+pins them to one digest.
+
+**Manifests written before this change on Windows carry the CRLF
+digest.** The LSTM corpora `rebuild_2026-09/corpora_clean_v4`, `v5` and
+`v6` record `kk_ipa.rules` as
+`c2d4eeec01032ba6f7fc1cb38c27c86513e8f8fd4d1818d9a146a1e60948dc26`. That
+is the CRLF form of commit 5c06eef's `kk_ipa.rules`, whose LF form, and
+so its digest under this change, is
+`2b69fda41a28786b75c449184197b5209531b59cc23561226113380ac1f9e9c8`. To
+match an old Windows manifest, hash the rule file's bytes with CRLF line
+endings; to match a Linux one, or any manifest written from now on, use
+`rule_digest`.
+
+### Changed
+
+**The Makefile runs under a POSIX shell.** It ran every recipe through
+`powershell.exe`, so `make check` could not run on a Linux machine.
+Windows users keep `scripts/run.ps1`, which runs the same targets.
+
 ## [0.5.9] - 2026-08-15
 
 ### Fixed

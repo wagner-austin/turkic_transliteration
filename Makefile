@@ -1,11 +1,9 @@
-SHELL := powershell.exe
-.SHELLFLAGS := -NoProfile -ExecutionPolicy Bypass -Command
-
 .PHONY: install lint guard test check clean build web
 
 # Install dependencies. ICU arrives with them: pyicu-wheels publishes the
 # extension prebuilt, so there is no wheel to fetch by hand any more, on
-# Windows or anywhere else.
+# Windows or anywhere else. Windows users run these targets through
+# scripts/run.ps1 instead of make.
 install:
 	poetry install --extras dev --no-ansi
 
@@ -13,7 +11,6 @@ install:
 # no print in src, no weak or fake tests. Covers src, tests and scripts.
 guard:
 	poetry run python -m scripts.guard
-	if ($$LASTEXITCODE -ne 0) { exit $$LASTEXITCODE }
 
 # Lint: guards first (cheapest signal), then Ruff, then strict Mypy over
 # src, tests and scripts.
@@ -30,7 +27,7 @@ lint: install guard
 # spawning them; without this their execution is invisible and the report
 # calls that code untested.
 test: install
-	$$env:COVERAGE_PROCESS_START = "$(CURDIR)/pyproject.toml"; poetry run pytest -n auto --cov=src --cov=scripts --cov-branch --cov-report=term-missing
+	COVERAGE_PROCESS_START="$(CURDIR)/pyproject.toml" poetry run pytest -n auto --cov=src --cov=scripts --cov-branch --cov-report=term-missing
 
 check: lint test
 

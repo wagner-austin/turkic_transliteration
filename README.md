@@ -33,6 +33,19 @@ pip install turkic-translit
 turkic-translit web          # or any of the commands below
 ```
 
+**The PyPI release can lag the rules on `main`.** A rule fix reaches PyPI
+only with the next release, and a corpus transliterated with an older
+release carries the older rules; 0.5.9, for example, still writes Kazakh,
+Kyrgyz and Cyrillic Uzbek ‹щ› as `ɕː`, which `main` corrected to `ʃː`. To
+build a corpus with the current rules, install from the repository:
+
+```bash
+pip install "git+https://github.com/wagner-austin/turkic_transliteration.git"
+```
+
+The install brings PyTorch with it (for the language-model commands), so
+expect several gigabytes.
+
 Nothing else: ICU arrives with it. That was not true before 0.5.6 — PyICU
 publishes no wheels on any platform, so an install had to compile against ICU
 headers, and this project shipped a Windows wheel fetcher to work around it.
@@ -127,6 +140,40 @@ turkic-translit translit --lang kk --in text.txt \
 
 At least one of `--out-latin` / `--out-ipa` must be specified.
 `--log-level` is set on the parent group: `turkic-translit --log-level debug translit ...`.
+
+### `turkic-clean-corpus` usage
+
+The rules transliterate their own script and pass everything else through
+unchanged, so English, URLs and code quoted in web text reach the IPA file
+in their original spelling. The cleaner removes them: each language's set
+of emittable characters is derived from its own rules, and a token
+carrying any letter outside that set is dropped whole.
+
+```bash
+turkic-translit translit --lang kk --in kk.txt --out-ipa raw/kk_ipa.txt
+turkic-clean-corpus --input-dir raw --output-dir clean
+```
+
+- `--input-dir` / `--output-dir` — raw IPA corpora in, cleaned corpora and
+  `cleaning_manifest.json` out. The language is read from each file name
+  (`kk_ipa.txt`, `oscar_kk_ipa.txt`), which must carry exactly one
+  two-letter code.
+- The stages run in this order: the symbol map harmonises notation across
+  languages; lines whose share of transcription characters is below
+  `--min-ipa-ratio` (default 0.95) are dropped; foreign tokens are
+  dropped; punctuation, digits and other characters the rules cannot emit
+  become spaces; lines shorter than `--min-line-chars` (default 30) are
+  dropped; repeated lines are dropped, keeping the first. The order and
+  the reason for each stage are in `turkic_translit/corpus/clean.py`.
+- Last, every corpus in one run is cut to the size of the smallest, so a
+  cross-language comparison measures languages rather than data volume.
+  Clean one language on its own to keep all of it.
+- The manifest counts every drop and replacement, and fingerprints the
+  rule files and symbol map the run used.
+- Clean only text transliterated by the same version of the rules: the
+  emittable set comes from the installed rules, so a corpus made under
+  older rules can carry letters the current ones no longer emit, and the
+  cleaner drops those tokens as foreign.
 
 ### Tokenizer training
 

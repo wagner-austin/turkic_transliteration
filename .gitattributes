@@ -1,2 +1,2 @@
-*.rules text
+*.rules text eol=lf
 *.whl   -text
