@@ -82,8 +82,6 @@ make test    # pytest with 100% statement+branch coverage enforced
 make web     # launch the Gradio web UI
 ```
 
-On Windows without GNU Make: `./scripts/run.ps1 <target>`.
-
 Linting, type-checking (strict mypy) and the guard rules all cover `src`,
 `tests` and `scripts`. The guards ban weak typing (`Any`, casts, ignores),
 silent exception handling, and weak or fake tests — including
@@ -196,7 +194,8 @@ cat uz_raw.txt | turkic-filter-russian --mode drop > uz_clean.txt
   `rules/`, `cli/`, `web/`, `lm/`, language-ID and filtering modules)
 - `data/` — sample data and language resources
 - `docs/` — documentation and guides
-- `scripts/` — dev + release utilities (`setup_dev.py`, `run.ps1`, `release/`)
+- `scripts/` — development utilities (`setup_dev.py`, the guard rules, the
+  Hugging Face Space sync); releasing is a push to `main`
 - `tests/` — test suite (per-language IPA coverage for all supported languages)
 - `cronjob/` — scheduled-task assets for the hosted demo
 - `app.py` — Hugging Face Space entry point for the web UI
@@ -218,8 +217,7 @@ json); libraries can call `turkic_translit.logging_config.setup()`. Optional
 Sentry integration via `TURKIC_SENTRY_DSN` (+ `TURKIC_ENV`,
 `TURKIC_SENTRY_TRACES`); install with `pip install turkic-translit[sentry]`.
 
-All I/O is UTF-8; on Windows a BOM is written when piping to files to avoid
-encoding issues.
+All I/O is UTF-8, with no byte-order mark, on every platform.
 
 ## Relationship to the LSTM project
 

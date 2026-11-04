@@ -2,6 +2,21 @@
 
 All notable changes to the Turkic Transliteration project will be documented in this file.
 
+## [Unreleased]
+
+### Removed
+
+**The Windows code.** `scripts/run.ps1`, the PowerShell copy of the
+Makefile targets that 0.5.10 still kept, is gone, and so is
+`scripts/release/`: `release.ps1` and `release.sh` uploaded with twine by
+hand, under the deprecated `turkic-transliterate` name, while the release
+has been a push to `main` since 0.5.3, so they were a second release path
+that no longer described the first. `turkic-translit translit` wrote a
+byte-order mark when run on Windows and now writes the same plain UTF-8
+everywhere, pinned by a test that reads the output file's bytes; the
+README, `scripts/README.md`, the Makefile and `scripts/setup_dev.py` no
+longer give Windows instructions.
+
 ## [0.5.10] - 2026-11-04
 
 This release carries the rule fixes made since 0.5.9, which never reached

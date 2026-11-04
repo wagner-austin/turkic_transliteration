@@ -1,9 +1,7 @@
 .PHONY: install lint guard test check clean build web
 
 # Install dependencies. ICU arrives with them: pyicu-wheels publishes the
-# extension prebuilt, so there is no wheel to fetch by hand any more, on
-# Windows or anywhere else. Windows users run these targets through
-# scripts/run.ps1 instead of make.
+# extension prebuilt, so there is no wheel to fetch by hand.
 install:
 	poetry install --extras dev --no-ansi
 
