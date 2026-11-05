@@ -1,3 +1,1 @@
-import os
-
-os.environ["PYTHONUTF8"] = "1"
+"""The test suite, a package so its helper modules import as ``tests.<name>``."""

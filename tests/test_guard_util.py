@@ -22,17 +22,18 @@ def test_lines_are_returned_without_their_terminators(tmp_path: Path) -> None:
     assert read_lines(target) == ["first", "second", "third"]
 
 
-def test_a_byte_order_mark_is_consumed(tmp_path: Path) -> None:
-    """A BOM written by a Windows editor does not reach the first line.
+def test_a_byte_order_mark_is_refused(tmp_path: Path) -> None:
+    """A file opening with a BOM fails the read instead of evading the rules.
 
-    utf-8-sig is the whole reason this helper exists: with plain utf-8
-    the first line would begin with a zero-width no-break space and
-    every rule matching on column one would miss.
+    Read as plain UTF-8, the mark would begin the first line with a
+    zero-width no-break space, and every rule matching on column one
+    would miss that line.
     """
     target = tmp_path / "bom.py"
     target.write_bytes(b"\xef\xbb\xbfimport os\n")
 
-    assert read_lines(target) == ["import os"]
+    with pytest.raises(ValueError, match=r"bom\.py opens with a byte-order mark"):
+        read_lines(target)
 
 
 def test_an_empty_file_yields_no_lines(tmp_path: Path) -> None:

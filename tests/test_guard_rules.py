@@ -261,6 +261,7 @@ def test_running_the_module_as_a_script_exits_with_the_rule_status(
         [sys.executable, "-m", "scripts.guard", "--root", str(tmp_path)],
         capture_output=True,
         text=True,
+        encoding="utf-8",
         cwd=PROJECT_ROOT,
         check=False,
     )

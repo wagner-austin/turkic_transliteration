@@ -17,7 +17,6 @@ import pytest
 
 from scripts import _test_hooks, setup_dev
 
-LINUX = "Linux"
 INTERPRETER = "/usr/bin/python3"
 
 
@@ -41,15 +40,14 @@ def hooks() -> Generator[None, None, None]:
     _test_hooks.interpreter = interpreter
 
 
-def describe(platform_name: str = LINUX, isolated: bool = True) -> None:
+def describe(isolated: bool = True) -> None:
     """Bind the interpreter hook to stated facts.
 
     Args:
-        platform_name: Operating system the script should see.
         isolated: Whether the interpreter should look isolated.
     """
     _test_hooks.interpreter = _test_hooks.DescribedInterpreter(
-        platform_name=platform_name, isolated=isolated, executable=INTERPRETER
+        isolated=isolated, executable=INTERPRETER
     )
 
 
@@ -216,6 +214,7 @@ def test_the_terminal_prompt_reads_a_real_line_of_input() -> None:
         input="typed reply\n",
         capture_output=True,
         text=True,
+        encoding="utf-8",
         cwd=setup_dev.PROJECT_ROOT,
         check=True,
     )
@@ -231,7 +230,6 @@ def test_the_production_interpreter_reports_this_process() -> None:
     environment or against a base installation.
     """
     import os
-    import platform
 
     running = _test_hooks.RunningInterpreter()
     isolated = (
@@ -241,16 +239,12 @@ def test_the_production_interpreter_reports_this_process() -> None:
     )
 
     assert running.executable() == sys.executable
-    assert running.platform_name() == platform.system()
     assert running.is_isolated() is isolated
 
 
 def test_the_described_interpreter_reports_what_it_was_given() -> None:
-    """The stated interpreter answers exactly the three facts it holds."""
-    described = _test_hooks.DescribedInterpreter(
-        platform_name="Haiku", isolated=False, executable="/opt/py"
-    )
+    """The stated interpreter answers exactly the two facts it holds."""
+    described = _test_hooks.DescribedInterpreter(isolated=False, executable="/opt/py")
 
-    assert described.platform_name() == "Haiku"
     assert described.is_isolated() is False
     assert described.executable() == "/opt/py"
