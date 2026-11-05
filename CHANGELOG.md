@@ -67,6 +67,21 @@ everywhere, pinned by a test that reads the output file's bytes; the
 README, `scripts/README.md`, the Makefile and `scripts/setup_dev.py` no
 longer give Windows instructions.
 
+Four more Windows provisions are gone with it. The `make` dev
+dependency, listed as the make command for Windows, was PyPI's `make`
+0.1.6, a jinja2 project-template tool that never supplied GNU Make; it
+and its own dependency `jinja2-time` leave the lock file. The guard
+reader decoded `utf-8-sig` to absorb the byte-order mark Windows editors
+write; it now reads plain UTF-8 and refuses a file that opens with a
+mark, which would otherwise begin its first line with a zero-width
+no-break space and slip past every rule matching on column one.
+`sitecustomize.py` and `tests/__init__.py` no longer force `PYTHONUTF8`,
+which existed for the Windows console's codepage; every file this
+project reads or writes names its encoding. And `scripts/_test_hooks.py`
+no longer offers the interpreter's platform name: `setup_dev.py` asked
+for it only to bootstrap PyICU on Windows, and has not asked since that
+step went in b19ccfd.
+
 ### Fixed
 
 **Fine-tuning runs on a GPU.** `LMModel.fresh` loaded the base model in
