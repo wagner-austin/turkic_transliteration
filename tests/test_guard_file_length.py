@@ -64,17 +64,22 @@ def test_the_rule_reports_under_its_own_name() -> None:
     assert FileLengthRule().name == "file-length"
 
 
+@pytest.mark.parametrize("relative", ["src/pkg/long.py", "tests/test_long.py", "scripts/long.py"])
 def test_a_long_file_fails_the_whole_guard(
-    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+    tmp_path: Path, capsys: pytest.CaptureFixture[str], relative: str
 ) -> None:
     """The runner applies the rule to src, tests and scripts alike.
+
+    One case per scanned directory, so a rule or runner that skipped any
+    of them fails the case for that directory.
 
     Args:
         tmp_path: Project root for the scanned tree.
         capsys: Captures the runner's report.
+        relative: Where the long file is written, one per scanned directory.
     """
     init_git_tree(tmp_path)
-    write_lines(tmp_path / "tests" / "test_long.py", MAX_LINES + 5)
+    write_lines(tmp_path / relative, MAX_LINES + 5)
 
     status = run_guards(tmp_path)
 
@@ -84,6 +89,5 @@ def test_a_long_file_fails_the_whole_guard(
         "  file-length: 1 violations"
     ]
     assert [line for line in captured.err.splitlines() if "file-too-long" in line] == [
-        "  tests/test_long.py:605: file-too-long 605 lines, over the 600-line limit: "
-        "split it by concern"
+        f"  {relative}:605: file-too-long 605 lines, over the 600-line limit: split it by concern"
     ]

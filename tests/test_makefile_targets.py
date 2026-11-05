@@ -25,14 +25,18 @@ CHECKING = ["poetry run ruff check .", "poetry run ruff format --check ."]
 REWRITING = ["poetry run ruff check . --fix", "poetry run ruff format ."]
 
 
-def ruff_commands(target: str) -> list[str]:
-    """List the ruff commands make would run for a target, in order.
+#: The command that runs the guard rules, file length among them.
+GUARD = "poetry run python -m scripts.guard"
+
+
+def planned_commands(target: str) -> list[str]:
+    """List every command make would run for a target, in order.
 
     Args:
         target: The Makefile target, run with ``make -n`` so nothing runs.
 
     Returns:
-        Every printed command line that invokes ruff, stripped.
+        Each printed command line, stripped.
     """
     completed = subprocess.run(
         ["make", "-n", target],
@@ -42,7 +46,29 @@ def ruff_commands(target: str) -> list[str]:
         cwd=PROJECT_ROOT,
         check=True,
     )
-    return [line.strip() for line in completed.stdout.splitlines() if " ruff " in f" {line} "]
+    return [line.strip() for line in completed.stdout.splitlines() if line.strip()]
+
+
+def ruff_commands(target: str) -> list[str]:
+    """List the ruff commands make would run for a target, in order.
+
+    Args:
+        target: The Makefile target.
+
+    Returns:
+        Every planned command line that invokes ruff.
+    """
+    return [line for line in planned_commands(target) if " ruff " in f" {line} "]
+
+
+@pytest.mark.parametrize("target", ["lint", "check"])
+def test_a_verification_target_runs_the_guard_once(target: str) -> None:
+    """Lint, and check through it, run the guard rules, so a long file fails them.
+
+    Args:
+        target: A verification target.
+    """
+    assert [line for line in planned_commands(target) if line == GUARD] == [GUARD]
 
 
 @pytest.mark.parametrize("target", ["lint", "check"])
