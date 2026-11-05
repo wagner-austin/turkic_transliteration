@@ -7,19 +7,26 @@ All notable changes to the Turkic Transliteration project will be documented in 
 ### Added
 
 **Real failures for the real seams.** `tests/test_real_seam_failures.py`
-runs four production implementations against failures the world
-produces, each measured on 2026-11-04 before it was asserted: the model
-downloader against a real HTTP server answering 404 (an `HTTPError`,
-and no file or `.part` left behind), the fastText loader against a file
-that is not a model, the Gradio server against a port another socket
-holds, and the Sentry reporter against a malformed DSN. The other
-outside-world seams already had such a case.
+runs the production implementations against failures the world
+produces, each measured before it was asserted: the model downloader
+against a real HTTP server answering 404 (an `HTTPError`, and no file or
+`.part` left behind), the fastText loader against a file that is not a
+model, the Gradio server against a port another socket holds, and the
+Sentry reporter against a malformed DSN; the language-model trainer and
+evaluator against a model path that does not exist (`OSError`) and a
+directory holding no tokenizer (`ValueError`); and the terminal prompt
+against a closed standard input (`EOFError`). Measuring the empty
+directory found the hooks' docstrings promising `OSError` for it, so
+they, `LMModel` and `load_tokenizer` now name the `ValueError` too.
 
-**`make test` says which language-identification tests did not run.**
-It passes `-rs`, so a run without the real fastText weights ends with
+**`make test` says which language-identification tests ran.** It passes
+`-rs`, so a run without the real fastText weights ends with
 `SKIPPED [1] ...: lid.176 weights are not installed` and
-`SKIPPED [8] ...: lid218e weights are not installed`, instead of only a
-skip count.
+`SKIPPED [8] ...: lid218e weights are not installed`, and
+`tests/conftest.py` adds a line per model, `LID lid.176: 0 ran against
+real weights, 1 skipped` and `LID lid218e: 0 ran against real weights,
+8 skipped` there, read from markers the tests carry, so a run with the
+weights says how many ran as well.
 
 ### Changed
 

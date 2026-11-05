@@ -38,7 +38,9 @@ lint: install guard
 # identification cases in tests/test_verification.py skip when the real
 # fastText weights are absent, so without it a green run could not say
 # whether those models were exercised; with it, the run ends with
-# "SKIPPED [n] ...: <model> weights are not installed" for each that was not.
+# "SKIPPED [n] ...: <model> weights are not installed" for each that was not,
+# and tests/conftest.py adds "LID <model>: <n> ran against real weights, <m>
+# skipped" for each model, so the ran half is stated as well.
 test: install
 	COVERAGE_PROCESS_START="$(CURDIR)/pyproject.toml" poetry run pytest -n auto -rs --cov=src --cov=scripts --cov-branch --cov-report=term-missing
 
