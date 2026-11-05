@@ -26,7 +26,10 @@ they, `LMModel` and `load_tokenizer` now name the `ValueError` too.
 `tests/conftest.py` adds a line per model, `LID lid.176: 0 ran against
 real weights, 1 skipped` and `LID lid218e: 0 ran against real weights,
 8 skipped` there, read from markers the tests carry, so a run with the
-weights says how many ran as well.
+weights says how many ran as well. `tests/test_lid_summary.py` copies that
+conftest beside marked tests that pass, skip and fail, runs real pytest
+over them with two xdist workers, and requires the exact lines, so the
+count itself is tested and not only printed.
 
 ### Changed
 
