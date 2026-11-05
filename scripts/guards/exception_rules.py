@@ -1,13 +1,19 @@
 """Exception-handling rules of the guard.
 
 Broad handlers must log and re-raise, and a silent body is reported. A
-specific handler must re-raise, or log and then return a value: the value
+specific handler must re-raise, or log and then return a value carrying
+the error it caught: binding it with ``as`` and returning something built
+from it, directly or through a name assigned from it in the handler. That
 is how a failure becomes the caller's answer, as a Gradio handler returns
-the message the page shows and a reachability probe returns False. A
-handler that logs and then carries on, falling through to the code after
-it or returning nothing, is the swallowed error the coding standard bans,
-and is reported as ``except-logs-and-continues`` (board task 3b18c6eb,
-after its audit found a log-and-continue handler passing the guard).
+the message the page shows, built from the error, and a reachability
+probe returns why the host could not be reached. Two shapes are the
+swallowed error the coding standard bans (board task 3b18c6eb, after its
+audits found both passing the guard): a handler that logs and carries on,
+falling through or returning nothing, reported as
+``except-logs-and-continues``; and one that logs and returns a default
+the failure did not produce, as the old ``sweep_once`` returned 0,
+reported as ``except-returns-a-default``. A mention of the error in the
+log call is not carried to the caller, so it does not count.
 
 These checks were defined in
 ``scripts/guard.py`` until 2026-11-04, when they moved here unchanged so
@@ -28,6 +34,61 @@ _BROAD_TYPES = re.compile(r"\b(Exception|BaseException)\b")
 _LOG_CALL = re.compile(r"\b(logging|log|logger)\.(debug|info|warning|error|exception|critical)\(")
 _RAISE_RE = re.compile(r"\braise\b")
 _VALUE_RETURN = re.compile(r"^\s*return\s+(?!None\s*(#.*)?$)\S")
+_RETURN_START = re.compile(r"^\s*return\b")
+_BOUND_NAME = re.compile(r"\bas\s+([A-Za-z_]\w*)\s*$")
+_ASSIGNMENT = re.compile(r"^\s*([A-Za-z_]\w*)\s*(?::[^=]+)?=(?!=)(.*)$")
+
+
+def _mentions(text: str, names: set[str]) -> bool:
+    """Report whether any of the names stands as a word in the text.
+
+    Args:
+        text: One source line.
+        names: Identifiers to look for.
+
+    Returns:
+        True when at least one appears as a whole word.
+    """
+    return any(re.search(rf"\b{re.escape(name)}\b", text) for name in names)
+
+
+def _returns_the_error(lines: Sequence[str], start: int, end: int, types: str) -> bool:
+    """Report whether a handler's returned value carries the error it caught.
+
+    The error must be bound with ``as``. A name assigned in the handler
+    from an expression using a carrier becomes a carrier too, and the
+    return statement, read from its first line to the end of the body so
+    a parenthesised value spanning lines is whole, must mention one. Log
+    lines are passed over: what they mention reaches the log, not the
+    caller.
+
+    Args:
+        lines: All source lines of the module.
+        start: Index of the handler body's first line.
+        end: Index of the first line after the body.
+        types: The header's types as written, with any ``as`` binding.
+
+    Returns:
+        True when the returned value is built from the caught error.
+    """
+    bound = _BOUND_NAME.search(types)
+    if bound is None:
+        return False
+    carriers = {bound.group(1)}
+    returning = False
+    for line in lines[start:end]:
+        if _LOG_CALL.search(line):
+            continue
+        if _RETURN_START.match(line):
+            returning = True
+        if returning:
+            if _mentions(line, carriers):
+                return True
+            continue
+        assignment = _ASSIGNMENT.match(line)
+        if assignment is not None and _mentions(assignment.group(2), carriers):
+            carriers.add(assignment.group(1))
+    return False
 
 
 def _parse_except_header(raw: str) -> tuple[int, str] | None:
@@ -144,9 +205,11 @@ def _run_exceptions_rule(path: Path, lines: list[str]) -> list[Violation]:
     """Report the exception handlers that hide the failure they caught.
 
     A broad handler must log and re-raise. A specific one must re-raise,
-    or log and return a value; one that does neither is reported, and so
-    is one that logs and then continues. Test files are skipped, because a test catching an exception to
-    assert on it is doing exactly what it should.
+    or log and return a value built from the caught error; one that does
+    neither is reported, and so are one that logs and then continues and
+    one that logs and returns a default. Test files are skipped, because
+    a test catching an exception to assert on it is doing exactly what it
+    should.
 
     Args:
         path: File being scanned, for the violation record.
@@ -212,6 +275,15 @@ def _run_exceptions_rule(path: Path, lines: list[str]) -> list[Violation]:
                     file=path,
                     line_no=idx + 1,
                     kind="except-logs-and-continues",
+                    line=raw.rstrip("\n"),
+                )
+            )
+        elif not has_raise and not _returns_the_error(lines, body_start, body_end, types):
+            violations.append(
+                Violation(
+                    file=path,
+                    line_no=idx + 1,
+                    kind="except-returns-a-default",
                     line=raw.rstrip("\n"),
                 )
             )
