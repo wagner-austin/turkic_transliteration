@@ -42,7 +42,11 @@ lint: install guard
 test: install
 	COVERAGE_PROCESS_START="$(CURDIR)/pyproject.toml" poetry run pytest -n auto -rs --cov=src --cov=scripts --cov-branch --cov-report=term-missing
 
+# The banner is the fleet's evidence that every stage ran to the end: its
+# runner reads a check as passed only when the transcript's last lines
+# hold it as well as the exit code being zero.
 check: lint test
+	@echo "=== ALL CHECKS PASSED ==="
 
 clean:
 	poetry run python -c "import shutil, glob, os; [shutil.rmtree(p, ignore_errors=True) for p in glob.glob('dist') + glob.glob('build') + glob.glob('*.egg-info') + glob.glob('htmlcov') + glob.glob('.pytest_cache') + glob.glob('.ruff_cache') + glob.glob('.mypy_cache') + glob.glob('**/__pycache__', recursive=True) if os.path.exists(p)]"
