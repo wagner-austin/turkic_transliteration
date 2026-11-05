@@ -1,186 +1,24 @@
 """Tests for the guard's exception-handling rule.
 
-The helpers are exercised directly where a branch cannot be reached
-through a whole-tree run: a malformed ``except`` header, for instance,
-never survives ``ast.parse``, but the line scanner still has to handle
-it. These cases were in ``tests/test_guard_rules.py`` until 2026-11-04,
-when they moved here unchanged beside the rule they test, which moved to
+Every case runs the rule over real source, parsed as the guard parses
+it, and asserts the violation kinds it reports. These cases were in
+``tests/test_guard_rules.py`` until 2026-11-04, when they moved here
+beside the rule they test, which moved to
 ``scripts/guards/exception_rules.py``, so both files stay under the
-600-line limit.
+600-line limit. On 2026-11-05 the rule moved from scanning lines to
+reading ``ast.ExceptHandler`` nodes; the cases for the four shapes the
+line scanner missed are the ones named after the old ``sweep_once``.
 """
 
 from __future__ import annotations
 
+import ast
 from pathlib import Path
 
 import pytest
 
-from scripts.guards.exception_rules import (
-    _find_body_start,
-    _first_body_is_trivial,
-    _is_broad_exception,
-    _parse_except_header,
-    _run_exceptions_rule,
-    _scan_except_body,
-)
-
-
-@pytest.mark.parametrize(
-    ("header", "expected"),
-    [
-        ("except:", (0, "")),
-        ("    except ValueError:", (4, "ValueError")),
-        ("        except (OSError, KeyError):", (8, "(OSError, KeyError)")),
-        ("except ValueError as exc:", (0, "ValueError as exc")),
-        ("x = 1", None),
-        ("except ValueError:  # trailing", None),
-    ],
-)
-def test_except_headers_are_parsed_for_indent_and_types(
-    header: str, expected: tuple[int, str] | None
-) -> None:
-    """The scanner reads indentation and the caught types off the line.
-
-    Args:
-        header: The source line to parse.
-        expected: The indent and types, or None when the line is not a
-            header this scanner recognises.
-    """
-    assert _parse_except_header(header) == expected
-
-
-@pytest.mark.parametrize(
-    ("types", "broad"),
-    [
-        ("", True),
-        ("Exception", True),
-        ("BaseException", True),
-        ("(ValueError, Exception)", True),
-        ("ValueError", False),
-        ("(OSError, KeyError)", False),
-    ],
-)
-def test_broadness_is_decided_by_the_caught_types(types: str, broad: bool) -> None:
-    """A bare except and the two base classes are the broad cases.
-
-    Args:
-        types: The types text from the header.
-        broad: Whether that text should count as broad.
-    """
-    assert _is_broad_exception(types) is broad
-
-
-@pytest.mark.parametrize(
-    ("line", "trivial"),
-    [
-        ("    pass", True),
-        ("    ...", True),
-        ("    pass  # deliberate", True),
-        ("    return False", False),
-        ("    raise", False),
-    ],
-)
-def test_a_trivial_body_is_recognised(line: str, trivial: bool) -> None:
-    """A body that only passes is a silently swallowed exception.
-
-    Args:
-        line: The first body line.
-        trivial: Whether it should count as trivial.
-    """
-    assert _first_body_is_trivial(line) is trivial
-
-
-def test_the_body_scanner_reports_what_it_found() -> None:
-    """Logging and re-raising are both detected, and the body ends."""
-    lines = [
-        "    except ValueError:",
-        "",
-        "        logger.warning('x')",
-        "        raise",
-        "    finally:",
-        "        cleanup()",
-    ]
-
-    assert _scan_except_body(lines, 1, 4) == (True, True, False, 4)
-
-
-def test_the_body_scanner_runs_to_the_end_of_the_file() -> None:
-    """A body reaching the last line ends there, and None is no value."""
-    lines = ["    except ValueError:", "        return None"]
-
-    assert _scan_except_body(lines, 1, 4) == (False, False, False, 2)
-
-
-@pytest.mark.parametrize(
-    ("body", "returns_value"),
-    [
-        ("        return 'message'", True),
-        ("        return (", True),
-        ("        return False", True),
-        ("        return", False),
-        ("        return None", False),
-        ("        return None  # nothing to say", False),
-        ("        returned = 1", False),
-    ],
-)
-def test_the_body_scanner_tells_a_returned_value_from_none(body: str, returns_value: bool) -> None:
-    """Only a return carrying something other than None counts as a value.
-
-    Args:
-        body: The handler's one body line.
-        returns_value: Whether it returns a value.
-    """
-    assert _scan_except_body(["    except ValueError:", body], 1, 4)[2] is returns_value
-
-
-def test_the_body_start_skips_blank_lines() -> None:
-    """Blank lines between the header and the body are stepped over."""
-    assert _find_body_start(["except X:", "", "   ", "    pass"], 1) == 3
-
-
-def test_the_body_start_of_a_truncated_file_is_its_length() -> None:
-    """A header with nothing after it reports the end of the file."""
-    assert _find_body_start(["except X:", "", "  "], 1) == 3
-
-
-def exception_kinds(source: str, path: Path) -> list[str]:
-    """Run the exceptions rule over source and return violation kinds.
-
-    Args:
-        source: Python source to analyse.
-        path: Path the source is attributed to.
-
-    Returns:
-        The kind of each violation, in the order reported.
-    """
-    return [v.kind for v in _run_exceptions_rule(path, source.splitlines())]
-
-
-def test_a_broad_except_must_log_and_raise(tmp_path: Path) -> None:
-    """Catching Exception without doing both is reported."""
-    source = "try:\n    go()\nexcept Exception:\n    logger.warning('x')\n"
-
-    assert exception_kinds(source, tmp_path / "src" / "m.py") == [
-        "broad-except-requires-log-and-raise"
-    ]
-
-
-def test_a_broad_except_that_logs_and_raises_is_allowed(tmp_path: Path) -> None:
-    """Doing both is the documented way to catch broadly."""
-    source = "try:\n    go()\nexcept Exception:\n    logger.exception('x')\n    raise\n"
-
-    assert exception_kinds(source, tmp_path / "src" / "m.py") == []
-
-
-def test_a_specific_except_may_raise_or_log_and_return_the_error(tmp_path: Path) -> None:
-    """Re-raising, or logging and answering with the caught error, is enough."""
-    answers = "def f():\n    try:\n        go()\n    except ValueError as exc:\n"
-    answers += "        logger.warning('x')\n        return f'Error: {exc!s}'\n"
-    raises = "try:\n    go()\nexcept ValueError:\n    raise Other() from None\n"
-
-    assert exception_kinds(answers, tmp_path / "src" / "m.py") == []
-    assert exception_kinds(raises, tmp_path / "src" / "m.py") == []
-
+from scripts.guards import Violation
+from scripts.guards.exception_rules import _run_exceptions_rule
 
 #: The janitor's sweep as it stood before d3a4b42, byte for byte from
 #: git show d3a4b42^:src/turkic_translit/web/web_utils.py, its docstring cut.
@@ -194,11 +32,122 @@ OLD_SWEEP_ONCE = (
 )
 
 
+def exception_kinds(source: str, path: Path) -> list[str]:
+    """Run the exceptions rule over source and return violation kinds.
+
+    Args:
+        source: Python source to analyse.
+        path: Path the source is attributed to.
+
+    Returns:
+        The kind of each violation, in the order reported.
+    """
+    tree = ast.parse(source)
+    return [v.kind for v in _run_exceptions_rule(path, tree, source.splitlines())]
+
+
+def handler(body: str, header: str = "    except OSError as exc:\n") -> str:
+    """Wrap a handler body in a function with a try statement.
+
+    Args:
+        body: The handler's lines, indented eight spaces.
+        header: The except line.
+
+    Returns:
+        A module holding the function.
+    """
+    return "def f():\n    try:\n        go()\n" + header + body
+
+
+@pytest.mark.parametrize(
+    "header",
+    [
+        "    except Exception:\n",
+        "    except BaseException:\n",
+        "    except:\n",
+        "    except (ValueError, Exception):\n",
+        "    except builtins.Exception:\n",
+    ],
+)
+def test_a_broad_except_must_log_and_raise(tmp_path: Path, header: str) -> None:
+    """A bare except and both base classes, however named, need both.
+
+    Args:
+        tmp_path: Root the module is attributed under.
+        header: The except line.
+    """
+    source = handler("        logger.warning('x')\n        return 1\n", header)
+
+    assert exception_kinds(source, tmp_path / "src" / "m.py") == [
+        "broad-except-requires-log-and-raise"
+    ]
+
+
+def test_a_broad_except_that_logs_and_raises_is_allowed(tmp_path: Path) -> None:
+    """Doing both is the documented way to catch broadly."""
+    source = handler("        logger.exception('x')\n        raise\n", "    except Exception:\n")
+
+    assert exception_kinds(source, tmp_path / "src" / "m.py") == []
+
+
+def test_a_specific_except_may_raise_or_log_and_return_the_error(tmp_path: Path) -> None:
+    """Re-raising, or logging and answering with the caught error, is enough."""
+    answers = handler("        logger.warning('x')\n        return f'Error: {exc!s}'\n")
+    raises = handler("        raise Other() from None\n", "    except ValueError:\n")
+
+    assert exception_kinds(answers, tmp_path / "src" / "m.py") == []
+    assert exception_kinds(raises, tmp_path / "src" / "m.py") == []
+
+
 def test_the_old_sweep_once_is_reported_as_returning_a_default(tmp_path: Path) -> None:
     """Logging a sweep's error and answering zero files swept hides the failure."""
     assert exception_kinds(OLD_SWEEP_ONCE, tmp_path / "src" / "m.py") == [
         "except-returns-a-default"
     ]
+
+
+def test_the_old_sweep_once_with_a_comment_on_its_header_is_reported(tmp_path: Path) -> None:
+    """A comment after the colon does not take the handler out of the rule."""
+    source = OLD_SWEEP_ONCE.replace(
+        "except OSError:\n", "except OSError:  # the janitor must stay alive\n"
+    )
+
+    assert exception_kinds(source, tmp_path / "src" / "m.py") == ["except-returns-a-default"]
+
+
+def test_the_old_sweep_once_with_raise_in_a_body_comment_is_reported(tmp_path: Path) -> None:
+    """The word raise in a comment is not a raise statement."""
+    source = OLD_SWEEP_ONCE.replace(
+        "        return 0\n",
+        "        # do not raise: the janitor must stay alive\n        return 0\n",
+    )
+
+    assert exception_kinds(source, tmp_path / "src" / "m.py") == ["except-returns-a-default"]
+
+
+def test_the_old_sweep_once_with_raise_in_its_log_text_is_reported(tmp_path: Path) -> None:
+    """The word raise in the logged message is not a raise statement."""
+    source = OLD_SWEEP_ONCE.replace(
+        '"janitor sweep failed"', '"janitor sweep failed; will not raise"'
+    )
+
+    assert exception_kinds(source, tmp_path / "src" / "m.py") == ["except-returns-a-default"]
+
+
+def test_the_old_sweep_once_with_its_types_across_lines_is_reported(tmp_path: Path) -> None:
+    """A header whose types span lines is still one handler."""
+    source = OLD_SWEEP_ONCE.replace(
+        "    except OSError:\n", "    except (\n        OSError,\n        ValueError,\n    ):\n"
+    )
+
+    assert exception_kinds(source, tmp_path / "src" / "m.py") == ["except-returns-a-default"]
+
+
+def test_a_commented_header_doing_neither_is_reported(tmp_path: Path) -> None:
+    """A handler neither logging nor raising is read whatever follows its colon."""
+    source = handler("        return None\n", "    except ValueError:  # nothing to do\n")
+
+    assert exception_kinds(source, tmp_path / "src" / "m.py") == ["except-without-log-or-raise"]
 
 
 @pytest.mark.parametrize(
@@ -209,18 +158,36 @@ def test_the_old_sweep_once_is_reported_as_returning_a_default(tmp_path: Path) -
         "        log.warning('failed: %s', exc)\n        return False\n",
         "        log.warning('failed: %s', exc)\n        return 'try again later'\n",
         "        log.warning('failed: %s', exc)\n        swept = 0\n        return swept\n",
+        "        _log.exception('failed: %s', exc)\n        return 0\n",
+        "        log.warning('x')\n        if exc.errno:\n            return str(exc)\n"
+        "        return 0\n",
     ],
 )
 def test_a_default_is_not_excused_by_naming_the_error_in_the_log(tmp_path: Path, body: str) -> None:
     """The log call's mention reaches the log, not the caller.
 
+    The last case returns the error on one path and a default on the
+    other, and the default is enough to report it.
+
     Args:
         tmp_path: Root the module is attributed under.
         body: A handler body that logs the error and returns something else.
     """
-    source = "def f():\n    try:\n        go()\n    except OSError as exc:\n" + body
+    assert exception_kinds(handler(body), tmp_path / "src" / "m.py") == ["except-returns-a-default"]
+
+
+def test_a_value_without_a_bound_error_is_a_default(tmp_path: Path) -> None:
+    """A handler with no as name has no error to return."""
+    source = handler("        log.warning('x')\n        return 'failed'\n", "    except OSError:\n")
 
     assert exception_kinds(source, tmp_path / "src" / "m.py") == ["except-returns-a-default"]
+
+
+def test_a_raise_in_a_nested_function_is_not_the_handlers(tmp_path: Path) -> None:
+    """A raise that runs only when a nested function is called raises nothing here."""
+    body = "        def later():\n            raise\n        log.warning('x')\n        return 0\n"
+
+    assert exception_kinds(handler(body), tmp_path / "src" / "m.py") == ["except-returns-a-default"]
 
 
 @pytest.mark.parametrize(
@@ -233,6 +200,9 @@ def test_a_default_is_not_excused_by_naming_the_error_in_the_log(tmp_path: Path,
         "        return error_markdown(payload), None\n",
         "        log.warning('x: %s', exc)\n        return (\n            'unavailable\\n\\n'\n"
         "            f'Error: {exc!s}'\n        )\n",
+        "        log.warning('x')\n        message: str = str(exc)\n        return message\n",
+        "        log.warning('x')\n        count: int\n        first, rest = exc.args, 1\n"
+        "        return first\n",
     ],
 )
 def test_a_value_built_from_the_error_is_the_callers_answer(tmp_path: Path, body: str) -> None:
@@ -242,9 +212,7 @@ def test_a_value_built_from_the_error_is_the_callers_answer(tmp_path: Path, body
         tmp_path: Root the module is attributed under.
         body: A handler body returning a value built from the error.
     """
-    source = "def f():\n    try:\n        go()\n    except OSError as exc:\n" + body
-
-    assert exception_kinds(source, tmp_path / "src" / "m.py") == []
+    assert exception_kinds(handler(body), tmp_path / "src" / "m.py") == []
 
 
 @pytest.mark.parametrize(
@@ -282,9 +250,6 @@ def test_a_specific_except_that_logs_and_continues_is_reported(tmp_path: Path, e
 def test_a_return_after_the_try_statement_is_not_the_handlers(tmp_path: Path) -> None:
     """A later return of the function's result does not excuse the handler.
 
-    The handler ends where the code dedents to its header, so the return
-    after the loop is the function's.
-
     Args:
         tmp_path: Root the module is attributed under.
     """
@@ -303,20 +268,79 @@ def test_a_return_after_the_try_statement_is_not_the_handlers(tmp_path: Path) ->
     assert exception_kinds(source, tmp_path / "src" / "m.py") == ["except-logs-and-continues"]
 
 
-def test_a_specific_except_doing_neither_is_reported(tmp_path: Path) -> None:
-    """Swallowing a specific exception still hides a failure."""
-    source = "try:\n    go()\nexcept ValueError:\n    return None\n"
+@pytest.mark.parametrize(
+    "body",
+    [
+        "        print(exc)\n        return str(exc)\n",
+        "        log.flush()\n        return str(exc)\n",
+        "        self.log.warning('x')\n        return str(exc)\n",
+        "        return None\n",
+    ],
+)
+def test_a_specific_except_doing_neither_is_reported(tmp_path: Path, body: str) -> None:
+    """Only a logging method on a logger name is a log call.
 
-    assert exception_kinds(source, tmp_path / "src" / "m.py") == ["except-without-log-or-raise"]
+    Args:
+        tmp_path: Root the module is attributed under.
+        body: A handler body that neither logs nor raises.
+    """
+    assert exception_kinds(handler(body), tmp_path / "src" / "m.py") == [
+        "except-without-log-or-raise"
+    ]
 
 
-def test_a_silent_body_is_reported_twice(tmp_path: Path) -> None:
-    """A bare pass is both silent and missing its log or raise."""
-    source = "try:\n    go()\nexcept ValueError:\n    pass\n"
+@pytest.mark.parametrize(
+    ("body", "header", "second"),
+    [
+        ("        pass\n", "    except ValueError:\n", "except-without-log-or-raise"),
+        ("        ...\n", "    except ValueError:\n", "except-without-log-or-raise"),
+        ("        pass\n", "    except Exception:\n", "broad-except-requires-log-and-raise"),
+    ],
+)
+def test_a_silent_body_is_reported_twice(
+    tmp_path: Path, body: str, header: str, second: str
+) -> None:
+    """An empty body is both silent and missing what its catch requires.
 
-    assert exception_kinds(source, tmp_path / "src" / "m.py") == [
+    Args:
+        tmp_path: Root the module is attributed under.
+        body: The empty statement.
+        header: The except line.
+        second: The kind the catch's breadth adds.
+    """
+    assert exception_kinds(handler(body, header), tmp_path / "src" / "m.py") == [
         "silent-except-body",
-        "except-without-log-or-raise",
+        second,
+    ]
+
+
+def test_violations_name_the_handler_line_in_source_order(tmp_path: Path) -> None:
+    """Each violation quotes its own except line, earliest first."""
+    path = tmp_path / "src" / "m.py"
+    source = (
+        "def f():\n"
+        "    try:\n"
+        "        go()\n"
+        "    except OSError:\n"
+        "        try:\n"
+        "            undo()\n"
+        "        except ValueError:\n"
+        "            pass\n"
+        "        raise\n"
+    )
+
+    violations = _run_exceptions_rule(path, ast.parse(source), source.splitlines())
+
+    assert violations == [
+        Violation(
+            file=path, line_no=7, kind="silent-except-body", line="        except ValueError:"
+        ),
+        Violation(
+            file=path,
+            line_no=7,
+            kind="except-without-log-or-raise",
+            line="        except ValueError:",
+        ),
     ]
 
 
@@ -328,7 +352,5 @@ def test_exceptions_in_tests_are_not_checked(tmp_path: Path) -> None:
 
 
 def test_a_module_without_handlers_reports_nothing(tmp_path: Path) -> None:
-    """The scanner steps over ordinary lines."""
-    source = "x = 1\ny = 2\n"
-
-    assert exception_kinds(source, tmp_path / "src" / "m.py") == []
+    """A module with no try statement has nothing to judge."""
+    assert exception_kinds("x = 1\ny = 2\n", tmp_path / "src" / "m.py") == []
