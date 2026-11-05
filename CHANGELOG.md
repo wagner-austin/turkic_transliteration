@@ -82,9 +82,16 @@ the page shows. One that logs and falls through, or returns nothing, is
 reported as `except-logs-and-continues`; one that logs and returns a
 default the failure did not produce, as `sweep_once` returned 0, is
 reported as `except-returns-a-default`, and naming the error in the log
-call does not excuse it. The rule also ends a handler's body where the
-code dedents to its `except`, so a return after the `try` statement no
-longer counts as the handler's. Two handlers in `src` returned such a
+call does not excuse it. The rule now reads each handler from the parsed
+module, as an `ast.ExceptHandler`, rather than scanning lines. The line
+scanner missed the old `sweep_once` body when its header carried a
+comment after the colon, when its types spanned lines, and when the word
+`raise` stood in a body comment or the log message; in the tree a comment
+is gone and only a `raise` statement counts. A handler's body is its own
+statements, so a return after the `try` statement is not the handler's,
+and a `raise` inside a function defined in the handler does not count
+either. A logger may be named `logging`, `log` or `logger`, with any
+leading underscores. Two handlers in `src` returned such a
 default and now return the error: the reachability probe answers
 `unreachable_reason(url)`, `None` or the request's error, in place of a
 bare False, so `download-corpus doctor` names each unreachable source
