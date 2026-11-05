@@ -75,12 +75,21 @@ hook, named `cron-janitor`.
 **The guard refuses a handler that logs and carries on.** A specific
 `except` passed the exceptions rule if it only logged, so the old
 `sweep_once` shape, logging a sweep's error and sweeping again, would have
-passed it. Such a handler must now re-raise, or log and return a value,
-the way a Gradio handler returns the message the page shows; one that
-logs and falls through, or returns nothing, is reported as
-`except-logs-and-continues`. The rule also ends a handler's body where
-the code dedents to its `except`, so a return after the `try` statement
-no longer counts as the handler's.
+passed it. Such a handler must now re-raise, or log and return a value
+built from the error it caught (bound with `as`, used directly or through
+a name assigned from it), the way a Gradio handler returns the message
+the page shows. One that logs and falls through, or returns nothing, is
+reported as `except-logs-and-continues`; one that logs and returns a
+default the failure did not produce, as `sweep_once` returned 0, is
+reported as `except-returns-a-default`, and naming the error in the log
+call does not excuse it. The rule also ends a handler's body where the
+code dedents to its `except`, so a return after the `try` statement no
+longer counts as the handler's. Two handlers in `src` returned such a
+default and now return the error: the reachability probe answers
+`unreachable_reason(url)`, `None` or the request's error, in place of a
+bare False, so `download-corpus doctor` names each unreachable source
+with its cause; and the corpus tab's unreachable-source label carries the
+error it caught.
 
 ### Removed
 
