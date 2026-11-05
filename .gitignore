@@ -74,8 +74,6 @@ mini.*
 
 # Documentation files that shouldn't be tracked
 Setup Commands for Conda env with dependencies.txt
-Why pip install pyicu fails on Windows.txt
-pyicu-*.whl
 temp.txt
 src/turkic_translit/lid.176.ftz
 src/turkic_translit/lid.176.bin
