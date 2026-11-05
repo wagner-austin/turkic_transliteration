@@ -22,7 +22,7 @@ from pathlib import Path
 import click
 
 from turkic_translit import _test_hooks
-from turkic_translit.corpus.catalogue import available_languages, source_reachable
+from turkic_translit.corpus.catalogue import available_languages, unreachable_reason
 from turkic_translit.corpus.errors import CorpusError
 from turkic_translit.corpus.filtering import (
     LidFilterRequest,
@@ -103,9 +103,10 @@ def show_license(source: str) -> None:
 
 @cli.command("doctor")
 def doctor() -> None:
-    """Probe every registered source and report which are unreachable."""
+    """Probe every registered source and report which are unreachable, and why."""
+    reasons = {source_id: unreachable_reason(spec) for source_id, spec in SOURCE_REGISTRY.items()}
     unreachable = [
-        source_id for source_id, spec in SOURCE_REGISTRY.items() if not source_reachable(spec)
+        f"{source_id} ({reason})" for source_id, reason in reasons.items() if reason is not None
     ]
     if unreachable:
         click.secho("Unreachable sources: " + ", ".join(unreachable), fg="red", err=True)
