@@ -42,7 +42,10 @@ itself, `downloads.py`, `ui_log.py` and `corpus_download.py`; and the
 tests beside them, with the shared `write_test_module` fixture in
 `tests/conftest.py` and the shared corpus builder in
 `tests/corpus_clean_helpers.py`. Nothing re-exports an old location; every
-importer names the new one.
+importer names the new one. The whole guard is run over a long file in
+each of `src`, `tests` and `scripts`, and a test asks make which commands
+`lint` and `check` run, so a rule that skipped a directory, or a lint that
+stopped running the guard, fails a test.
 
 **`make check` writes nothing.** `make lint` ran `ruff check --fix` and
 `ruff format`, so the check rewrote the tree it was checking: on
