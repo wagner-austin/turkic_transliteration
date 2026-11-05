@@ -91,7 +91,13 @@ is gone and only a `raise` statement counts. A handler's body is its own
 statements, so a return after the `try` statement is not the handler's,
 and a `raise` inside a function defined in the handler does not count
 either. A logger may be named `logging`, `log` or `logger`, with any
-leading underscores. Two handlers in `src` returned such a
+leading underscores. Every way a handler can end is judged, read
+through `if`, loops, `with`, `try` and `match`: a `raise` anywhere in
+the body used to excuse all of it, so a handler re-raising only some
+errors could log and return 0 for a held file, and a broad one raising
+only when fatal could log and carry on. Each ending must now re-raise,
+or, in a specific handler, return a value built from the error, and a
+`break` or `continue` out of a handler is carrying on. Two handlers in `src` returned such a
 default and now return the error: the reachability probe answers
 `unreachable_reason(url)`, `None` or the request's error, in place of a
 bare False, so `download-corpus doctor` names each unreachable source
