@@ -87,6 +87,9 @@ Linting, type-checking (strict mypy) and the guard rules all cover `src`,
 `tests` and `scripts`. The guards ban weak typing (`Any`, casts, ignores),
 silent exception handling, and weak or fake tests — including
 transliteration tests that never compare output against an expected value.
+They also hold every Python file to 600 lines, and fail on any tracked file
+that is a Windows shell script or tells a reader to use Windows tooling;
+the changelog alone may name what was removed.
 
 ## Validation
 

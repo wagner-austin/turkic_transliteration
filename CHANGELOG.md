@@ -80,7 +80,16 @@ which existed for the Windows console's codepage; every file this
 project reads or writes names its encoding. And `scripts/_test_hooks.py`
 no longer offers the interpreter's platform name: `setup_dev.py` asked
 for it only to bootstrap PyICU on Windows, and has not asked since that
-step went in b19ccfd.
+step went in b19ccfd. `.editorconfig` drops its `[*.{ps1,sh}]` section,
+since the repository tracks neither kind of script.
+
+**A guard keeps it out.** `scripts/guards/windows_rules.py` adds the
+`windows` rule, which reads every file git tracks, this changelog
+excepted, and fails `make lint` on a file carrying the `.ps1` extension
+and on any line naming PowerShell, that extension (dotted or bare, as in
+an editor glob), Chocolatey or winget. The guard therefore runs only in
+a git work tree, which the fleet's one-commit export of a checked commit
+also is.
 
 ### Fixed
 
