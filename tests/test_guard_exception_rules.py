@@ -101,20 +101,36 @@ def test_the_body_scanner_reports_what_it_found() -> None:
         "        cleanup()",
     ]
 
-    has_log, has_raise, end = _scan_except_body(lines, 1, 4)
-
-    assert (has_log, has_raise) == (True, True)
-    assert end == 4
+    assert _scan_except_body(lines, 1, 4) == (True, True, False, 4)
 
 
 def test_the_body_scanner_runs_to_the_end_of_the_file() -> None:
-    """A body reaching the last line ends there."""
+    """A body reaching the last line ends there, and None is no value."""
     lines = ["    except ValueError:", "        return None"]
 
-    has_log, has_raise, end = _scan_except_body(lines, 1, 4)
+    assert _scan_except_body(lines, 1, 4) == (False, False, False, 2)
 
-    assert (has_log, has_raise) == (False, False)
-    assert end == 2
+
+@pytest.mark.parametrize(
+    ("body", "returns_value"),
+    [
+        ("        return 'message'", True),
+        ("        return (", True),
+        ("        return False", True),
+        ("        return", False),
+        ("        return None", False),
+        ("        return None  # nothing to say", False),
+        ("        returned = 1", False),
+    ],
+)
+def test_the_body_scanner_tells_a_returned_value_from_none(body: str, returns_value: bool) -> None:
+    """Only a return carrying something other than None counts as a value.
+
+    Args:
+        body: The handler's one body line.
+        returns_value: Whether it returns a value.
+    """
+    assert _scan_except_body(["    except ValueError:", body], 1, 4)[2] is returns_value
 
 
 def test_the_body_start_skips_blank_lines() -> None:
@@ -156,13 +172,70 @@ def test_a_broad_except_that_logs_and_raises_is_allowed(tmp_path: Path) -> None:
     assert exception_kinds(source, tmp_path / "src" / "m.py") == []
 
 
-def test_a_specific_except_may_log_or_raise(tmp_path: Path) -> None:
-    """Either is enough when the caught type is specific."""
-    logs = "try:\n    go()\nexcept ValueError:\n    logger.warning('x')\n"
+def test_a_specific_except_may_raise_or_log_and_return_a_value(tmp_path: Path) -> None:
+    """Re-raising, or logging and answering with a value, is enough."""
+    answers = "def f():\n    try:\n        go()\n    except ValueError:\n"
+    answers += "        logger.warning('x')\n        return 'shown to the user'\n"
     raises = "try:\n    go()\nexcept ValueError:\n    raise Other() from None\n"
 
-    assert exception_kinds(logs, tmp_path / "src" / "m.py") == []
+    assert exception_kinds(answers, tmp_path / "src" / "m.py") == []
     assert exception_kinds(raises, tmp_path / "src" / "m.py") == []
+
+
+@pytest.mark.parametrize(
+    "ending",
+    [
+        "",
+        "        return\n",
+        "        return None\n",
+    ],
+)
+def test_a_specific_except_that_logs_and_continues_is_reported(tmp_path: Path, ending: str) -> None:
+    """Logging and then falling through, or returning nothing, hides the failure.
+
+    The loop is the shape the download janitor had before 2026-11-04: a
+    sweep's filesystem error was logged and the next sweep tried anyway.
+
+    Args:
+        tmp_path: Root the module is attributed under.
+        ending: What follows the log call in the handler.
+    """
+    source = (
+        "def sweep_forever():\n"
+        "    while True:\n"
+        "        try:\n"
+        "            purge()\n"
+        "        except OSError as exc:\n"
+        "            log.warning('sweep failed: %s', exc)\n"
+        f"{'    ' + ending if ending else ''}"
+        "        sleep(60)\n"
+    )
+
+    assert exception_kinds(source, tmp_path / "src" / "m.py") == ["except-logs-and-continues"]
+
+
+def test_a_return_after_the_try_statement_is_not_the_handlers(tmp_path: Path) -> None:
+    """A later return of the function's result does not excuse the handler.
+
+    The handler ends where the code dedents to its header, so the return
+    after the loop is the function's.
+
+    Args:
+        tmp_path: Root the module is attributed under.
+    """
+    source = (
+        "def run_janitor(running):\n"
+        "    swept = 0\n"
+        "    while running():\n"
+        "        try:\n"
+        "            swept += purge()\n"
+        "        except OSError as exc:\n"
+        "            log.warning('sweep failed: %s', exc)\n"
+        "        sleep(60)\n"
+        "    return swept\n"
+    )
+
+    assert exception_kinds(source, tmp_path / "src" / "m.py") == ["except-logs-and-continues"]
 
 
 def test_a_specific_except_doing_neither_is_reported(tmp_path: Path) -> None:

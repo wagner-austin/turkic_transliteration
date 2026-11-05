@@ -11,6 +11,7 @@ from __future__ import annotations
 
 import logging
 import socket
+import threading
 from collections.abc import Iterator
 from pathlib import Path
 
@@ -313,6 +314,37 @@ def test_a_failing_sweep_ends_the_janitor_with_its_error(cron_dir: Path) -> None
         _test_hooks.environment, _test_hooks.clock = previous
 
     assert recording.slept == []
+
+
+def test_a_failing_sweep_reaches_the_janitor_threads_boundary(cron_dir: Path) -> None:
+    """The started thread's error arrives at threading.excepthook, named.
+
+    The download directory is replaced by a file, the real janitor thread
+    is started, and the hook every unhandled thread error reaches is bound
+    to a recorder for the run. A catch-and-log anywhere between the sweep
+    and the thread's end would leave the recorder empty.
+
+    Args:
+        cron_dir: The bound download directory, replaced by a file.
+    """
+    previous = (_test_hooks.environment, _test_hooks.clock, threading.excepthook)
+    blocked = cron_dir.parent / "not-a-directory"
+    blocked.write_text("this is a file", encoding="utf-8")
+    caught: list[threading.ExceptHookArgs] = []
+    _test_hooks.environment = _test_hooks.MappingEnvironment({"TURKIC_CRON_DIR": str(blocked)})
+    _test_hooks.clock = _test_hooks.RecordingClock()
+    threading.excepthook = caught.append
+    try:
+        thread = downloads.start_janitor(0, lambda: True)
+        thread.join(timeout=10)
+    finally:
+        _test_hooks.environment, _test_hooks.clock, threading.excepthook = previous
+
+    assert not thread.is_alive()
+    assert [(args.exc_type, args.thread.name if args.thread else None) for args in caught] == [
+        (FileExistsError, "cron-janitor")
+    ]
+    assert str(caught[0].exc_value).endswith(f"'{blocked}'")
 
 
 def test_the_janitor_sweeps_and_waits_each_round(cron_dir: Path) -> None:
