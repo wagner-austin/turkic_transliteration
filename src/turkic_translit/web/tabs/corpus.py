@@ -107,14 +107,14 @@ def offered_languages(src: str) -> tuple[list[str], str]:
 
     Returns:
         The codes to offer and the label to put on the dropdown. An
-        unreachable source yields no codes and a label saying so, which
-        is the honest answer: the tab cannot know what it carries.
+        unreachable source yields no codes and a label saying so and why,
+        which is the honest answer: the tab cannot know what it carries.
     """
     try:
         return _lang_choices(src), LANGUAGE_LABEL
     except CorpusError as exc:
         logger.warning("could not list languages for %s: %s", src, exc)
-        return [], f"{LANGUAGE_LABEL} — {src} could not be reached"
+        return [], f"{LANGUAGE_LABEL} — {src} could not be reached: {exc}"
 
 
 def _preview_of(path: Path) -> str:
