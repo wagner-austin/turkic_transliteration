@@ -19,6 +19,7 @@ import pytest
 from zstandard import ZstdCompressor
 
 from turkic_translit.corpus._test_hooks import (
+    NOT_LISTED_REASON,
     HubShardTextStreamer,
     MappingByteStreamOpener,
     MappingDatasetTextStreamer,
@@ -107,22 +108,26 @@ def test_mapping_opener_refuses_an_unregistered_url() -> None:
 
 
 def test_url_probe_reports_a_real_file_as_reachable(tmp_path: Path) -> None:
-    """The production probe answers True for a target it can retrieve."""
+    """The production probe gives no reason for a target it can retrieve."""
     target = tmp_path / "present.bin"
     target.write_bytes(b"x")
-    assert UrlReachabilityProbe().reachable(target.as_uri()) is True
+    assert UrlReachabilityProbe().unreachable_reason(target.as_uri()) is None
 
 
-def test_url_probe_reports_a_missing_target_as_unreachable(tmp_path: Path) -> None:
-    """The production probe answers False rather than raising."""
-    assert UrlReachabilityProbe().reachable((tmp_path / "absent.bin").as_uri()) is False
+def test_url_probe_reports_why_a_missing_target_is_unreachable(tmp_path: Path) -> None:
+    """The production probe answers with the request's error rather than raising."""
+    absent = tmp_path / "absent.bin"
+
+    reason = UrlReachabilityProbe().unreachable_reason(absent.as_uri())
+
+    assert reason == f"<urlopen error [Errno 2] No such file or directory: '{absent}'>"
 
 
 def test_mapping_probe_answers_from_its_set_and_logs_the_probe() -> None:
     """The in-memory probe answers from membership and records requests."""
     probe = MappingReachabilityProbe(["https://example.invalid/up"])
-    assert probe.reachable("https://example.invalid/up") is True
-    assert probe.reachable("https://example.invalid/down") is False
+    assert probe.unreachable_reason("https://example.invalid/up") is None
+    assert probe.unreachable_reason("https://example.invalid/down") == NOT_LISTED_REASON
     assert probe.requests == [
         "https://example.invalid/up",
         "https://example.invalid/down",

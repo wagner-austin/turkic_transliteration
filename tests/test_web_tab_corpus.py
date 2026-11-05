@@ -145,7 +145,10 @@ def test_an_unreachable_catalogue_offers_nothing_and_says_so(tab: Path) -> None:
         corpus._lang_choices.cache_clear()
 
     assert offered == []
-    assert label == f"{corpus.LANGUAGE_LABEL} — oscar-2301 could not be reached"
+    assert label == (
+        f"{corpus.LANGUAGE_LABEL} — oscar-2301 could not be reached: TURKIC_CORPUS_002_STREAM_FAILED:"
+        " could not read oscar-corpus/OSCAR-2301: no dataset in the table"
+    )
 
 
 def test_an_unreachable_catalogue_leaves_the_dropdown_empty(tab: Path) -> None:

@@ -145,7 +145,7 @@ def test_doctor_names_the_sources_that_did_not_answer(runner: CliRunner) -> None
         corpus_hooks.reachability = original
 
     assert result.exit_code == 0
-    assert result.output == "Unreachable sources: oscar-2301\n"
+    assert result.output == f"Unreachable sources: oscar-2301 ({corpus_hooks.NOT_LISTED_REASON})\n"
 
 
 def test_download_without_a_filter_writes_every_line(

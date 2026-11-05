@@ -172,14 +172,79 @@ def test_a_broad_except_that_logs_and_raises_is_allowed(tmp_path: Path) -> None:
     assert exception_kinds(source, tmp_path / "src" / "m.py") == []
 
 
-def test_a_specific_except_may_raise_or_log_and_return_a_value(tmp_path: Path) -> None:
-    """Re-raising, or logging and answering with a value, is enough."""
-    answers = "def f():\n    try:\n        go()\n    except ValueError:\n"
-    answers += "        logger.warning('x')\n        return 'shown to the user'\n"
+def test_a_specific_except_may_raise_or_log_and_return_the_error(tmp_path: Path) -> None:
+    """Re-raising, or logging and answering with the caught error, is enough."""
+    answers = "def f():\n    try:\n        go()\n    except ValueError as exc:\n"
+    answers += "        logger.warning('x')\n        return f'Error: {exc!s}'\n"
     raises = "try:\n    go()\nexcept ValueError:\n    raise Other() from None\n"
 
     assert exception_kinds(answers, tmp_path / "src" / "m.py") == []
     assert exception_kinds(raises, tmp_path / "src" / "m.py") == []
+
+
+#: The janitor's sweep as it stood before d3a4b42, byte for byte from
+#: git show d3a4b42^:src/turkic_translit/web/web_utils.py, its docstring cut.
+OLD_SWEEP_ONCE = (
+    "def sweep_once(max_age_sec: int) -> int:\n"
+    "    try:\n"
+    "        return purge_expired_downloads(max_age_sec)\n"
+    "    except OSError:\n"
+    '        log.exception("janitor sweep failed")\n'
+    "        return 0\n"
+)
+
+
+def test_the_old_sweep_once_is_reported_as_returning_a_default(tmp_path: Path) -> None:
+    """Logging a sweep's error and answering zero files swept hides the failure."""
+    assert exception_kinds(OLD_SWEEP_ONCE, tmp_path / "src" / "m.py") == [
+        "except-returns-a-default"
+    ]
+
+
+@pytest.mark.parametrize(
+    "body",
+    [
+        "        log.warning('failed: %s', exc)\n        return 0\n",
+        "        log.warning('failed: %s', exc)\n        return []\n",
+        "        log.warning('failed: %s', exc)\n        return False\n",
+        "        log.warning('failed: %s', exc)\n        return 'try again later'\n",
+        "        log.warning('failed: %s', exc)\n        swept = 0\n        return swept\n",
+    ],
+)
+def test_a_default_is_not_excused_by_naming_the_error_in_the_log(tmp_path: Path, body: str) -> None:
+    """The log call's mention reaches the log, not the caller.
+
+    Args:
+        tmp_path: Root the module is attributed under.
+        body: A handler body that logs the error and returns something else.
+    """
+    source = "def f():\n    try:\n        go()\n    except OSError as exc:\n" + body
+
+    assert exception_kinds(source, tmp_path / "src" / "m.py") == ["except-returns-a-default"]
+
+
+@pytest.mark.parametrize(
+    "body",
+    [
+        "        logger.warning('x: %s', exc)\n        return f'Error reading file: {exc!s}'\n",
+        "        logger.warning('x: %s', exc)\n        return '', f'**Error**: {exc!s}'\n",
+        "        logger.info('x: %s', exc)\n        return str(exc)\n",
+        "        logger.exception('x')\n        payload = error_response(str(exc), status=500)\n"
+        "        return error_markdown(payload), None\n",
+        "        log.warning('x: %s', exc)\n        return (\n            'unavailable\\n\\n'\n"
+        "            f'Error: {exc!s}'\n        )\n",
+    ],
+)
+def test_a_value_built_from_the_error_is_the_callers_answer(tmp_path: Path, body: str) -> None:
+    """The boundary shapes in src pass: directly, through a name, across lines.
+
+    Args:
+        tmp_path: Root the module is attributed under.
+        body: A handler body returning a value built from the error.
+    """
+    source = "def f():\n    try:\n        go()\n    except OSError as exc:\n" + body
+
+    assert exception_kinds(source, tmp_path / "src" / "m.py") == []
 
 
 @pytest.mark.parametrize(

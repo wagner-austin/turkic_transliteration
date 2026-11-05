@@ -19,4 +19,4 @@ from turkic_translit.corpus.sources import SOURCE_REGISTRY
 def test_registered_source_is_reachable(source_id: str) -> None:
     """The host behind each registered source answers a HEAD request."""
     url = health_check_url(SOURCE_REGISTRY[source_id])
-    assert UrlReachabilityProbe().reachable(url) is True, f"{source_id} at {url}"
+    assert UrlReachabilityProbe().unreachable_reason(url) is None, f"{source_id} at {url}"
