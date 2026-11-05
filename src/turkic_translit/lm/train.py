@@ -6,7 +6,9 @@ fp16=True)`` is rejected outright by transformers on a machine with no
 CUDA device, so :meth:`LMModel.fresh` could not run at all on CPU — which
 is every machine this project's tests run on. The two decisions are pure
 functions of one flag so that both answers are reachable, and the flag is
-read once at the call site.
+read once at the call site. Training loads its weights in single
+precision on every device, because half-precision weights cannot be
+trained under the mixed precision ``fp16`` turns on.
 
 The pad-token rule is stated once and used by both entry points. GPT-style
 models ship without a pad token, and the data collator and the perplexity
@@ -71,7 +73,11 @@ def use_half_precision(cuda_available: bool) -> bool:
 
 
 def model_dtype(cuda_available: bool) -> torch.dtype:
-    """Choose the dtype to load model weights in.
+    """Choose the dtype to load model weights in for inference.
+
+    Training does not use it: :meth:`LMModel.fresh` loads single
+    precision and lets mixed precision supply the half-precision
+    arithmetic.
 
     Args:
         cuda_available: Whether a CUDA device is present.
@@ -218,9 +224,13 @@ class LMModel:
         cuda_available = torch.cuda.is_available()
         tokenizer = load_tokenizer(base_model)
         ensure_pad_token(tokenizer)
-        model = AutoModelForCausalLM.from_pretrained(
-            base_model, torch_dtype=model_dtype(cuda_available)
-        )
+        # Training loads single precision on every device. With fp16 on
+        # CUDA the Trainer runs mixed precision, float32 master weights
+        # under half-precision arithmetic, and its gradient scaler refuses
+        # gradients of weights loaded in half: "Attempting to unscale FP16
+        # gradients", which failed every fine-tune on a GPU. model_dtype is
+        # the inference choice and does not apply here.
+        model = AutoModelForCausalLM.from_pretrained(base_model, torch_dtype=torch.float32)
 
         buffered = list(islice(sentences, MAX_BUFFERED_SENTENCES))
         dataset = TokenisedSentences(buffered, tokenizer)

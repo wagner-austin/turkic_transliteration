@@ -67,6 +67,20 @@ everywhere, pinned by a test that reads the output file's bytes; the
 README, `scripts/README.md`, the Makefile and `scripts/setup_dev.py` no
 longer give Windows instructions.
 
+### Fixed
+
+**Fine-tuning runs on a GPU.** `LMModel.fresh` loaded the base model in
+half precision on CUDA and then asked the Trainer for `fp16`, which is
+mixed precision: float32 master weights under half-precision arithmetic.
+The gradient scaler refuses gradients of weights already loaded in half,
+so every fine-tune on a CUDA machine stopped at its first optimiser step
+with `ValueError: Attempting to unscale FP16 gradients`. Training now
+loads float32 on every device and the trained model is float32, which a
+test asserts; loading a model for inference still uses half precision on
+CUDA. The suite had passed only because the machines it ran on had no
+GPU, and the first run on one (fleet job 34236407 on sedona) failed
+its four fine-tuning tests.
+
 ## [0.5.10] - 2026-11-04
 
 This release carries the rule fixes made since 0.5.9, which never reached

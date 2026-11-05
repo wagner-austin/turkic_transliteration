@@ -148,11 +148,17 @@ def test_scoring_nothing_is_reported_as_an_error(loaded: LMModel) -> None:
 
 
 def test_fine_tuning_writes_a_loadable_model(model_dir: Path, tmp_path: Path) -> None:
-    """Training runs for real and saves something the loader can read."""
+    """Training runs for real and saves something the loader can read.
+
+    The trained weights are single precision on every device. On a CUDA
+    node the run is under fp16 mixed precision, which trains float32
+    weights and refused half-precision ones before fresh loaded float32.
+    """
     output = tmp_path / "fine-tuned"
 
     trained = LMModel.fresh(str(model_dir), epochs=1, sentences=iter(CORPUS), output_dir=output)
 
+    assert trained.model.dtype == torch.float32
     assert trained.model.config.use_cache is True
     assert (output / "config.json").exists()
     reloaded = LMModel.from_pretrained(str(output))
