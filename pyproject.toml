@@ -116,7 +116,6 @@ dev = [
     "pytest-timeout>=2.3", # Per-test deadline
     "build>=1.0",          # Package builder
     "twine>=4.0",          # Package uploader
-    "make>=0.1.6",         # Make command for Windows
     "types-PyYAML>=6.0",   # Type stubs for the corpus source registry loader
     "pandas-stubs>=2.0",   # Type stubs for the web UI's token table
     "types-tqdm>=4.66",    # Type stubs for the corpus and encoding progress bars
@@ -273,7 +272,7 @@ markers = ["network: tests that hit external sites"]
 # be fixed here.
 #
 # Building a Gradio interface leaves an asyncio event loop unclosed, and
-# on Windows that loop's self-pipe is a socket pair. The loop belongs to
+# that loop's self-pipe is a socket pair. The loop belongs to
 # Gradio and lives as long as the interface does. ResourceWarning is
 # silenced as a category rather than by message because it is raised by
 # the garbage collector, so it lands in whichever test happens to
