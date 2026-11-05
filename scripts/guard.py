@@ -51,6 +51,7 @@ from scripts.guards.typing_rules import (
     _run_suppress_rule,
     _run_typing_rule,
 )
+from scripts.guards.windows_rules import WindowsRule, tracked_files
 
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
 
@@ -99,8 +100,9 @@ def run_guards(root: Path) -> int:
     """Run every guard rule over a project tree.
 
     Args:
-        root: Project root; its ``src``, ``tests`` and ``scripts``
-            directories are scanned.
+        root: Project root, a git work tree; its ``src``, ``tests`` and
+            ``scripts`` directories are scanned, and every tracked file is
+            read by the Windows rule.
 
     Returns:
         0 when nothing was found, 2 when any rule reported a violation.
@@ -108,6 +110,8 @@ def run_guards(root: Path) -> int:
     Raises:
         SyntaxError: If a scanned file does not parse. The exception
             already names the file, so it is not wrapped.
+        subprocess.CalledProcessError: If git cannot list the tracked
+            files, as when ``root`` is not a git work tree.
     """
     typing_violations: list[Violation] = []
     comments_violations: list[Violation] = []
@@ -136,6 +140,7 @@ def run_guards(root: Path) -> int:
     test_source_rule = TestSourceInheritanceRule()
     self_referential_rule = SelfReferentialExpectationRule()
     file_length_rule = FileLengthRule()
+    windows_rule = WindowsRule(root)
     weak_assertion_violations = weak_assertion_rule.run(all_files)
     translit_test_quality_violations = translit_test_quality_rule.run(all_files)
     patching_violations = patching_rule.run(all_files)
@@ -144,6 +149,7 @@ def run_guards(root: Path) -> int:
     test_source_violations = test_source_rule.run(all_files)
     self_referential_violations = self_referential_rule.run(all_files)
     file_length_violations = file_length_rule.run(all_files)
+    windows_violations = windows_rule.run(tracked_files(root))
 
     reports = [
         RuleReport(name="typing", violations=len(typing_violations)),
@@ -161,6 +167,7 @@ def run_guards(root: Path) -> int:
             name="self-referential-expectation", violations=len(self_referential_violations)
         ),
         RuleReport(name=file_length_rule.name, violations=len(file_length_violations)),
+        RuleReport(name=windows_rule.name, violations=len(windows_violations)),
     ]
 
     all_violations = (
@@ -177,6 +184,7 @@ def run_guards(root: Path) -> int:
         + test_source_violations
         + self_referential_violations
         + file_length_violations
+        + windows_violations
     )
 
     print("Guard rule summary:")
