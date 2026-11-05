@@ -40,8 +40,11 @@ class Trainer(Protocol):
                 which holds a loadable model when this returns.
 
         Raises:
-            OSError: If the base model cannot be read or the output
-                directory cannot be written.
+            OSError: If the base model is neither a local directory nor a
+                reachable repository, or the output directory cannot be
+                written.
+            ValueError: If the base model is a local directory holding no
+                tokenizer files.
         """
         ...
 
@@ -65,8 +68,11 @@ class TransformersTrainer:
             output_dir: Directory the model and tokenizer are saved into.
 
         Raises:
-            OSError: If the base model cannot be read or the output
-                directory cannot be written.
+            OSError: If the base model is neither a local directory nor a
+                reachable repository, or the output directory cannot be
+                written.
+            ValueError: If the base model is a local directory holding no
+                tokenizer files.
         """
         from turkic_translit.lm.train import LMModel
 
@@ -121,7 +127,10 @@ class Evaluator(Protocol):
             The mean perplexity across the sentences.
 
         Raises:
-            OSError: If the model cannot be read.
+            OSError: If the path is neither a local directory nor a
+                reachable repository.
+            ValueError: If the path is a local directory holding no
+                tokenizer files.
         """
         ...
 
@@ -143,7 +152,10 @@ class TransformersEvaluator:
             The mean perplexity across the sentences.
 
         Raises:
-            OSError: If the model cannot be read.
+            OSError: If the path is neither a local directory nor a
+                reachable repository.
+            ValueError: If the path is a local directory holding no
+                tokenizer files.
         """
         from turkic_translit.lm.eval import cross_perplexity
         from turkic_translit.lm.train import LMModel

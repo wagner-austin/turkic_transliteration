@@ -55,7 +55,10 @@ class TokenizerLoader(Protocol):
             The loaded tokenizer.
 
         Raises:
-            OSError: If the name resolves to no readable tokenizer.
+            OSError: If the name is neither a local directory nor a valid
+                Hub repository id.
+            ValueError: If the name is a local directory holding no
+                tokenizer files transformers can build one from.
         """
         ...
 
@@ -86,6 +89,9 @@ def load_tokenizer(model_name: str) -> PreTrainedTokenizerBase:
         The loaded tokenizer.
 
     Raises:
-        OSError: If the name resolves to no readable tokenizer.
+        OSError: If the name is neither a local directory nor a valid Hub
+            repository id.
+        ValueError: If the name is a local directory holding no tokenizer
+            files transformers can build one from.
     """
     return auto_tokenizer_loader()(model_name, use_fast=True)

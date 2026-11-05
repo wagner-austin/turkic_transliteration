@@ -185,6 +185,8 @@ class LMModel:
         Raises:
             OSError: If the path names neither a local model directory
                 nor a reachable repository.
+            ValueError: If the path is a local directory holding no
+                tokenizer files.
         """
         tokenizer = load_tokenizer(path)
         ensure_pad_token(tokenizer)
@@ -218,8 +220,11 @@ class LMModel:
             The fine-tuned pair, already saved to ``output_dir``.
 
         Raises:
-            OSError: If the base model cannot be read or the output
-                directory cannot be written.
+            OSError: If the base model is neither a local directory nor a
+                reachable repository, or the output directory cannot be
+                written.
+            ValueError: If the base model is a local directory holding no
+                tokenizer files.
         """
         cuda_available = torch.cuda.is_available()
         tokenizer = load_tokenizer(base_model)
