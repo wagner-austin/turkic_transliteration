@@ -215,12 +215,98 @@ def test_a_value_built_from_the_error_is_the_callers_answer(tmp_path: Path, body
     assert exception_kinds(handler(body), tmp_path / "src" / "m.py") == []
 
 
+def test_a_held_file_skipped_behind_a_filtered_reraise_is_reported(tmp_path: Path) -> None:
+    """Re-raising only some errors leaves the held-file error swallowed as 0.
+
+    This is the task's own failure, one held file absorbed by answering
+    zero files swept, behind a raise that runs only for other errors.
+    """
+    body = (
+        "        if exc.errno != errno.EBUSY:\n"
+        "            raise\n"
+        "        logger.warning('held file, skipping: %s', exc)\n"
+        "        return 0\n"
+    )
+
+    assert exception_kinds(handler(body), tmp_path / "src" / "m.py") == ["except-returns-a-default"]
+
+
+def test_a_broad_handler_raising_only_when_fatal_is_reported(tmp_path: Path) -> None:
+    """A broad handler must re-raise on every path, not only a fatal one."""
+    body = "        logger.exception('sweep failed')\n        if fatal:\n            raise\n"
+
+    assert exception_kinds(handler(body, "    except Exception:\n"), tmp_path / "src" / "m.py") == [
+        "broad-except-requires-log-and-raise"
+    ]
+
+
+@pytest.mark.parametrize(
+    ("body", "expected"),
+    [
+        (
+            "        if exc.errno:\n            raise\n        else:\n"
+            "            raise Other() from exc\n",
+            [],
+        ),
+        (
+            "        if exc.errno:\n            raise\n        return 0\n",
+            ["except-returns-a-default"],
+        ),
+        (
+            "        log.warning('x')\n        for attempt in range(3):\n            raise\n",
+            ["except-logs-and-continues"],
+        ),
+        (
+            "        log.warning('x')\n        while True:\n            break\n        return 0\n",
+            ["except-returns-a-default"],
+        ),
+        ("        log.warning('x')\n        with lock:\n            raise\n", []),
+        (
+            "        log.warning('x')\n        try:\n            return 0\n        finally:\n"
+            "            raise\n",
+            [],
+        ),
+        (
+            "        log.warning('x')\n        try:\n            return 0\n        finally:\n"
+            "            release()\n        raise\n",
+            ["except-returns-a-default"],
+        ),
+        (
+            "        log.warning('x')\n        match exc.errno:\n            case 1:\n"
+            "                raise\n",
+            ["except-logs-and-continues"],
+        ),
+        (
+            "        log.warning('x')\n        if exc.errno:\n            return str(exc)\n"
+            "        raise\n",
+            [],
+        ),
+    ],
+)
+def test_every_ending_of_a_handler_is_judged(
+    tmp_path: Path, body: str, expected: list[str]
+) -> None:
+    """Each way out of a handler must re-raise or return the error.
+
+    The endings are read through if, loops, with, try and match. A loop
+    may run no times, a try whose finally always raises ends there, and
+    a match may match no case.
+
+    Args:
+        tmp_path: Root the module is attributed under.
+        body: The handler body.
+        expected: The kinds it should earn.
+    """
+    assert exception_kinds(handler(body), tmp_path / "src" / "m.py") == expected
+
+
 @pytest.mark.parametrize(
     "ending",
     [
         "",
         "        return\n",
         "        return None\n",
+        "        continue\n",
     ],
 )
 def test_a_specific_except_that_logs_and_continues_is_reported(tmp_path: Path, ending: str) -> None:
