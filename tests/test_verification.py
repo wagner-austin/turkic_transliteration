@@ -207,6 +207,7 @@ def test_sentencepiece_roundtrip() -> None:
 
 
 # 4. Test fastText LID logic
+@pytest.mark.lid176_weights
 def test_fasttext_lid() -> None:
     """The registered classifier identifies Russian from real weights.
 
@@ -259,6 +260,7 @@ def _installed_corpus_classifier() -> LidClassifier:
 
 
 # 5. Test the script-aware classifier that builds the corpora
+@pytest.mark.lid218e_weights
 @pytest.mark.parametrize(("expected_label", "text"), SCRIPT_AWARE_CASES)
 def test_lid218e_identifies_each_corpus_language(expected_label: str, text: str) -> None:
     """Real lid218e weights label every corpus language and its script.
@@ -276,6 +278,7 @@ def test_lid218e_identifies_each_corpus_language(expected_label: str, text: str)
     assert prediction["probability"] >= 0.95
 
 
+@pytest.mark.lid218e_weights
 def test_lid218e_cannot_label_cyrillic_uzbek() -> None:
     """Cyrillic Uzbek is unreachable, and confidently mislabelled.
 
