@@ -24,6 +24,7 @@ from scripts.guard import (
     parse_root_argument,
     run_guards,
 )
+from tests.git_tree import init_git_tree
 
 
 @pytest.fixture
@@ -35,9 +36,10 @@ def project(tmp_path: Path) -> Callable[[str, str], Path]:
 
     Returns:
         A function taking a repo-relative path and source, returning the
-        file's path. The project's ``pyproject.toml`` is created too, so
-        the tree is one the entry point accepts.
+        file's path. The tree is a git work tree with a ``pyproject.toml``,
+        so it is one the entry point accepts and the Windows rule can list.
     """
+    init_git_tree(tmp_path)
     (tmp_path / "pyproject.toml").write_text("[project]\nname='x'\n", encoding="utf-8")
 
     def write(relative: str, source: str) -> Path:
@@ -176,7 +178,7 @@ def test_a_violation_is_reported_relative_to_the_scanned_root(
     tmp_path: Path, capsys: pytest.CaptureFixture[str]
 ) -> None:
     """Paths are shortened against the root so reports stay readable."""
-    scanned = tmp_path / "scanned"
+    scanned = init_git_tree(tmp_path / "scanned")
     (scanned / "src").mkdir(parents=True)
     (scanned / "src" / "dirty.py").write_text("from typing import Any\n", encoding="utf-8")
 

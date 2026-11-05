@@ -13,6 +13,7 @@ import pytest
 from scripts.guard import run_guards
 from scripts.guards import Violation
 from scripts.guards.file_length_rules import MAX_LINES, FileLengthRule
+from tests.git_tree import init_git_tree
 
 
 def write_lines(path: Path, count: int) -> Path:
@@ -72,6 +73,7 @@ def test_a_long_file_fails_the_whole_guard(
         tmp_path: Project root for the scanned tree.
         capsys: Captures the runner's report.
     """
+    init_git_tree(tmp_path)
     write_lines(tmp_path / "tests" / "test_long.py", MAX_LINES + 5)
 
     status = run_guards(tmp_path)
