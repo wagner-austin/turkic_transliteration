@@ -15,7 +15,6 @@ part of anything this project publishes.
 from __future__ import annotations
 
 import os
-import platform
 import subprocess
 import sys
 from collections.abc import Mapping, Sequence
@@ -190,14 +189,6 @@ class ScriptedPrompt:
 class Interpreter(Protocol):
     """The facts about the running interpreter this script branches on."""
 
-    def platform_name(self) -> str:
-        """Name the operating system.
-
-        Returns:
-            The platform name, e.g. ``Windows`` or ``Linux``.
-        """
-        ...
-
     def is_isolated(self) -> bool:
         """Report whether this interpreter is an isolated environment.
 
@@ -217,14 +208,6 @@ class Interpreter(Protocol):
 
 class RunningInterpreter:
     """Interpreter facts read from the live process."""
-
-    def platform_name(self) -> str:
-        """Name the operating system.
-
-        Returns:
-            The value :func:`platform.system` reports.
-        """
-        return platform.system()
 
     def is_isolated(self) -> bool:
         """Report whether this interpreter is isolated from the system one.
@@ -255,24 +238,14 @@ class DescribedInterpreter:
     """Interpreter facts stated outright rather than probed.
 
     Args:
-        platform_name: Operating system to report.
         isolated: Whether to report the interpreter as isolated.
         executable: Interpreter path to report.
     """
 
-    def __init__(self, platform_name: str, isolated: bool, executable: str) -> None:
-        """Store the three facts this interpreter reports."""
-        self._platform_name = platform_name
+    def __init__(self, isolated: bool, executable: str) -> None:
+        """Store the two facts this interpreter reports."""
         self._isolated = isolated
         self._executable = executable
-
-    def platform_name(self) -> str:
-        """Return the stated operating system.
-
-        Returns:
-            The name given at construction.
-        """
-        return self._platform_name
 
     def is_isolated(self) -> bool:
         """Return the stated isolation.
