@@ -46,20 +46,21 @@ def health_check_url(spec: OscarSourceSpec | WikipediaSourceSpec) -> str:
     return WIKIPEDIA_DUMP_HOST
 
 
-def source_reachable(spec: OscarSourceSpec | WikipediaSourceSpec) -> bool:
-    """Report whether a source's host is currently answering.
+def unreachable_reason(spec: OscarSourceSpec | WikipediaSourceSpec) -> str | None:
+    """Report why a source's host is not answering, if it is not.
 
     Args:
         spec: The source to probe.
 
     Returns:
-        True when the host answered the health-check request.
+        ``None`` when the host answered the health-check request, else
+        the reason it did not.
     """
-    return _test_hooks.reachability.reachable(health_check_url(spec))
+    return _test_hooks.reachability.unreachable_reason(health_check_url(spec))
 
 
 __all__ = [
     "available_languages",
     "health_check_url",
-    "source_reachable",
+    "unreachable_reason",
 ]

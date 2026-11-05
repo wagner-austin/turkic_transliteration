@@ -291,40 +291,46 @@ class MappingByteStreamOpener:
         return io.BytesIO(payload)
 
 
-class ReachabilityProbe(Protocol):
-    """Probe reporting whether a host will serve a URL."""
+#: The reason :class:`MappingReachabilityProbe` gives for a URL it was not told of.
+NOT_LISTED_REASON = "not among the reachable URLs"
 
-    def reachable(self, url: str) -> bool:
-        """Report whether ``url`` can be retrieved.
+
+class ReachabilityProbe(Protocol):
+    """Probe reporting why a host will not serve a URL, if it will not."""
+
+    def unreachable_reason(self, url: str) -> str | None:
+        """Report why ``url`` cannot be retrieved.
 
         Args:
             url: Fully-qualified URL to probe.
 
         Returns:
-            True when the host answered successfully.
+            ``None`` when the host answered successfully, else the reason
+            it did not, so that an unreachable host is reported with its
+            cause rather than as a bare no.
         """
         ...
 
 
 class UrlReachabilityProbe:
-    """Probe issuing a HEAD request and reporting whether it succeeded."""
+    """Probe issuing a HEAD request and reporting why it failed, if it did."""
 
-    def reachable(self, url: str) -> bool:
+    def unreachable_reason(self, url: str) -> str | None:
         """Probe ``url`` without downloading its body.
 
         Args:
             url: Fully-qualified URL to probe.
 
         Returns:
-            True when the request completed; False when the host
-            answered with an error status or could not be reached.
+            ``None`` when the request completed; the request's error when
+            the host answered with an error status or could not be reached.
         """
         try:
             with urlopen(build_request(url, "HEAD"), timeout=TIMEOUT_SECONDS):
-                return True
+                return None
         except URLError as exc:
             logger.info("%s is unreachable: %s", url, exc)
-            return False
+            return str(exc)
 
 
 class MappingReachabilityProbe:
@@ -339,17 +345,18 @@ class MappingReachabilityProbe:
         self._reachable = set(reachable_urls)
         self.requests: list[str] = []
 
-    def reachable(self, url: str) -> bool:
+    def unreachable_reason(self, url: str) -> str | None:
         """Record the probe and answer from the stored set.
 
         Args:
             url: URL to look up.
 
         Returns:
-            True when the URL is in the reachable set.
+            ``None`` when the URL is in the reachable set, else
+            :data:`NOT_LISTED_REASON`.
         """
         self.requests.append(url)
-        return url in self._reachable
+        return None if url in self._reachable else NOT_LISTED_REASON
 
 
 class LanguageCatalogue(Protocol):
@@ -502,6 +509,7 @@ reachability: ReachabilityProbe = UrlReachabilityProbe()
 languages: LanguageCatalogue = RemoteLanguageCatalogue()
 
 __all__ = [
+    "NOT_LISTED_REASON",
     "SITEMATRIX_URL",
     "TIMEOUT_SECONDS",
     "ByteStreamOpener",
