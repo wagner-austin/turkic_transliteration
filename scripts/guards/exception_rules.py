@@ -15,193 +15,216 @@ the failure did not produce, as the old ``sweep_once`` returned 0,
 reported as ``except-returns-a-default``. A mention of the error in the
 log call is not carried to the caller, so it does not count.
 
+Handlers are read from the parsed module, as ``ast.ExceptHandler`` nodes,
+not from its lines. The line scanner this replaced on 2026-11-05 missed
+the old ``sweep_once`` body in four ordinary shapes its third audit
+found: a comment after the header's colon, a header whose types span
+lines, and the word ``raise`` in a body comment or in the log message.
+In the tree a comment is gone, a string is a string and a header is one
+node however it is laid out, so only a ``raise`` statement counts as one.
+
 These checks were defined in
-``scripts/guard.py`` until 2026-11-04, when they moved here unchanged so
-that the runner and each group of rules stay under the 600-line file
-limit the file-length rule enforces.
+``scripts/guard.py`` until 2026-11-04, when they moved here so that the
+runner and each group of rules stay under the 600-line file limit the
+file-length rule enforces.
 """
 
 from __future__ import annotations
 
+import ast
 import re
-from collections.abc import Sequence
+from collections.abc import Iterator
 from pathlib import Path
 
 from scripts.guards import Violation
 
-_EXCEPT_HEADER = re.compile(r"^(\s*)except(\s+([^:]+))?:\s*$")
-_BROAD_TYPES = re.compile(r"\b(Exception|BaseException)\b")
-_LOG_CALL = re.compile(r"\b(logging|log|logger)\.(debug|info|warning|error|exception|critical)\(")
-_RAISE_RE = re.compile(r"\braise\b")
-_VALUE_RETURN = re.compile(r"^\s*return\s+(?!None\s*(#.*)?$)\S")
-_RETURN_START = re.compile(r"^\s*return\b")
-_BOUND_NAME = re.compile(r"\bas\s+([A-Za-z_]\w*)\s*$")
-_ASSIGNMENT = re.compile(r"^\s*([A-Za-z_]\w*)\s*(?::[^=]+)?=(?!=)(.*)$")
+#: A logger's name: ``logging``, ``log`` or ``logger``, with any leading underscores.
+_LOG_RECEIVER = re.compile(r"_*(logging|log|logger)")
+_LOG_METHODS = frozenset({"debug", "info", "warning", "error", "exception", "critical"})
+_BROAD_TYPES = frozenset({"Exception", "BaseException"})
+_NESTED_SCOPES = (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef, ast.Lambda)
 
 
-def _mentions(text: str, names: set[str]) -> bool:
-    """Report whether any of the names stands as a word in the text.
+def _handler_nodes(handler: ast.ExceptHandler) -> Iterator[ast.AST]:
+    """Yield every node of a handler's body, without entering nested scopes.
 
-    Args:
-        text: One source line.
-        names: Identifiers to look for.
-
-    Returns:
-        True when at least one appears as a whole word.
-    """
-    return any(re.search(rf"\b{re.escape(name)}\b", text) for name in names)
-
-
-def _returns_the_error(lines: Sequence[str], start: int, end: int, types: str) -> bool:
-    """Report whether a handler's returned value carries the error it caught.
-
-    The error must be bound with ``as``. A name assigned in the handler
-    from an expression using a carrier becomes a carrier too, and the
-    return statement, read from its first line to the end of the body so
-    a parenthesised value spanning lines is whole, must mention one. Log
-    lines are passed over: what they mention reaches the log, not the
-    caller.
+    A ``raise`` or ``return`` inside a function or class defined in the
+    handler runs when that is called, not when the handler does, so it
+    says nothing about what the handler does with its error.
 
     Args:
-        lines: All source lines of the module.
-        start: Index of the handler body's first line.
-        end: Index of the first line after the body.
-        types: The header's types as written, with any ``as`` binding.
+        handler: The handler to walk.
 
-    Returns:
-        True when the returned value is built from the caught error.
+    Yields:
+        Each node of the body, the nested definitions themselves included
+        but not their contents.
     """
-    bound = _BOUND_NAME.search(types)
-    if bound is None:
-        return False
-    carriers = {bound.group(1)}
-    returning = False
-    for line in lines[start:end]:
-        if _LOG_CALL.search(line):
-            continue
-        if _RETURN_START.match(line):
-            returning = True
-        if returning:
-            if _mentions(line, carriers):
-                return True
-            continue
-        assignment = _ASSIGNMENT.match(line)
-        if assignment is not None and _mentions(assignment.group(2), carriers):
-            carriers.add(assignment.group(1))
-    return False
+    pending: list[ast.AST] = list(handler.body)
+    while pending:
+        node = pending.pop()
+        yield node
+        if not isinstance(node, _NESTED_SCOPES):
+            pending.extend(ast.iter_child_nodes(node))
 
 
-def _parse_except_header(raw: str) -> tuple[int, str] | None:
-    """Split an ``except`` header into its indent and its types.
+def _names(node: ast.AST) -> set[str]:
+    """Collect the identifiers an expression or target uses.
 
     Args:
-        raw: One source line, which may be anything.
+        node: Any node.
 
     Returns:
-        The indent width and the exception types as written, or
-        ``None`` when the line is not an ``except`` header. A bare
-        ``except:`` reports an empty type string.
+        The id of every ``ast.Name`` inside it.
     """
-    match = _EXCEPT_HEADER.match(raw)
-    if match is None:
-        return None
-    indent_group = match.group(1)
-    group3 = match.group(3)
-    indent_str = indent_group if indent_group is not None else ""
-    types_str = group3 if group3 is not None else ""
-    return len(indent_str), types_str.strip()
+    return {child.id for child in ast.walk(node) if isinstance(child, ast.Name)}
 
 
-def _is_broad_exception(types: str) -> bool:
-    """Report whether a caught type is a broad one.
+def _is_broad(caught: ast.expr | None) -> bool:
+    """Report whether a handler catches broadly.
 
     Args:
-        types: Exception types as written, empty for a bare ``except``.
+        caught: The handler's type expression, ``None`` for a bare
+            ``except``.
 
     Returns:
-        True for a bare ``except`` and for anything naming
-        ``Exception`` or ``BaseException``.
+        True for a bare ``except`` and for a type, or a tuple holding
+        one, whose last dotted part is ``Exception`` or ``BaseException``.
     """
-    return types == "" or _BROAD_TYPES.search(types) is not None
+    if caught is None:
+        return True
+    elements = caught.elts if isinstance(caught, ast.Tuple) else [caught]
+    return any(ast.unparse(element).rsplit(".", 1)[-1] in _BROAD_TYPES for element in elements)
 
 
-def _first_body_is_trivial(line: str) -> bool:
-    """Report whether a line is an empty statement.
+def _is_log_call(node: ast.AST) -> bool:
+    """Report whether a node calls a logging method on a logger name.
 
     Args:
-        line: One source line.
+        node: Any node of a handler body.
 
     Returns:
-        True for ``pass`` and for ``...``, with or without a trailing
-        comment. Either means the handler discards the exception.
+        True for a call such as ``logger.warning(...)`` or
+        ``_log.exception(...)``.
     """
-    return re.match(r"^\s+(pass|\.\.\.)\s*(#.*)?$", line) is not None
+    return (
+        isinstance(node, ast.Call)
+        and isinstance(node.func, ast.Attribute)
+        and node.func.attr in _LOG_METHODS
+        and isinstance(node.func.value, ast.Name)
+        and _LOG_RECEIVER.fullmatch(node.func.value.id) is not None
+    )
 
 
-def _scan_except_body(
-    lines: Sequence[str], start: int, header_indent: int
-) -> tuple[bool, bool, bool, int]:
-    """Scan one ``except`` body for logging, re-raising and returning a value.
+def _is_trivial(statement: ast.stmt) -> bool:
+    """Report whether a statement is empty.
 
     Args:
-        lines: All source lines of the module.
-        start: Index of the body's first line.
-        header_indent: Indent width of the ``except`` header, which
-            marks where the body ends.
+        statement: A handler's first statement.
 
     Returns:
-        Whether the body logs, whether it raises, whether it returns a
-        value other than ``None``, and the index of the first line after
-        it.
+        True for ``pass`` and for a bare ``...``, either of which
+        discards the exception.
     """
-    total = len(lines)
-    has_log = False
-    has_raise = False
-    has_value_return = False
-    i = start
-    while i < total:
-        body_line = lines[i]
-        if body_line.strip() == "":
-            i += 1
-            continue
-        body_indent = len(body_line) - len(body_line.lstrip(" \t"))
-        # The handler ends at the first line indented no deeper than its
-        # header, whatever that line is: a return after the try statement
-        # is the function's, not the handler's.
-        if body_indent <= header_indent:
-            break
-        if _RAISE_RE.search(body_line):
-            has_raise = True
-        if _LOG_CALL.search(body_line):
-            has_log = True
-        if _VALUE_RETURN.match(body_line):
-            has_value_return = True
-        i += 1
-    return has_log, has_raise, has_value_return, i
+    return isinstance(statement, ast.Pass) or (
+        isinstance(statement, ast.Expr)
+        and isinstance(statement.value, ast.Constant)
+        and statement.value.value is Ellipsis
+    )
 
 
-def _find_body_start(lines: Sequence[str], start: int) -> int:
-    """Find the first non-empty line after an ``except`` header.
+def _returned_values(nodes: list[ast.AST]) -> list[ast.expr]:
+    """Collect the values a handler's return statements give back.
 
     Args:
-        lines: All source lines of the module.
-        start: Index to begin looking from.
+        nodes: The handler's body nodes.
 
     Returns:
-        The index of that line, or the number of lines when the file
-        ends first. Valid Python always has a body, so the second case
-        only arises on a truncated file.
+        The value of every ``return`` that gives one other than ``None``;
+        a bare ``return`` and ``return None`` give the caller nothing.
     """
-    total = len(lines)
-    i = start
-    while i < total:
-        if lines[i].strip() != "":
-            return i
-        i += 1
-    return total
+    return [
+        node.value
+        for node in nodes
+        if isinstance(node, ast.Return)
+        and node.value is not None
+        and not (isinstance(node.value, ast.Constant) and node.value.value is None)
+    ]
 
 
-def _run_exceptions_rule(path: Path, lines: list[str]) -> list[Violation]:
+def _carriers(handler: ast.ExceptHandler, nodes: list[ast.AST]) -> set[str]:
+    """Name every variable holding the caught error or a value built from it.
+
+    The ``as`` name carries it, and so does each name assigned, in source
+    order, from an expression using a carrier. A handler without ``as``
+    has no carrier, since nothing in it can refer to its error.
+
+    Args:
+        handler: The handler.
+        nodes: Its body nodes.
+
+    Returns:
+        The carrying names.
+    """
+    carriers = set() if handler.name is None else {handler.name}
+    assignments: list[tuple[ast.expr, list[ast.expr]]] = []
+    for node in nodes:
+        if isinstance(node, ast.Assign):
+            assignments.append((node.value, node.targets))
+        elif isinstance(node, ast.AnnAssign) and node.value is not None:
+            assignments.append((node.value, [node.target]))
+    for value, targets in sorted(
+        assignments, key=lambda pair: (pair[0].lineno, pair[0].col_offset)
+    ):
+        if _names(value) & carriers:
+            carriers |= {name for target in targets for name in _names(target)}
+    return carriers
+
+
+def _unraised_kind(handler: ast.ExceptHandler, nodes: list[ast.AST]) -> list[str]:
+    """Judge a specific handler that logs and does not re-raise.
+
+    Args:
+        handler: The handler.
+        nodes: Its body nodes.
+
+    Returns:
+        ``except-logs-and-continues`` when it returns no value,
+        ``except-returns-a-default`` when any value it returns is not built
+        from its error, and nothing when every value is.
+    """
+    values = _returned_values(nodes)
+    if not values:
+        return ["except-logs-and-continues"]
+    carriers = _carriers(handler, nodes)
+    if any(not _names(value) & carriers for value in values):
+        return ["except-returns-a-default"]
+    return []
+
+
+def _handler_kinds(handler: ast.ExceptHandler) -> list[str]:
+    """Report how one handler hides the failure it caught, if it does.
+
+    Args:
+        handler: The handler.
+
+    Returns:
+        The violation kinds it earns, in the order they are reported.
+    """
+    nodes = list(_handler_nodes(handler))
+    kinds = ["silent-except-body"] if _is_trivial(handler.body[0]) else []
+    has_raise = any(isinstance(node, ast.Raise) for node in nodes)
+    has_log = any(_is_log_call(node) for node in nodes)
+    if _is_broad(handler.type):
+        if not (has_log and has_raise):
+            kinds.append("broad-except-requires-log-and-raise")
+    elif not (has_log or has_raise):
+        kinds.append("except-without-log-or-raise")
+    elif not has_raise:
+        kinds.extend(_unraised_kind(handler, nodes))
+    return kinds
+
+
+def _run_exceptions_rule(path: Path, tree: ast.Module, lines: list[str]) -> list[Violation]:
     """Report the exception handlers that hide the failure they caught.
 
     A broad handler must log and re-raise. A specific one must re-raise,
@@ -213,80 +236,20 @@ def _run_exceptions_rule(path: Path, lines: list[str]) -> list[Violation]:
 
     Args:
         path: File being scanned, for the violation record.
-        lines: The module's source lines. Scanned as text rather than
-            parsed, so that a handler's formatting is visible.
+        tree: The module, parsed.
+        lines: Its source lines, for the line each violation quotes.
 
     Returns:
-        One violation per offending handler.
+        One violation per offence, in source order.
     """
-    # Skip test files
     if "tests" in path.parts:
         return []
-
-    violations: list[Violation] = []
-    total = len(lines)
-    idx = 0
-    while idx < total:
-        raw = lines[idx]
-        parsed = _parse_except_header(raw)
-        if parsed is None:
-            idx += 1
-            continue
-        indent, types = parsed
-        broad = _is_broad_exception(types)
-
-        body_start = _find_body_start(lines, idx + 1)
-
-        if body_start < total and _first_body_is_trivial(lines[body_start]):
-            violations.append(
-                Violation(
-                    file=path,
-                    line_no=idx + 1,
-                    kind="silent-except-body",
-                    line=raw.rstrip("\n"),
-                )
-            )
-
-        has_log, has_raise, has_value_return, body_end = _scan_except_body(
-            lines, body_start, indent
-        )
-        if broad:
-            if not (has_log and has_raise):
-                violations.append(
-                    Violation(
-                        file=path,
-                        line_no=idx + 1,
-                        kind="broad-except-requires-log-and-raise",
-                        line=raw.rstrip("\n"),
-                    )
-                )
-        elif not (has_log or has_raise):
-            violations.append(
-                Violation(
-                    file=path,
-                    line_no=idx + 1,
-                    kind="except-without-log-or-raise",
-                    line=raw.rstrip("\n"),
-                )
-            )
-        elif not has_raise and not has_value_return:
-            violations.append(
-                Violation(
-                    file=path,
-                    line_no=idx + 1,
-                    kind="except-logs-and-continues",
-                    line=raw.rstrip("\n"),
-                )
-            )
-        elif not has_raise and not _returns_the_error(lines, body_start, body_end, types):
-            violations.append(
-                Violation(
-                    file=path,
-                    line_no=idx + 1,
-                    kind="except-returns-a-default",
-                    line=raw.rstrip("\n"),
-                )
-            )
-
-        idx = body_end if body_end > idx else idx + 1
-    return violations
+    handlers = sorted(
+        (node for node in ast.walk(tree) if isinstance(node, ast.ExceptHandler)),
+        key=lambda handler: (handler.lineno, handler.col_offset),
+    )
+    return [
+        Violation(file=path, line_no=handler.lineno, kind=kind, line=lines[handler.lineno - 1])
+        for handler in handlers
+        for kind in _handler_kinds(handler)
+    ]
