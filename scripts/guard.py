@@ -11,7 +11,8 @@ Checks for violations:
 - No `# pragma` comments
 - No silent exception handling (except: pass)
 - Broad exceptions (Exception/BaseException) must log AND re-raise
-- Specific exceptions must log OR re-raise
+- Specific exceptions must re-raise, or log and return a value built
+  from the caught error
 - No `print()` in src/ (use _console module instead)
 - Weak test assertions (is not None, isinstance, hasattr, len > 0)
 - Transliteration test quality (domain calls must assert on the returned value)
@@ -129,7 +130,7 @@ def run_guards(root: Path) -> int:
         typing_violations.extend(_run_typing_rule(path, tree))
         comments_violations.extend(_run_comments_rule(path, source))
         suppress_violations.extend(_run_suppress_rule(path, tree, lines))
-        exceptions_violations.extend(_run_exceptions_rule(path, lines))
+        exceptions_violations.extend(_run_exceptions_rule(path, tree, lines))
         logging_violations.extend(_run_logging_rule(path, tree))
 
     weak_assertion_rule = WeakAssertionRule()
