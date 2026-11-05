@@ -50,7 +50,10 @@ importer names the new one.
 reported the suite green, a run that therefore passed on code the commit
 did not hold. Lint now runs `ruff check` and `ruff format --check`, and
 fails on anything Ruff would change; the new `make format` is the one
-target that rewrites.
+target that rewrites. `tests/test_makefile_targets.py` asks real make,
+with `-n`, which ruff commands `lint`, `check` and `format` would run, so
+a `--fix` restored to lint fails a test instead of passing on a tree that
+happens to be clean.
 
 **The download janitor stops on a filesystem error.** `sweep_once`
 caught `OSError`, logged it, and the janitor swept again an interval
@@ -59,7 +62,19 @@ deleted. That is Windows behaviour; where deleting an open file
 succeeds, an error here is a real fault, and retrying it every interval
 only hid it. `sweep_once` is gone: `run_janitor` calls
 `purge_expired_downloads` directly, and an error ends the janitor thread
-at `threading.excepthook`, which reports it with its traceback.
+at `threading.excepthook`, which reports it with its traceback; a test
+starts the real thread on a blocked directory and reads the error at that
+hook, named `cron-janitor`.
+
+**The guard refuses a handler that logs and carries on.** A specific
+`except` passed the exceptions rule if it only logged, so the old
+`sweep_once` shape, logging a sweep's error and sweeping again, would have
+passed it. Such a handler must now re-raise, or log and return a value,
+the way a Gradio handler returns the message the page shows; one that
+logs and falls through, or returns nothing, is reported as
+`except-logs-and-continues`. The rule also ends a handler's body where
+the code dedents to its `except`, so a return after the `try` statement
+no longer counts as the handler's.
 
 ### Removed
 
