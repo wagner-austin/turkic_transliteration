@@ -23,9 +23,5 @@ trim_trailing_whitespace = false  # Trailing whitespace is significant in Markdo
 indent_style = space
 indent_size = 2
 
-[*.{ps1,sh}]
-indent_style = space
-indent_size = 2
-
 [Makefile]
 indent_style = tab
