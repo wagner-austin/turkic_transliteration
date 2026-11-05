@@ -23,6 +23,16 @@ lines, and the word ``raise`` in a body comment or in the log message.
 In the tree a comment is gone, a string is a string and a header is one
 node however it is laid out, so only a ``raise`` statement counts as one.
 
+Each way a handler can end is judged, not the handler as a whole. A
+``raise`` somewhere in the body once excused all of it, so a handler that
+re-raised only under a condition could log and return 0, or fall
+through, on every other path, which is the held-file swallow this rule
+exists for behind a filtered re-raise. Every ending of a handler must now
+re-raise, or, for a specific handler, return a value built from the
+error; the endings are read through ``if``, loops, ``with``, ``try`` and
+``match``, and a ``break`` or ``continue`` that leaves the handler is the
+handler carrying on.
+
 These checks were defined in
 ``scripts/guard.py`` until 2026-11-04, when they moved here so that the
 runner and each group of rules stay under the 600-line file limit the
@@ -132,23 +142,85 @@ def _is_trivial(statement: ast.stmt) -> bool:
     )
 
 
-def _returned_values(nodes: list[ast.AST]) -> list[ast.expr]:
-    """Collect the values a handler's return statements give back.
+def _endings(
+    statements: list[ast.stmt],
+) -> list[ast.Raise | ast.Return | ast.Break | ast.Continue | None]:
+    """List the ways a run of statements can end.
 
     Args:
-        nodes: The handler's body nodes.
+        statements: A block, run in order.
 
     Returns:
-        The value of every ``return`` that gives one other than ``None``;
-        a bare ``return`` and ``return None`` give the caller nothing.
+        Each ``raise``, ``return``, ``break`` or ``continue`` that can end
+        the block, and ``None`` when control can also run off its end.
+        Statements after one that cannot fall through are unreachable and
+        are not read.
     """
-    return [
-        node.value
-        for node in nodes
-        if isinstance(node, ast.Return)
-        and node.value is not None
-        and not (isinstance(node.value, ast.Constant) and node.value.value is None)
-    ]
+    endings: list[ast.Raise | ast.Return | ast.Break | ast.Continue | None] = []
+    for statement in statements:
+        reached = _statement_endings(statement)
+        endings.extend(ending for ending in reached if ending is not None)
+        if None not in reached:
+            return endings
+    endings.append(None)
+    return endings
+
+
+def _statement_endings(
+    statement: ast.stmt,
+) -> list[ast.Raise | ast.Return | ast.Break | ast.Continue | None]:
+    """List the ways one statement can end, ``None`` for falling through.
+
+    A loop may run its body no times, so it can always fall through, and
+    a ``break`` or ``continue`` inside it stays inside it. A ``try`` is
+    read conservatively: an exception its body raises may be caught by its
+    own handlers, but counting the raise anyway adds only raising
+    endings, which never hide a swallowing one. A ``finally`` that cannot
+    fall through decides how the statement ends. A ``match`` may match no
+    case. Anything else, a nested definition included, falls through.
+
+    Args:
+        statement: The statement.
+
+    Returns:
+        Its endings, as :func:`_endings` gives them.
+    """
+    if isinstance(statement, ast.Raise | ast.Return | ast.Break | ast.Continue):
+        return [statement]
+    if isinstance(statement, ast.If):
+        return _endings(statement.body) + _endings(statement.orelse)
+    if isinstance(statement, ast.For | ast.AsyncFor | ast.While):
+        inside = [
+            None if isinstance(ending, ast.Break | ast.Continue) else ending
+            for ending in _endings(statement.body)
+        ]
+        return inside + _endings(statement.orelse)
+    if isinstance(statement, ast.With | ast.AsyncWith):
+        return _endings(statement.body)
+    if isinstance(statement, ast.Try | ast.TryStar):
+        paths = _endings(statement.body + statement.orelse)
+        for inner in statement.handlers:
+            paths += _endings(inner.body)
+        final = _endings(statement.finalbody)
+        if None not in final:
+            return final
+        return paths + [ending for ending in final if ending is not None]
+    if isinstance(statement, ast.Match):
+        return [ending for case in statement.cases for ending in _endings(case.body)] + [None]
+    return [None]
+
+
+def _is_none(value: ast.expr) -> bool:
+    """Report whether a returned expression is the literal ``None``.
+
+    Args:
+        value: The returned expression.
+
+    Returns:
+        True for ``return None``, which, like a bare ``return``, gives
+        the caller nothing.
+    """
+    return isinstance(value, ast.Constant) and value.value is None
 
 
 def _carriers(handler: ast.ExceptHandler, nodes: list[ast.AST]) -> set[str]:
@@ -180,20 +252,29 @@ def _carriers(handler: ast.ExceptHandler, nodes: list[ast.AST]) -> set[str]:
     return carriers
 
 
-def _unraised_kind(handler: ast.ExceptHandler, nodes: list[ast.AST]) -> list[str]:
-    """Judge a specific handler that logs and does not re-raise.
+def _unraised_kind(
+    handler: ast.ExceptHandler, nodes: list[ast.AST], unraised: list[ast.Return | None]
+) -> list[str]:
+    """Judge the endings of a specific handler that do not re-raise.
 
     Args:
         handler: The handler.
         nodes: Its body nodes.
+        unraised: Its endings other than a raise: each ``return``, and
+            ``None`` for carrying on past the handler.
 
     Returns:
-        ``except-logs-and-continues`` when it returns no value,
-        ``except-returns-a-default`` when any value it returns is not built
-        from its error, and nothing when every value is.
+        ``except-logs-and-continues`` when any of them carries on or
+        returns nothing, ``except-returns-a-default`` when any value one
+        returns is not built from the error, and nothing when every one
+        returns a value that is.
     """
-    values = _returned_values(nodes)
-    if not values:
+    values = [
+        ending.value
+        for ending in unraised
+        if ending is not None and ending.value is not None and not _is_none(ending.value)
+    ]
+    if len(values) < len(unraised):
         return ["except-logs-and-continues"]
     carriers = _carriers(handler, nodes)
     if any(not _names(value) & carriers for value in values):
@@ -212,15 +293,20 @@ def _handler_kinds(handler: ast.ExceptHandler) -> list[str]:
     """
     nodes = list(_handler_nodes(handler))
     kinds = ["silent-except-body"] if _is_trivial(handler.body[0]) else []
-    has_raise = any(isinstance(node, ast.Raise) for node in nodes)
     has_log = any(_is_log_call(node) for node in nodes)
+    endings = _endings(handler.body)
+    unraised = [
+        None if isinstance(ending, ast.Break | ast.Continue) else ending
+        for ending in endings
+        if not isinstance(ending, ast.Raise)
+    ]
     if _is_broad(handler.type):
-        if not (has_log and has_raise):
+        if not has_log or unraised:
             kinds.append("broad-except-requires-log-and-raise")
-    elif not (has_log or has_raise):
+    elif not has_log and len(unraised) == len(endings):
         kinds.append("except-without-log-or-raise")
-    elif not has_raise:
-        kinds.extend(_unraised_kind(handler, nodes))
+    elif unraised:
+        kinds.extend(_unraised_kind(handler, nodes, unraised))
     return kinds
 
 
