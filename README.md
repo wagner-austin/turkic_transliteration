@@ -157,6 +157,14 @@ turkic-translit translit --lang kk --in kk.txt --out-ipa raw/kk_ipa.txt
 turkic-clean-corpus --input-dir raw --output-dir clean
 ```
 
+- **The cleaner takes only IPA the installed rules wrote.** `translit
+  --out-ipa <file>` writes `<file>.manifest.json` beside the IPA, naming
+  the rule file, its digest and the IPA's SHA-256, and the cleaner refuses
+  a corpus with no such record, one naming other rules, or one whose bytes
+  changed since. IPA from an older release spells some letters
+  differently (‹я› as `ja` before 0.5.7, ‹щ› as `ɕː` before 0.5.10), and
+  cleaning it against the current rules would drop those words as foreign,
+  so transliterate the source text again instead.
 - `--input-dir` / `--output-dir` — raw IPA corpora in, cleaned corpora and
   `cleaning_manifest.json` out. The language is read from each file name
   (`kk_ipa.txt`, `oscar_kk_ipa.txt`), which must carry exactly one

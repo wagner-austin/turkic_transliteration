@@ -2,7 +2,7 @@
 
 All notable changes to the Turkic Transliteration project will be documented in this file.
 
-## [Unreleased]
+## [0.5.11] - 2026-11-07
 
 ### Added
 
@@ -32,6 +32,28 @@ over them with two xdist workers, and requires the exact lines, so the
 count itself is tested and not only printed.
 
 ### Changed
+
+**`turkic-clean-corpus` cleans only IPA the installed rules wrote.** The
+cleaner drops a token carrying a letter the installed rules cannot emit,
+reasoning that such a letter came through untransliterated from foreign
+text. That holds only for IPA those rules wrote. On 2026-11-07 a Kazakh
+OSCAR file transliterated before 0.5.7, which spells ‹я› as `ja` with an
+ASCII `a` and ‹щ› as `ɕː`, went through the 0.5.10 cleaner and lost about
+54,700 Kazakh tokens such as `sɑjasɑt` and `sijaqtə`, and about 1,100 with
+‹щ›, as foreign, with nothing to say why.
+
+`turkic-translit translit --out-ipa <file>` now writes
+`<file>.manifest.json` beside the IPA, naming the language, the rule file,
+its `rule_digest` and the SHA-256 of the IPA written
+(`corpus/transliteration_record.py`). Before reading or writing anything,
+the cleaner refuses a corpus whose record is missing
+(`TURKIC_CORPUS_006_TRANSLITERATION_RECORD_MISSING`), names another
+language (`_007_`), names other rules than the installed ones (`_008_`,
+with both digests), or describes other bytes (`_009_`). IPA written to
+standard output carries no record and cannot be cleaned. A corpus
+transliterated by an older release is transliterated again from its
+source text. `rule_digest` moved from `corpus.clean` to
+`turkic_translit.digests`, where the writer and the cleaner both read it.
 
 **No Python file is longer than 600 lines, and the guard enforces it.**
 The new `file-length` rule (`scripts/guards/file_length_rules.py`) fails
