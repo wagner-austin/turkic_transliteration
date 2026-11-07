@@ -31,6 +31,19 @@ that keeps none of the lines it saw removes the empty file, writes no
 manifest and raises `TURKIC_CORPUS_010_FILTER_KEPT_NOTHING`. The README
 documents the download command and which code each model takes.
 
+**The demo's SentencePiece training works under the sentencepiece a pip
+install gets.** `pyproject` admits `sentencepiece>=0.2.0` and the lockfile
+pinned 0.2.0, so the fleet tested a version no new install receives.
+Under 0.2.3, measured on 2026-11-07, a vocabulary size the training text
+cannot fill is refused for every model type ("Vocabulary size too high
+(12000). Please set it to a value <= ..."), so the demo's default of 12000
+failed on any pasted text. The web trainer now passes
+`hard_vocab_limit=False`, learning what the text supports (48 pieces of
+50 unigram, 194 of 12000 BPE on the test's text), and its summary states
+the learned size beside the requested one. The lockfile now pins 0.2.3,
+the version pip resolves. `build-spm` still refuses an unfillable size, as
+its help says, and `train-spm` keeps its `--hard-vocab-limit` flag.
+
 ## [0.5.11] - 2026-11-07
 
 ### Added
