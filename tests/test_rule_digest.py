@@ -18,7 +18,8 @@ from pathlib import Path
 import pytest
 
 from turkic_translit.core import _RULE_DIR
-from turkic_translit.corpus.clean import rule_digest, rules_fingerprint
+from turkic_translit.corpus.clean import rules_fingerprint
+from turkic_translit.digests import rule_digest
 
 PACKAGED = _RULE_DIR / "kk_ipa.rules"
 

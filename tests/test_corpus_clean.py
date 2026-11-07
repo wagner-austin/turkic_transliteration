@@ -19,7 +19,7 @@ from pathlib import Path
 
 import pytest
 
-from tests.corpus_clean_helpers import LONG, write_corpora
+from tests.corpus_clean_helpers import LONG, write_corpora, write_corpus
 from turkic_translit.core import _RULE_DIR
 from turkic_translit.corpus.clean import (
     ALLOWED_CHARS,
@@ -475,7 +475,7 @@ def test_the_token_filter_sees_the_symbol_map_s_own_rewrites(tmp_path: Path) -> 
     line = "bana bakan kalan zaman aslan taɾafa katan alan bakan"
     raw = tmp_path / "raw"
     raw.mkdir()
-    (raw / "oscar_tr_ipa.txt").write_text(line + "\n", encoding="utf-8")
+    write_corpus(raw / "oscar_tr_ipa.txt", "tr", [line])
     out = tmp_path / "clean"
 
     report = clean_corpora({"tr": raw / "oscar_tr_ipa.txt"}, out, rules)
