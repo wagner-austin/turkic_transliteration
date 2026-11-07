@@ -18,6 +18,7 @@ ERR_RECORD_MISSING: Final = "TURKIC_CORPUS_006_TRANSLITERATION_RECORD_MISSING"
 ERR_RECORD_LANGUAGE: Final = "TURKIC_CORPUS_007_TRANSLITERATION_RECORD_LANGUAGE"
 ERR_RECORD_RULES: Final = "TURKIC_CORPUS_008_TRANSLITERATED_BY_OTHER_RULES"
 ERR_RECORD_OUTPUT: Final = "TURKIC_CORPUS_009_TRANSLITERATION_OUTPUT_CHANGED"
+ERR_FILTER_KEPT_NOTHING: Final = "TURKIC_CORPUS_010_FILTER_KEPT_NOTHING"
 
 
 class CorpusError(Exception):
@@ -189,7 +190,36 @@ class TransliterationOutputChangedError(CorpusError):
         self.found = found
 
 
+class FilterKeptNothingError(CorpusError):
+    """Raised when a language filter keeps none of the lines a source yielded.
+
+    Args:
+        source_id: Registry key of the source streamed.
+        language: The language the filter required.
+        model_id: The classifier that decided.
+        lines_seen: Lines the source yielded, every one of them rejected.
+        output: The corpus path, removed because it would be empty.
+    """
+
+    def __init__(
+        self, source_id: str, language: str, model_id: str, lines_seen: int, output: str
+    ) -> None:
+        """Name the source, the filter and how many lines it rejected."""
+        super().__init__(
+            ERR_FILTER_KEPT_NOTHING,
+            f"{model_id} kept none of {lines_seen:,} lines from {source_id} as "
+            f"{language!r}; an empty corpus is not a download, so {output} was "
+            f"removed and no manifest written",
+        )
+        self.source_id = source_id
+        self.language = language
+        self.model_id = model_id
+        self.lines_seen = lines_seen
+        self.output = output
+
+
 __all__ = [
+    "ERR_FILTER_KEPT_NOTHING",
     "ERR_NO_CORPORA",
     "ERR_RECORD_LANGUAGE",
     "ERR_RECORD_MISSING",
@@ -200,6 +230,7 @@ __all__ = [
     "ERR_UNKNOWN_SOURCE",
     "CorpusError",
     "CorpusStreamError",
+    "FilterKeptNothingError",
     "NoCorporaError",
     "SymbolMapMalformedError",
     "TransliteratedByOtherRulesError",

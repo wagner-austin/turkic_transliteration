@@ -18,7 +18,9 @@ from __future__ import annotations
 from collections.abc import Mapping
 from typing import Protocol, TypedDict
 
+from turkic_translit.lang_utils import three_letter_code
 from turkic_translit.lid.classifier import LidClassifier
+from turkic_translit.lid.errors import LidLanguageNotEmittedError
 from turkic_translit.lid.factory import LidRunRecord, build_classifier
 from turkic_translit.lid.locations import (
     default_destination_dir,
@@ -165,6 +167,10 @@ def build_line_filter(
     Raises:
         UnknownLidModelError: If the request names an unregistered model.
         LidModelFileEmptyError: If the model's weights are zero bytes.
+        LidLanguageNotEmittedError: If no label of the model matches the
+            requested language, so the filter could keep no line. Asked
+            for ``kk``, lid218e, which says ``kaz_Cyrl``, kept 0 of
+            338,811 Kazakh OSCAR lines on 2026-11-07 and the run exited 0.
     """
     if request is None:
         return KeepEveryLine(), None
@@ -174,6 +180,14 @@ def build_line_filter(
         default_destination_dir(),
         request["threshold"],
     )
+    language = request["language"]
+    if not classifier.labels_matching(language):
+        alpha_3 = three_letter_code(language)
+        raise LidLanguageNotEmittedError(
+            classifier.model_id,
+            language,
+            () if alpha_3 is None else classifier.labels_matching(alpha_3),
+        )
     return (
         LanguageLineFilter(classifier, request["language"], request["threshold"]),
         record,

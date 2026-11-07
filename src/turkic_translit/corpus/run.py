@@ -13,6 +13,7 @@ from pathlib import Path
 from typing import Final
 
 from turkic_translit.corpus.drivers import stream_source
+from turkic_translit.corpus.errors import FilterKeptNothingError
 from turkic_translit.corpus.filtering import LidFilterRequest, build_line_filter
 from turkic_translit.corpus.manifest import (
     CorpusRunManifest,
@@ -64,7 +65,11 @@ def download_corpus(
     Raises:
         UnknownCorpusSourceError: If the source id is not registered.
         UnknownLidModelError: If the filter names an unregistered model.
+        LidLanguageNotEmittedError: If the filter's model reports no label
+            for the filter's language, checked before streaming.
         CorpusStreamError: If the source's host cannot be read.
+        FilterKeptNothingError: If a filtered run kept none of the lines
+            it saw. The empty corpus is removed and no manifest written.
     """
     spec = get_source_spec(source_id)
     line_filter, lid_record = build_line_filter(lid_filter)
@@ -96,6 +101,12 @@ def download_corpus(
                 )
             if max_lines is not None and lines_written >= max_lines:
                 break
+
+    if lid_filter is not None and lines_written == 0:
+        output_path.unlink()
+        raise FilterKeptNothingError(
+            source_id, lid_filter["language"], lid_filter["model_id"], lines_seen, str(output_path)
+        )
 
     manifest = CorpusRunManifest(
         source_id=spec["source_id"],
