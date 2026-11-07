@@ -289,7 +289,8 @@ def train_sentencepiece_model(
     Args:
         input_text: Text content to use for training
         training_file: Optional file object to use for training (must have .name attribute)
-        vocab_size: Size of the vocabulary to create
+        vocab_size: Largest vocabulary to learn; a text that supports
+            fewer pieces yields fewer, and the report says so
         model_type: SentencePiece model type (unigram, bpe, char, word)
         character_coverage: Character coverage ratio
         user_symbols: Comma-separated list of user-defined symbols
@@ -335,6 +336,13 @@ def train_sentencepiece_model(
             character_coverage=character_coverage,
             normalization_rule_name="nfkc",
             user_defined_symbols=user_symbols_list,
+            # The requested size is a ceiling, not a demand. SentencePiece
+            # 0.2.3 refuses a size the corpus cannot fill ("Vocabulary
+            # size too high (50). Please set it to a value <= 48") for
+            # every model type, so the demo's default of 12000 failed on
+            # any pasted text; as a soft limit it learns what the corpus
+            # supports, and the report below says how many that was.
+            hard_vocab_limit=False,
             # Additional parameters that help with large corpus files
             input_sentence_size=10000000,  # Process up to 10M sentences (plenty for most use cases)
             shuffle_input_sentence=True,  # Shuffle for better training outcome
@@ -362,11 +370,17 @@ def train_sentencepiece_model(
         with open(model_file_path, "rb") as src, open(output_model_path, "wb") as dst:
             dst.write(src.read())
 
+        fitted_note = (
+            f" (of {vocab_size} requested; the training text supports no more)"
+            if vocab_count < vocab_size
+            else ""
+        )
+
         # Create info message
         info_md = f"""### Model Training Complete
 
 **Model Statistics:**
-- Vocabulary Size: {vocab_count} tokens
+- Vocabulary Size: {vocab_count} tokens{fitted_note}
 - Model Type: {model_type}
 - Character Coverage: {character_coverage}
 - Model File Size: {model_size_kb:.2f} KB
