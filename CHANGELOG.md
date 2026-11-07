@@ -2,6 +2,22 @@
 
 All notable changes to the Turkic Transliteration project will be documented in this file.
 
+## [Unreleased]
+
+### Fixed
+
+**Cleaning a corpus no longer needs PyTorch.** The `turkic_translit.cli`
+package imported every subcommand when it was imported, and
+`turkic-clean-corpus` lives in it, so the cleaner imported `torch` and
+`transformers` through `eval-lm` before reading its arguments; on a host
+whose `torch` could not load its native library it could not print its
+own `--help`. The group now imports a subcommand's module when the
+command is looked up (`LazyCommandGroup`, `COMMANDS`, `load_command`), so
+`translit` and `turkic-clean-corpus` load neither, which
+`tests/test_cli_lazy_imports.py` reads from a fresh interpreter's
+`sys.modules`, while `eval-lm` still loads both. The unused re-export of
+`train_spm` from the package is gone.
+
 ## [0.5.11] - 2026-11-07
 
 ### Added
