@@ -44,6 +44,20 @@ the learned size beside the requested one. The lockfile now pins 0.2.3,
 the version pip resolves. `build-spm` still refuses an unfillable size, as
 its help says, and `train-spm` keeps its `--hard-vocab-limit` flag.
 
+**Kazakh typed in pre-Unicode fonts keeps its words.** Those fonts put
+Kazakh letters on the Windows-1251 slots of Macedonian and Serbian ones,
+so web text spells қ ғ ң as ќ ѓ њ, and some writes ң as the en-with-tail
+the Kyrgyz folds already repair. None of these letters is in the Kazakh
+rules, so such words reached the IPA untransliterated and the cleaner
+dropped them. Eight new `kk` rows in `corpus/folds.csv` repair them on
+download, each measured on the 2026-11-07 OSCAR kk download: spelled
+with the Kazakh letter, 1,774 of 1,901 ќ tokens, 486 of 552 ѓ tokens, 572
+of 635 њ tokens and 400 of 431 ӊ tokens are words the same corpus already
+writes that way. The fonts' stand-ins for ә are left alone: є reads as ә
+in 336 tokens and as ғ in 296, and ј and ѕ split between ә, ң and і, so
+no single letter is right for them. Corpora downloaded before this carry
+the old folds digest in their manifests.
+
 ## [0.5.11] - 2026-11-07
 
 ### Added
