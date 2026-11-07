@@ -58,6 +58,17 @@ in 336 tokens and as ғ in 296, and ј and ѕ split between ә, ң and і, so
 no single letter is right for them. Corpora downloaded before this carry
 the old folds digest in their manifests.
 
+**Every path to the rules normalises source text the same way.**
+`corpus/normalize.py` strips format characters, applies NFKC and applies
+a language's folds, but only the downloader called it: `turkic-translit
+translit` and the web demo's direct tab handed raw text to the rules, so
+the same legacy-font Kazakh line, or a word broken by a soft hyphen, gave
+different IPA depending on the command. `normalize_source_line` and
+`language_folds` are now the one normalisation step, called by the
+download run, the command line (per line, before the record is written)
+and the web demo (per pasted line). Whitespace inside a line is
+collapsed on every path, as the downloader always did.
+
 ## [0.5.11] - 2026-11-07
 
 ### Added
