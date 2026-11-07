@@ -18,6 +18,19 @@ command is looked up (`LazyCommandGroup`, `COMMANDS`, `load_command`), so
 `sys.modules`, while `eval-lm` still loads both. The unused re-export of
 `train_spm` from the package is gone.
 
+**A download filter that can keep nothing fails instead of writing an
+empty corpus.** On 2026-11-07 `turkic-download-corpus download --lang kk
+--filter-langid kk --lid-model lid218e` read all 338,811 Kazakh OSCAR
+lines in thirteen minutes, kept none, and exited 0 with an empty file,
+because lid218e labels Kazakh `kaz_Cyrl` and the filter matches its code as
+a prefix. Before streaming, the filter now refuses a code no label of its
+model starts with (`TURKIC_LID_010_LANGUAGE_NOT_EMITTED`), naming the
+model's labels for the same language under its ISO 639-3 code
+(`three_letter_code`, `LidClassifier.labels_matching`). A filtered run
+that keeps none of the lines it saw removes the empty file, writes no
+manifest and raises `TURKIC_CORPUS_010_FILTER_KEPT_NOTHING`. The README
+documents the download command and which code each model takes.
+
 ## [0.5.11] - 2026-11-07
 
 ### Added

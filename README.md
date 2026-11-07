@@ -143,6 +143,23 @@ turkic-translit translit --lang kk --in text.txt \
 At least one of `--out-latin` / `--out-ipa` must be specified.
 `--log-level` is set on the parent group: `turkic-translit --log-level debug translit ...`.
 
+### `turkic-download-corpus` usage
+
+```bash
+export HF_TOKEN=...   # OSCAR-2301 is gated on Hugging Face
+turkic-download-corpus download --source oscar-2301 --lang kk --out kk.txt \
+  --max-lines 125000 --filter-langid kaz --lid-model lid218e --lid-threshold 0.95
+```
+
+- `--lang` is the source's code (ISO 639-1, `kk`); `--filter-langid` is
+  the classifier's label, matched as a prefix. lid.176 labels Kazakh `kk`,
+  but lid218e labels it `kaz_Cyrl`, so under lid218e pass `kaz`. A code
+  the model never reports is refused before streaming, naming the label to
+  use instead, and a filter that keeps no line ends in an error rather
+  than an empty file.
+- The manifest beside the output records the source, the classifier's
+  weights and threshold, and the SHA-256 of the file written.
+
 ### `turkic-clean-corpus` usage
 
 The rules transliterate their own script and pass everything else through
