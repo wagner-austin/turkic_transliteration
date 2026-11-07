@@ -8,6 +8,7 @@ mojibake the Turkish raw corpus carries.
 
 from __future__ import annotations
 
+from turkic_translit.core import to_ipa
 from turkic_translit.corpus.normalize import (
     PACKAGED_FOLDS,
     normalize_line,
@@ -77,7 +78,7 @@ def test_every_packaged_fold_is_a_justified_merge() -> None:
     """Each fold row rewrites something, says why, and cites its ground."""
     rules = read_symbol_map(PACKAGED_FOLDS)
 
-    assert len(rules) == 8, "folds gained or lost a row; update this pin deliberately"
+    assert len(rules) == 16, "folds gained or lost a row; update this pin deliberately"
     for rule in rules:
         assert rule["action"] == MERGE_ACTION
         assert rule["verdict"] == "MISENCODING"
@@ -87,7 +88,7 @@ def test_every_packaged_fold_is_a_justified_merge() -> None:
 
 def test_fold_scopes_name_only_languages_this_project_ships() -> None:
     """A typo in a scope would silently disable the fold; pin the set."""
-    assert scopes_of(read_symbol_map(PACKAGED_FOLDS)) == {"ky", "tr"}
+    assert scopes_of(read_symbol_map(PACKAGED_FOLDS)) == {"kk", "ky", "tr"}
 
 
 def test_the_kyrgyz_fold_repairs_the_tailed_nasal() -> None:
@@ -95,6 +96,22 @@ def test_the_kyrgyz_fold_repairs_the_tailed_nasal() -> None:
     folds = substitutions_for(read_symbol_map(PACKAGED_FOLDS), "ky")
 
     assert apply_substitutions("кеӊеш жаӊы Ӊ", folds) == "кеңеш жаңы Ң"
+
+
+def test_legacy_font_kazakh_transliterates_like_its_unicode_spelling() -> None:
+    """ќ ѓ њ ӊ written for қ ғ ң give the IPA the real letters give.
+
+    The words are from the 2026-11-07 OSCAR kk download, where the cleaner
+    dropped them as foreign. ә's stand-ins are deliberately not folded, so
+    a line using є keeps it.
+    """
+    folds = substitutions_for(read_symbol_map(PACKAGED_FOLDS), "kk")
+    legacy = "Ќазаќстан Республикасыныњ жоѓары оќу орны, оныӊ Ѓылыми кеңесі"
+    unicode = "Қазақстан Республикасының жоғары оқу орны, оның Ғылыми кеңесі"
+
+    assert apply_substitutions(legacy, folds) == unicode
+    assert to_ipa(apply_substitutions(legacy, folds), "kk") == to_ipa(unicode, "kk")
+    assert apply_substitutions("жєне", folds) == "жєне"
 
 
 def test_the_turkish_folds_repair_the_codepage_mojibake() -> None:
@@ -107,5 +124,9 @@ def test_the_turkish_folds_repair_the_codepage_mojibake() -> None:
 
 
 def test_folds_for_an_unaffected_language_are_empty() -> None:
-    """A language with no measured misencoding gets no rewrites."""
-    assert substitutions_for(read_symbol_map(PACKAGED_FOLDS), "kk") == {}
+    """A language with no measured misencoding gets no rewrites.
+
+    Kazakh was the example here until 2026-11-07, when its legacy-font
+    letters were measured and folded; Azerbaijani has no fold rows.
+    """
+    assert substitutions_for(read_symbol_map(PACKAGED_FOLDS), "az") == {}
