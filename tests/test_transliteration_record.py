@@ -148,7 +148,8 @@ def test_ipa_with_no_record_is_refused_and_nothing_is_written(tmp_path: Path) ->
 
     assert result.exit_code == 1
     assert "TURKIC_CORPUS_006_TRANSLITERATION_RECORD_MISSING" in result.output
-    assert "oscar_kk_ipa.txt.manifest.json" in result.output
+    assert f"{raw / 'oscar_kk_ipa.txt'} has no transliteration record" in result.output
+    assert f"{raw / 'oscar_kk_ipa.txt.manifest.json'};" in result.output
     assert not out.exists()
 
 
@@ -171,6 +172,10 @@ def test_ipa_written_by_other_rules_is_refused_naming_both_digests(tmp_path: Pat
     assert caught.value.code == "TURKIC_CORPUS_008_TRANSLITERATED_BY_OTHER_RULES"
     assert caught.value.recorded == f"kk_ipa.rules {_sha256(old_rules)}"
     assert caught.value.installed == f"kk_ipa.rules {_sha256(KAZAKH_RULES)}"
+    assert (
+        f"{corpus} was written by kk_ipa.rules {_sha256(old_rules)}, and the installed "
+        f"rules are kk_ipa.rules {_sha256(KAZAKH_RULES)};"
+    ) in str(caught.value)
     assert not (tmp_path / "clean").exists()
 
 
@@ -199,6 +204,10 @@ def test_a_record_naming_another_rule_file_is_refused(
 
     assert caught.value.recorded == f"{rule_file} {_sha256(_RULE_DIR / digest_of)}"
     assert caught.value.installed == f"kk_ipa.rules {_sha256(KAZAKH_RULES)}"
+    assert (
+        f"{corpus} was written by {rule_file} {_sha256(_RULE_DIR / digest_of)}, and the "
+        f"installed rules are kk_ipa.rules {_sha256(KAZAKH_RULES)};"
+    ) in str(caught.value)
 
 
 def test_a_record_of_another_language_is_refused(tmp_path: Path) -> None:
@@ -210,6 +219,10 @@ def test_a_record_of_another_language_is_refused(tmp_path: Path) -> None:
 
     assert caught.value.code == "TURKIC_CORPUS_007_TRANSLITERATION_RECORD_LANGUAGE"
     assert (caught.value.named, caught.value.recorded) == ("kk", "ky")
+    assert str(caught.value) == (
+        f"TURKIC_CORPUS_007_TRANSLITERATION_RECORD_LANGUAGE: {corpus} is named as kk "
+        f"but its record says the ky rules wrote it"
+    )
 
 
 def test_a_file_changed_after_its_record_is_refused(tmp_path: Path) -> None:
@@ -225,6 +238,11 @@ def test_a_file_changed_after_its_record_is_refused(tmp_path: Path) -> None:
     assert caught.value.code == "TURKIC_CORPUS_009_TRANSLITERATION_OUTPUT_CHANGED"
     assert caught.value.recorded == recorded
     assert caught.value.found == _sha256(corpus)
+    assert str(caught.value) == (
+        f"TURKIC_CORPUS_009_TRANSLITERATION_OUTPUT_CHANGED: {corpus} has SHA-256 "
+        f"{_sha256(corpus)}, and its transliteration record describes {recorded}; "
+        f"the file changed after the rules wrote it"
+    )
 
 
 def test_one_refused_corpus_stops_the_whole_run_before_any_write(tmp_path: Path) -> None:
