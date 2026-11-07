@@ -15,6 +15,7 @@ import threading
 from collections.abc import Iterator
 from pathlib import Path
 
+import click
 import gradio as gr
 import pytest
 from click.testing import CliRunner
@@ -173,10 +174,13 @@ def test_the_web_subcommand_is_registered_under_its_own_name() -> None:
 
     Click reports exit code 2 and prints usage for a name it does not
     know, which a test that only asserted on the recording server would
-    not distinguish from a command that ran and served nothing.
+    not distinguish from a command that ran and served nothing. The group
+    imports a command's module when the command is looked up, so the
+    lookup click itself makes is the one asserted on.
     """
-    assert "web" in cli_group.commands
-    assert cli_group.commands["web"] is web_command
+    context = click.Context(cli_group)
+    assert "web" in cli_group.list_commands(context)
+    assert cli_group.get_command(context, "web") is web_command
 
 
 def free_port() -> int:
