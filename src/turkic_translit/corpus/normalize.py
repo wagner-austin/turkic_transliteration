@@ -24,7 +24,12 @@ from collections.abc import Mapping
 from pathlib import Path
 from typing import Final, TypedDict
 
-from turkic_translit.corpus.symbols import read_symbol_map, symbol_table_digest
+from turkic_translit.corpus.symbols import (
+    apply_substitutions,
+    read_symbol_map,
+    substitutions_for,
+    symbol_table_digest,
+)
 from turkic_translit.digests import require_sha256_hex
 from turkic_translit.validation import require_non_empty_str, require_present
 
@@ -70,6 +75,45 @@ def normalize_line(fragment: str) -> str:
     """
     folded = ud.normalize("NFKC", strip_format_characters(fragment))
     return " ".join(folded.split())
+
+
+def language_folds(language: str, folds: Path = PACKAGED_FOLDS) -> dict[str, str]:
+    """Read the verified misencoding repairs for one language.
+
+    Read once per run, by whoever transliterates source text, and handed
+    to :func:`normalize_source_line` for every line.
+
+    Args:
+        language: Language code the folds are scoped to, as the rules and
+            the corpus sources name it.
+        folds: Folds table, defaulting to the packaged one.
+
+    Returns:
+        Lookalike to the letter it stands for, empty for a language with
+        no measured misencoding.
+    """
+    return substitutions_for(read_symbol_map(folds), language)
+
+
+def normalize_source_line(fragment: str, folds: Mapping[str, str]) -> str:
+    """Normalise one line of source text the way every path to the rules must.
+
+    Format characters, presentation forms and a language's verified
+    misencodings are all properties of how a source was written, not of
+    the language, so the downloader, ``turkic-translit translit`` and the
+    web demo all pass raw text through this before the rules see it. Until
+    2026-11-07 only the downloader did, so the same Kazakh line typed in a
+    legacy font gave different IPA depending on which command read it.
+
+    Args:
+        fragment: One line of raw text.
+        folds: The language's repairs, from :func:`language_folds`.
+
+    Returns:
+        The line with format characters removed, NFKC applied, whitespace
+        collapsed and every fold applied.
+    """
+    return apply_substitutions(normalize_line(fragment), folds)
 
 
 class NormalizationRecord(TypedDict):
@@ -171,7 +215,9 @@ __all__ = [
     "NormalizationRecord",
     "decode_normalization_record",
     "encode_normalization_record",
+    "language_folds",
     "normalization_record",
     "normalize_line",
+    "normalize_source_line",
     "strip_format_characters",
 ]

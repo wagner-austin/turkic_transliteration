@@ -21,16 +21,11 @@ from turkic_translit.corpus.manifest import (
     write_corpus_run_manifest,
 )
 from turkic_translit.corpus.normalize import (
-    PACKAGED_FOLDS,
+    language_folds,
     normalization_record,
-    normalize_line,
+    normalize_source_line,
 )
 from turkic_translit.corpus.sources import get_source_spec
-from turkic_translit.corpus.symbols import (
-    apply_substitutions,
-    read_symbol_map,
-    substitutions_for,
-)
 from turkic_translit.digests import sha256_of_file
 
 logger = logging.getLogger(__name__)
@@ -76,14 +71,14 @@ def download_corpus(
     filter_language = None if lid_filter is None else lid_filter["language"]
     # The verified misencoding repairs for this language, applied to
     # every line as it arrives so the corpus is born normalised.
-    folds = substitutions_for(read_symbol_map(PACKAGED_FOLDS), language)
+    folds = language_folds(language)
 
     output_path.parent.mkdir(parents=True, exist_ok=True)
     lines_seen = 0
     lines_written = 0
     with output_path.open("w", encoding="utf-8") as sink:
         for fragment in stream_source(spec, language, access_token):
-            text = apply_substitutions(normalize_line(fragment), folds)
+            text = normalize_source_line(fragment, folds)
             if text == "":
                 continue
             lines_seen += 1
