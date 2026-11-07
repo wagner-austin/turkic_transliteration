@@ -25,6 +25,7 @@ from turkic_translit.tokenizer import (
     sentencepiece_trainer,
 )
 
+from ..corpus.normalize import language_folds, normalize_source_line
 from ..error_service import (
     set_correlation_id,
     set_request_context,
@@ -95,6 +96,10 @@ def direct_transliterate(
 ) -> tuple[str, str]:
     """Transliterate text to Latin or IPA with the language's rules.
 
+    Each line is normalised first, as the downloader and the command line
+    normalise theirs, so pasted text gives the IPA the same text gives
+    anywhere else in the package.
+
     Args:
         text: Input in the language's native orthography.
         lang: ISO 639-1 language code.
@@ -119,7 +124,9 @@ def direct_transliterate(
     fmt = out_fmt.lower()
     if fmt not in {"latin", "ipa"}:
         raise ValueError(f"out_fmt must be 'latin' or 'ipa', got {out_fmt!r}")
-    result = to_latin(text, lang, include_arabic) if fmt == "latin" else to_ipa(text, lang)
+    folds = language_folds(lang)
+    source = "\n".join(normalize_source_line(line, folds) for line in text.split("\n"))
+    result = to_latin(source, lang, include_arabic) if fmt == "latin" else to_ipa(source, lang)
     stats_markdown = (
         f"**Bytes** — Cyrillic : {len(text.encode('utf8'))}, "
         f"{fmt.upper()} : {len(result.encode('utf8'))}"
