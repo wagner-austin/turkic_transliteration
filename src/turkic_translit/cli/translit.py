@@ -19,6 +19,7 @@ from typing import TextIO
 import click
 
 from ..core import get_supported_languages, to_ipa, to_latin
+from ..corpus.normalize import language_folds, normalize_source_line
 from ..corpus.transliteration_record import write_transliteration_record
 
 _logger = logging.getLogger(__name__)
@@ -78,7 +79,10 @@ def _stream_transliteration(
     """Read ``input_stream`` line-by-line and emit Latin / IPA output.
 
     Reads one line at a time so behaviour is streaming rather than
-    buffered — the entire input need not fit in memory. Callers pass
+    buffered — the entire input need not fit in memory. Each line goes
+    through :func:`normalize_source_line` with the language's folds first,
+    the same normalisation the downloader applies, so a line gives one
+    transliteration whichever command read it. Callers pass
     ``None`` for a mode they do not want emitted; that mode's
     per-line transliteration is skipped entirely (never computed).
 
@@ -99,8 +103,9 @@ def _stream_transliteration(
         The number of input lines consumed.
     """
     lines_consumed = 0
+    folds = language_folds(lang)
     for line in input_stream:
-        stripped = line.rstrip("\n")
+        stripped = normalize_source_line(line.rstrip("\n"), folds)
         if latin_output is not None:
             latin_output.write(to_latin(stripped, lang, arabic) + "\n")
         if ipa_output is not None:
