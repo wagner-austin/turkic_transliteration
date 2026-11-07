@@ -210,6 +210,25 @@ class LidClassifier:
         prediction = self.classify(text)
         return prediction["label"].startswith(language) and prediction["probability"] >= threshold
 
+    def labels_matching(self, language: str) -> tuple[str, ...]:
+        """List the labels a filter for ``language`` would accept.
+
+        The same prefix match :meth:`accepts` applies, read over every
+        label the model has, so an empty answer means no line can ever be
+        accepted for ``language``.
+
+        Args:
+            language: Expected label, as :meth:`accepts` takes it.
+
+        Returns:
+            The matching labels, prefix removed, in the model's order.
+
+        Raises:
+            LidLabelError: If any label lacks the prefix the model's
+                specification declares.
+        """
+        return tuple(label for label in self.known_labels() if label.startswith(language))
+
 
 __all__ = [
     "FastTextModel",

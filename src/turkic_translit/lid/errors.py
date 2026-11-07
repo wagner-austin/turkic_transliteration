@@ -22,6 +22,7 @@ ERR_MODEL_FILE_EMPTY: Final = "TURKIC_LID_003_MODEL_FILE_EMPTY"
 ERR_LABEL_MALFORMED: Final = "TURKIC_LID_007_LABEL_MALFORMED"
 ERR_EMPTY_TEXT: Final = "TURKIC_LID_008_EMPTY_TEXT"
 ERR_MULTILINE_TEXT: Final = "TURKIC_LID_009_MULTILINE_TEXT"
+ERR_LANGUAGE_NOT_EMITTED: Final = "TURKIC_LID_010_LANGUAGE_NOT_EMITTED"
 
 
 class LidError(Exception):
@@ -141,9 +142,37 @@ class MultilineClassificationTextError(LidError):
         )
 
 
+class LidLanguageNotEmittedError(LidError):
+    """Raised when a filter asks for a language its model never reports.
+
+    Args:
+        model_id: Registered identifier of the model.
+        language: The language the filter was asked for.
+        suggestions: The model's labels for the same language under its
+            three-letter code, or empty when there is none.
+    """
+
+    def __init__(self, model_id: str, language: str, suggestions: tuple[str, ...]) -> None:
+        """Name the model, the language asked for, and the labels to ask for instead."""
+        hint = (
+            f"; for that language it reports {', '.join(suggestions)}"
+            if suggestions
+            else "; pass one of its own labels"
+        )
+        super().__init__(
+            ERR_LANGUAGE_NOT_EMITTED,
+            f"model {model_id!r} reports no label starting with {language!r}, so a "
+            f"filter for it would keep no line{hint}",
+        )
+        self.model_id = model_id
+        self.language = language
+        self.suggestions = suggestions
+
+
 __all__ = [
     "ERR_EMPTY_TEXT",
     "ERR_LABEL_MALFORMED",
+    "ERR_LANGUAGE_NOT_EMITTED",
     "ERR_MODEL_FILE_EMPTY",
     "ERR_MODEL_FILE_MISSING",
     "ERR_MULTILINE_TEXT",
@@ -151,6 +180,7 @@ __all__ = [
     "EmptyClassificationTextError",
     "LidError",
     "LidLabelError",
+    "LidLanguageNotEmittedError",
     "LidModelFileEmptyError",
     "LidModelFileMissingError",
     "MultilineClassificationTextError",
