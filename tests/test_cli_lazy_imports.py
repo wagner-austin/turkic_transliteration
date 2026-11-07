@@ -86,11 +86,16 @@ def test_transliterating_and_cleaning_load_no_model_library(tmp_path: Path) -> N
 
 
 def test_the_language_model_commands_still_load_their_libraries(tmp_path: Path) -> None:
-    """eval-lm's help imports torch: laziness defers it, it does not drop it."""
-    assert _heavy_modules_after("turkic_translit.cli", "main", ["eval-lm", "--help"], tmp_path) == [
-        "torch",
-        "transformers",
-    ]
+    """eval-lm's help imports torch: laziness defers it, it does not drop it.
+
+    Whether transformers pulls sentencepiece in as well depends on its
+    version (the lockfile's does, a newer one does not), so the claim is
+    that both libraries eval-lm itself imports are loaded.
+    """
+    loaded = _heavy_modules_after("turkic_translit.cli", "main", ["eval-lm", "--help"], tmp_path)
+
+    assert "torch" in loaded
+    assert "transformers" in loaded
 
 
 @pytest.mark.parametrize("name", sorted(COMMANDS))
