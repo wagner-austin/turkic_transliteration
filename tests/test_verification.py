@@ -371,6 +371,16 @@ def test_web_sentencepiece_training() -> None:
 
         assert decoded == test_phrase
 
+        # The text cannot fill 50 unigram pieces, which SentencePiece 0.2.3
+        # refuses as a hard limit; the size the loaded model reports is
+        # what the summary must state, beside what was asked for.
+        learned = proc.get_piece_size()
+        assert learned < 50
+        assert (
+            f"Vocabulary Size: {learned} tokens (of 50 requested; "
+            f"the training text supports no more)"
+        ) in info
+
         # Test using only text content, no file
         model_path2, info2 = train_sentencepiece_model(
             input_text=test_text,
@@ -381,6 +391,16 @@ def test_web_sentencepiece_training() -> None:
 
         assert Path(model_path2).exists()
         assert "bpe" in info2
+        # BPE fills all 40, so the summary carries no fitted note.
+        assert sentencepiece_processor(model_path2).get_piece_size() == 40
+        assert "Vocabulary Size: 40 tokens\n" in info2
+
+        # The demo's own default, 12000, on the same short text: a model,
+        # not "Vocabulary size too high (12000)".
+        model_path3, info3 = train_sentencepiece_model(input_text=test_text)
+        assert Path(model_path3).is_file()
+        assert "tokens (of 12000 requested; the training text supports no more)" in info3
+        os.unlink(model_path3)
 
     finally:
         # Clean up
