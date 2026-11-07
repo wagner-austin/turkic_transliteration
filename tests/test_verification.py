@@ -302,6 +302,19 @@ def test_lid218e_cannot_label_cyrillic_uzbek() -> None:
     assert prediction["probability"] >= 0.95
 
 
+@pytest.mark.lid218e_weights
+def test_lid218e_reports_kazakh_as_kaz_cyrl_and_nothing_as_kk() -> None:
+    """The real label set behind the 2026-11-07 empty download.
+
+    A filter for ``kk`` under lid218e kept 0 of 338,811 Kazakh OSCAR lines
+    because no label starts with ``kk``; ``kaz`` matches exactly one.
+    """
+    classifier = _installed_corpus_classifier()
+
+    assert classifier.labels_matching("kk") == ()
+    assert classifier.labels_matching("kaz") == ("kaz_Cyrl",)
+
+
 # 6. Test SentencePiece training in web interface
 def test_web_sentencepiece_training() -> None:
     """

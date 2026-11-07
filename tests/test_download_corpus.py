@@ -237,13 +237,47 @@ def test_a_stricter_threshold_is_recorded_as_given(
             "--lid-model",
             "lid218e",
             "--lid-threshold",
-            "0.995",
+            "0.985",
         ],
     )
 
     stored = json.loads(manifest_path_for(output).read_text(encoding="utf-8"))
-    assert stored["language_identification"]["threshold"] == 0.995
-    assert stored["lines_written"] == 0
+    assert stored["language_identification"]["threshold"] == 0.985
+    assert stored["lines_written"] == 1
+
+
+def test_a_threshold_no_line_reaches_fails_and_writes_nothing(
+    runner: CliRunner, corpus_lines: None, installed_weights: None, tmp_path: Path
+) -> None:
+    """At 0.995 neither 0.99 line passes: an error, not an empty corpus.
+
+    Until board task 4ec9156f this run exited 0 with an empty file and a
+    manifest recording zero lines written, which is how a filter asked for
+    a code its model never reports went unnoticed for 338,811 lines.
+    """
+    output = tmp_path / "uz.txt"
+
+    result = runner.invoke(
+        cli_module.cli,
+        [
+            "download",
+            "--lang",
+            "uz",
+            "--out",
+            str(output),
+            "--filter-langid",
+            "uzn",
+            "--lid-model",
+            "lid218e",
+            "--lid-threshold",
+            "0.995",
+        ],
+    )
+
+    assert result.exit_code == 1
+    assert "TURKIC_CORPUS_010_FILTER_KEPT_NOTHING: lid218e kept none of 2 lines" in result.output
+    assert not output.exists()
+    assert not manifest_path_for(output).exists()
 
 
 def test_filtering_without_naming_a_model_is_refused(runner: CliRunner, tmp_path: Path) -> None:

@@ -23,7 +23,7 @@ from turkic_translit.corpus.filtering import (
 )
 from turkic_translit.lid import _test_hooks
 from turkic_translit.lid.classifier import LidClassifier
-from turkic_translit.lid.errors import UnknownLidModelError
+from turkic_translit.lid.errors import LidLanguageNotEmittedError, UnknownLidModelError
 from turkic_translit.lid.locations import default_search_dirs
 from turkic_translit.lid.registry import get_spec
 from turkic_translit.validation import (
@@ -36,6 +36,7 @@ ANSWERS = {
     "salom dunyo": [("__label__uzn_Latn", 0.99)],
     "marginal": [("__label__uzn_Latn", 0.80)],
     "privet mir": [("__label__rus_Cyrl", 0.99)],
+    "salem alem": [("__label__kaz_Cyrl", 0.99)],
 }
 
 
@@ -131,3 +132,38 @@ def test_an_unregistered_model_is_refused_before_any_download(
     with pytest.raises(UnknownLidModelError) as excinfo:
         build_line_filter(LidFilterRequest(language="uzn", model_id="lid999", threshold=0.95))
     assert excinfo.value.known == ("lid.176", "lid218e")
+
+
+@pytest.mark.parametrize(
+    ("language", "suggestions", "hint"),
+    [
+        # The 2026-11-07 run: kk is the source's code, kaz_Cyrl the model's.
+        ("kk", ("kaz_Cyrl",), "; for that language it reports kaz_Cyrl"),
+        # ky is kir, and the table answers no Kyrgyz line at all.
+        ("ky", (), "; pass one of its own labels"),
+        # No ISO 639-1 entry at all.
+        ("qq", (), "; pass one of its own labels"),
+    ],
+)
+def test_a_language_the_model_never_reports_is_refused_before_any_line(
+    installed_weights: None, language: str, suggestions: tuple[str, ...], hint: str
+) -> None:
+    """A filter that could keep no line is refused, naming what to ask for."""
+    with pytest.raises(LidLanguageNotEmittedError) as excinfo:
+        build_line_filter(LidFilterRequest(language=language, model_id="lid218e", threshold=0.95))
+
+    assert excinfo.value.suggestions == suggestions
+    assert str(excinfo.value) == (
+        f"TURKIC_LID_010_LANGUAGE_NOT_EMITTED: model 'lid218e' reports no label starting "
+        f"with {language!r}, so a filter for it would keep no line{hint}"
+    )
+
+
+def test_the_suggested_label_is_one_the_filter_accepts(installed_weights: None) -> None:
+    """Asking for what the refusal suggested builds a filter that keeps Kazakh."""
+    line_filter, _record = build_line_filter(
+        LidFilterRequest(language="kaz", model_id="lid218e", threshold=0.95)
+    )
+
+    assert line_filter.keeps("salem alem") is True
+    assert line_filter.keeps("privet mir") is False

@@ -15,7 +15,7 @@ from click.testing import CliRunner
 
 from turkic_translit.cli.build_spm import main as build_spm
 from turkic_translit.cli.run_leven import main as run_leven
-from turkic_translit.lang_utils import pretty_lang
+from turkic_translit.lang_utils import pretty_lang, three_letter_code
 
 CORPUS = [f"qazaq tili {index} salem alem birinshi" for index in range(120)]
 
@@ -162,3 +162,13 @@ def test_a_known_code_is_labelled_with_its_name(code: str, expected: str) -> Non
 def test_an_unknown_code_is_returned_unchanged() -> None:
     """A code pycountry does not know is shown as itself."""
     assert pretty_lang("zzz") == "zzz"
+
+
+@pytest.mark.parametrize(
+    ("code", "expected"),
+    # ISO 639-3 code tables (SIL): kk is kaz, ky is kir, tr is tur, uz is uzb.
+    [("kk", "kaz"), ("ky", "kir"), ("tr", "tur"), ("uz", "uzb"), ("qq", None)],
+)
+def test_a_two_letter_code_maps_to_its_three_letter_code(code: str, expected: str | None) -> None:
+    """The three-letter code, or None for a code ISO 639-1 does not assign."""
+    assert three_letter_code(code) == expected

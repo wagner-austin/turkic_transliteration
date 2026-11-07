@@ -13,7 +13,7 @@ from pathlib import Path
 import pytest
 
 from turkic_translit.corpus import _test_hooks as corpus_hooks
-from turkic_translit.corpus.errors import UnknownCorpusSourceError
+from turkic_translit.corpus.errors import FilterKeptNothingError, UnknownCorpusSourceError
 from turkic_translit.corpus.filtering import LidFilterRequest
 from turkic_translit.corpus.manifest import (
     manifest_path_for,
@@ -139,6 +139,31 @@ def test_filtered_run_keeps_only_confident_lines_of_the_language(
     ]
     assert manifest["lines_seen"] == 4
     assert manifest["lines_written"] == 2
+
+
+def test_a_filtered_run_that_keeps_nothing_is_an_error_and_leaves_nothing(
+    oscar_lines: None, installed_weights: None, tmp_path: Path
+) -> None:
+    """Four lines seen and none above 0.999: no empty corpus, no manifest."""
+    output = tmp_path / "uz.txt"
+
+    with pytest.raises(FilterKeptNothingError) as excinfo:
+        download_corpus(
+            "oscar-2301",
+            "uz",
+            output,
+            None,
+            None,
+            LidFilterRequest(language="uzn", model_id="lid218e", threshold=0.999),
+        )
+
+    assert str(excinfo.value) == (
+        f"TURKIC_CORPUS_010_FILTER_KEPT_NOTHING: lid218e kept none of 4 lines from "
+        f"oscar-2301 as 'uzn'; an empty corpus is not a download, so {output} was "
+        f"removed and no manifest written"
+    )
+    assert not output.exists()
+    assert not manifest_path_for(output).exists()
 
 
 def test_filtered_run_names_the_classifier_in_the_manifest_on_disk(
