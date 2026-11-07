@@ -16,6 +16,7 @@ import subprocess
 import sys
 from pathlib import Path
 
+import click
 import pytest
 from click.testing import CliRunner
 
@@ -94,14 +95,13 @@ def test_the_language_model_commands_still_load_their_libraries(tmp_path: Path) 
 
 @pytest.mark.parametrize("name", sorted(COMMANDS))
 def test_every_listed_command_runs_under_its_own_name(name: str) -> None:
-    """Each table entry loads a command whose help click prints under that name."""
-    command = load_command(name)
+    """Each table entry loads the command click runs under that name."""
+    context = click.Context(main)
     result = CliRunner().invoke(main, [name, "--help"])
 
+    assert main.get_command(context, name) is load_command(name)
     assert result.exit_code == 0, result.output
     assert result.output.startswith(f"Usage: main {name} [OPTIONS]")
-    assert command.help is not None
-    assert command.help.split("\n")[0].strip() in result.output
 
 
 def test_help_lists_every_command_and_an_unknown_one_is_refused() -> None:
