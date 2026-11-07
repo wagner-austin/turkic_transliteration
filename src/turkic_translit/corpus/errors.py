@@ -14,6 +14,10 @@ ERR_UNKNOWN_SOURCE: Final = "TURKIC_CORPUS_001_UNKNOWN_SOURCE"
 ERR_STREAM_FAILED: Final = "TURKIC_CORPUS_002_STREAM_FAILED"
 ERR_SYMBOL_MAP_MALFORMED: Final = "TURKIC_CORPUS_003_SYMBOL_MAP_MALFORMED"
 ERR_NO_CORPORA: Final = "TURKIC_CORPUS_005_NO_CORPORA"
+ERR_RECORD_MISSING: Final = "TURKIC_CORPUS_006_TRANSLITERATION_RECORD_MISSING"
+ERR_RECORD_LANGUAGE: Final = "TURKIC_CORPUS_007_TRANSLITERATION_RECORD_LANGUAGE"
+ERR_RECORD_RULES: Final = "TURKIC_CORPUS_008_TRANSLITERATED_BY_OTHER_RULES"
+ERR_RECORD_OUTPUT: Final = "TURKIC_CORPUS_009_TRANSLITERATION_OUTPUT_CHANGED"
 
 
 class CorpusError(Exception):
@@ -100,8 +104,97 @@ class NoCorporaError(CorpusError):
         self.directory = directory
 
 
+class TransliterationRecordMissingError(CorpusError):
+    """Raised when an IPA file carries no record of the rules that wrote it.
+
+    Args:
+        corpus: The IPA file.
+        record: Where its record should have been.
+    """
+
+    def __init__(self, corpus: str, record: str) -> None:
+        """Name the file and the record it lacks."""
+        super().__init__(
+            ERR_RECORD_MISSING,
+            f"{corpus} has no transliteration record at {record}; nothing says which "
+            f"rules wrote it, so text the installed rules cannot produce would be "
+            f"dropped as foreign. Transliterate the source text with "
+            f"'turkic-translit translit --out-ipa <file>', which writes the record",
+        )
+        self.corpus = corpus
+        self.record = record
+
+
+class TransliterationRecordLanguageError(CorpusError):
+    """Raised when a record names another language than its file's name.
+
+    Args:
+        corpus: The IPA file.
+        named: The language the file's name carries.
+        recorded: The language its record names.
+    """
+
+    def __init__(self, corpus: str, named: str, recorded: str) -> None:
+        """Name the file and both languages."""
+        super().__init__(
+            ERR_RECORD_LANGUAGE,
+            f"{corpus} is named as {named} but its record says the {recorded} rules wrote it",
+        )
+        self.corpus = corpus
+        self.named = named
+        self.recorded = recorded
+
+
+class TransliteratedByOtherRulesError(CorpusError):
+    """Raised when an IPA file was written by rules other than the installed ones.
+
+    Args:
+        corpus: The IPA file.
+        recorded: The rule file and digest its record names.
+        installed: The installed rule file and its digest.
+    """
+
+    def __init__(self, corpus: str, recorded: str, installed: str) -> None:
+        """Name the file and both rule files with their digests."""
+        super().__init__(
+            ERR_RECORD_RULES,
+            f"{corpus} was written by {recorded}, and the installed rules are "
+            f"{installed}; cleaning it against these rules would drop every word "
+            f"the other rules spelled differently. Transliterate the source text "
+            f"again with the installed rules",
+        )
+        self.corpus = corpus
+        self.recorded = recorded
+        self.installed = installed
+
+
+class TransliterationOutputChangedError(CorpusError):
+    """Raised when an IPA file is not the bytes its record describes.
+
+    Args:
+        corpus: The IPA file.
+        recorded: The SHA-256 its record names.
+        found: The SHA-256 of the file as it is.
+    """
+
+    def __init__(self, corpus: str, recorded: str, found: str) -> None:
+        """Name the file and both digests."""
+        super().__init__(
+            ERR_RECORD_OUTPUT,
+            f"{corpus} has SHA-256 {found}, and its transliteration record "
+            f"describes {recorded}; the file changed after the rules wrote it",
+        )
+        self.corpus = corpus
+        self.recorded = recorded
+        self.found = found
+
+
 __all__ = [
     "ERR_NO_CORPORA",
+    "ERR_RECORD_LANGUAGE",
+    "ERR_RECORD_MISSING",
+    "ERR_RECORD_OUTPUT",
+    "ERR_RECORD_RULES",
     "ERR_STREAM_FAILED",
     "ERR_SYMBOL_MAP_MALFORMED",
     "ERR_UNKNOWN_SOURCE",
@@ -109,5 +202,9 @@ __all__ = [
     "CorpusStreamError",
     "NoCorporaError",
     "SymbolMapMalformedError",
+    "TransliteratedByOtherRulesError",
+    "TransliterationOutputChangedError",
+    "TransliterationRecordLanguageError",
+    "TransliterationRecordMissingError",
     "UnknownCorpusSourceError",
 ]

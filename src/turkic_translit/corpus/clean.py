@@ -47,7 +47,6 @@ that was.
 
 from __future__ import annotations
 
-import hashlib
 import unicodedata as ud
 from collections.abc import Mapping
 from pathlib import Path
@@ -62,6 +61,11 @@ from turkic_translit.corpus.symbols import (
     substitutions_for,
     symbol_table_digest,
 )
+from turkic_translit.corpus.transliteration_record import (
+    ipa_rule_file,
+    require_written_by_installed_rules,
+)
+from turkic_translit.digests import rule_digest
 from turkic_translit.validation import (
     require_non_empty_str,
     require_non_negative_int,
@@ -456,30 +460,6 @@ def harmonized_emitted(language: str, rules: tuple[SymbolRule, ...]) -> frozense
     )
 
 
-def rule_digest(path: Path) -> str:
-    """SHA-256 of a rule file's text as the transliterator compiles it.
-
-    ``turkic_translit.core`` reads a rule file with ``read_text``, whose
-    universal-newline decoding turns CRLF into LF before ICU sees the
-    rules, so line endings are not part of the rules. Hashing the raw
-    bytes made one commit fingerprint two ways: a Windows checkout of
-    5c06eef's ``kk_ipa.rules`` hashed to ``c2d4eeec...`` and a Linux
-    checkout of the same commit to ``2b69fda4...``. Hashing the decoded
-    text gives every checkout the digest of the rules ICU compiled.
-
-    Args:
-        path: The rule file.
-
-    Returns:
-        Hex digest of the file's text, re-encoded as UTF-8.
-
-    Raises:
-        FileNotFoundError: When ``path`` does not exist.
-        UnicodeDecodeError: When the file is not UTF-8.
-    """
-    return hashlib.sha256(path.read_text(encoding="utf-8").encode("utf-8")).hexdigest()
-
-
 def rules_fingerprint(languages: tuple[str, ...], rules: tuple[SymbolRule, ...]) -> dict[str, str]:
     """SHA-256 of each rule file used, and of the symbol map applied.
 
@@ -499,7 +479,7 @@ def rules_fingerprint(languages: tuple[str, ...], rules: tuple[SymbolRule, ...])
     """
     fingerprint: dict[str, str] = {}
     for language in languages:
-        name = f"{language}_ipa.rules"
+        name = ipa_rule_file(language)
         fingerprint[name] = rule_digest(_RULE_DIR / name)
     fingerprint["symbol_map"] = symbol_table_digest(rules)
     return fingerprint
@@ -532,11 +512,22 @@ def clean_corpora(
         FileNotFoundError: If a named corpus does not exist.
         KeyError: If a language has no rule file to derive its emitted
             characters from.
+        TransliterationRecordMissingError: If a corpus carries no record
+            of the rules that wrote it. Every corpus is checked before
+            any is read or written, so a refusal leaves nothing behind.
+        TransliterationRecordLanguageError: If a record names another
+            language than its file's name.
+        TransliteratedByOtherRulesError: If other rules than the installed
+            ones wrote a corpus, so its letters cannot be judged by them.
+        TransliterationOutputChangedError: If a corpus is not the bytes
+            its record describes.
     """
     if not inputs:
         raise NoCorporaError(str(output_dir))
 
     languages = tuple(sorted(inputs))
+    for language in languages:
+        require_written_by_installed_rules(inputs[language], language)
     cleaned: dict[str, list[str]] = {}
     statistics: dict[str, CleanStats] = {}
     for language in languages:
@@ -580,7 +571,6 @@ __all__ = [
     "encode_clean_report",
     "encode_clean_stats",
     "harmonized_emitted",
-    "rule_digest",
     "rules_fingerprint",
     "sanitize_line",
     "transcription_ratio",
