@@ -53,6 +53,15 @@ class SentencePieceEncoder(Protocol):
         """
         ...
 
+    def get_piece_size(self) -> int:
+        """Count the pieces the loaded model's vocabulary holds.
+
+        Returns:
+            The vocabulary size the trainer actually learned, which may be
+            below the size requested when the limit was soft.
+        """
+        ...
+
 
 class SentencePieceTrainer(Protocol):
     """SentencePiece's model trainer, as this project drives it."""
