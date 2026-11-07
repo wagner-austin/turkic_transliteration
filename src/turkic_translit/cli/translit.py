@@ -13,11 +13,13 @@ import logging
 import sys
 import time
 from contextlib import ExitStack, nullcontext
+from pathlib import Path
 from typing import TextIO
 
 import click
 
 from ..core import get_supported_languages, to_ipa, to_latin
+from ..corpus.transliteration_record import write_transliteration_record
 
 _logger = logging.getLogger(__name__)
 
@@ -202,6 +204,9 @@ def translit(
     """Transliterate ORTHOGRAPHY -> IPA and/or Latin using per-language rules.
 
     Reads and writes UTF-8 without a byte-order mark on every platform.
+    An IPA file written to a path gets a transliteration record beside it
+    naming the rules that wrote it, which ``turkic-clean-corpus`` requires;
+    IPA written to standard output carries none and cannot be cleaned.
 
     Args:
         lang: ISO 639-1 language code selected by ``--lang``.
@@ -236,6 +241,10 @@ def translit(
         start = time.time()
         n = _stream_transliteration(input_stream, latin_stream, ipa_stream, lang, arabic)
         elapsed = time.time() - start
+
+    # After the streams close, so the record hashes the bytes on disk.
+    if ipa_path is not None and ipa_path != "-":
+        write_transliteration_record(Path(ipa_path), lang)
 
     if benchmark:
         rate = n / elapsed if elapsed > 0 else 0.0

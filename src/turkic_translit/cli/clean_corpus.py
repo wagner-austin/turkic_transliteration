@@ -21,6 +21,7 @@ from turkic_translit.corpus.clean import (
     clean_corpora,
     encode_clean_report,
 )
+from turkic_translit.corpus.errors import CorpusError
 from turkic_translit.corpus.symbols import (
     PACKAGED_SYMBOL_MAP,
     SymbolRule,
@@ -30,6 +31,7 @@ from turkic_translit.corpus.symbols import (
 )
 from turkic_translit.logging_config import default_level
 from turkic_translit.logging_config import setup as configure_logging
+from turkic_translit.validation import FieldError
 
 REPORT_NAME = "cleaning_manifest.json"
 
@@ -221,7 +223,11 @@ def cli(
     Raises:
         click.ClickException: When a directory pair is half-given, no pair
             is given at all, a directory holds nothing matching the
-            pattern, or a file name is ambiguous about its language.
+            pattern, a file name is ambiguous about its language, or a
+            corpus is refused because the installed rules did not write
+            it (no transliteration record, another language's, other
+            rules', or one describing other bytes). The message carries
+            the originating error code.
     """
     configure_logging(default_level())
     if (input_dir is None) != (output_dir is None):
@@ -243,7 +249,10 @@ def cli(
         if not inputs:
             message = f"no file matching {pattern!r} in {input_dir}"
             raise click.ClickException(message)
-        report = clean_corpora(inputs, output_dir, rules, min_line_chars, min_ipa_ratio)
+        try:
+            report = clean_corpora(inputs, output_dir, rules, min_line_chars, min_ipa_ratio)
+        except (CorpusError, FieldError) as exc:
+            raise click.ClickException(str(exc)) from exc
         (output_dir / REPORT_NAME).write_text(
             json.dumps(encode_clean_report(report), indent=2, ensure_ascii=False),
             encoding="utf-8",
