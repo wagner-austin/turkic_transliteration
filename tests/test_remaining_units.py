@@ -145,14 +145,16 @@ def test_a_model_specification_round_trips() -> None:
 
 
 def test_the_encoded_specification_carries_every_field() -> None:
-    """All five fields survive the encoding."""
+    """All seven fields survive the encoding."""
     encoded = encode_lid_model_spec(get_spec("lid.176"))
 
     assert sorted(encoded) == [
         "filename",
         "label_prefix",
         "model_id",
+        "origin_url",
         "script_aware",
+        "sha256",
         "url",
     ]
 
