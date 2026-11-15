@@ -23,6 +23,7 @@ ERR_LABEL_MALFORMED: Final = "TURKIC_LID_007_LABEL_MALFORMED"
 ERR_EMPTY_TEXT: Final = "TURKIC_LID_008_EMPTY_TEXT"
 ERR_MULTILINE_TEXT: Final = "TURKIC_LID_009_MULTILINE_TEXT"
 ERR_LANGUAGE_NOT_EMITTED: Final = "TURKIC_LID_010_LANGUAGE_NOT_EMITTED"
+ERR_MODEL_DIGEST_MISMATCH: Final = "TURKIC_LID_011_MODEL_DIGEST_MISMATCH"
 
 
 class LidError(Exception):
@@ -169,10 +170,34 @@ class LidLanguageNotEmittedError(LidError):
         self.suggestions = suggestions
 
 
+class LidModelDigestMismatchError(LidError):
+    """Raised when downloaded weights are not the bytes the registry pins.
+
+    Args:
+        model_id: Registered identifier of the model.
+        url: Where the bytes were downloaded from.
+        expected: The SHA-256 the model's spec pins.
+        actual: The SHA-256 of the bytes that arrived.
+    """
+
+    def __init__(self, model_id: str, url: str, expected: str, actual: str) -> None:
+        """Name the model, the source, and both digests."""
+        super().__init__(
+            ERR_MODEL_DIGEST_MISMATCH,
+            f"weights for model {model_id!r} downloaded from {url} have SHA-256 "
+            f"{actual}, not the pinned {expected}; they were not kept",
+        )
+        self.model_id = model_id
+        self.url = url
+        self.expected = expected
+        self.actual = actual
+
+
 __all__ = [
     "ERR_EMPTY_TEXT",
     "ERR_LABEL_MALFORMED",
     "ERR_LANGUAGE_NOT_EMITTED",
+    "ERR_MODEL_DIGEST_MISMATCH",
     "ERR_MODEL_FILE_EMPTY",
     "ERR_MODEL_FILE_MISSING",
     "ERR_MULTILINE_TEXT",
@@ -181,6 +206,7 @@ __all__ = [
     "LidError",
     "LidLabelError",
     "LidLanguageNotEmittedError",
+    "LidModelDigestMismatchError",
     "LidModelFileEmptyError",
     "LidModelFileMissingError",
     "MultilineClassificationTextError",

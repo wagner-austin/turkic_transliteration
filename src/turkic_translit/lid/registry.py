@@ -22,6 +22,17 @@ present the call fails with a code naming the model and the path. This is
 deliberate. A pipeline that silently substitutes one classifier for
 another produces a corpus that cannot be reproduced, because the filter
 that built it is no longer recoverable from the recorded configuration.
+
+The weights are downloaded from this project's Hugging Face model repo,
+:data:`MIRROR_REPO`, not from Meta's CDN where they were released. On
+2026-11-15 the demo Space was found crashed at startup: its download of
+``lid.176.bin`` from ``dl.fbaipublicfiles.com`` had failed certificate
+verification, and a Space keeps no disk between restarts, so every
+restart depended on that host. The mirror holds Meta's files byte for
+byte, copied by the ``mirror-lid-models`` workflow from each spec's
+``origin_url``, and each spec pins the SHA-256 of Meta's file. A download
+is refused unless its bytes have that digest, so moving the source
+changed where the bytes come from and not which bytes they are.
 """
 
 from __future__ import annotations
@@ -38,18 +49,27 @@ from turkic_translit.lid.errors import (
 )
 from turkic_translit.lid.spec import LidModelSpec, decode_lid_model_spec
 
+MIRROR_REPO: Final = "AustinWagner/turkic-translit-lid"
+"""The Hugging Face model repo holding a copy of every registered model."""
+
+_MIRROR_FILES: Final = f"https://huggingface.co/{MIRROR_REPO}/resolve/main"
+
 _RAW_SPECS: Final[tuple[Mapping[str, str | bool], ...]] = (
     {
         "model_id": "lid.176",
         "filename": "lid.176.bin",
-        "url": "https://dl.fbaipublicfiles.com/fasttext/supervised-models/lid.176.bin",
+        "url": f"{_MIRROR_FILES}/lid.176.bin",
+        "origin_url": "https://dl.fbaipublicfiles.com/fasttext/supervised-models/lid.176.bin",
+        "sha256": "7e69ec5451bc261cc7844e49e4792a85d7f09c06789ec800fc4a44aec362764e",
         "label_prefix": "__label__",
         "script_aware": False,
     },
     {
         "model_id": "lid218e",
         "filename": "lid218e.bin",
-        "url": "https://dl.fbaipublicfiles.com/nllb/lid/lid218e.bin",
+        "url": f"{_MIRROR_FILES}/lid218e.bin",
+        "origin_url": "https://dl.fbaipublicfiles.com/nllb/lid/lid218e.bin",
+        "sha256": "8ded5749a2ad79ae9ab7c9190c7c8b97ff20d54ad8b9527ffa50107238fc7f6a",
         "label_prefix": "__label__",
         "script_aware": True,
     },
@@ -150,6 +170,7 @@ def resolve_model_path(model_id: str, search_dirs: Sequence[Path]) -> Path:
 
 
 __all__ = [
+    "MIRROR_REPO",
     "REGISTRY",
     "find_model_path",
     "get_spec",

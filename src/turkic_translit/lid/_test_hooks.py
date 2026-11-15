@@ -125,32 +125,32 @@ class Downloader(Protocol):
 class UrlDownloader:
     """Downloader streaming over HTTP with :mod:`urllib`.
 
-    Network and filesystem failures propagate unchanged. A partial
-    transfer is never promoted to a usable model: bytes land on a
-    ``.part`` sibling and are renamed only once the stream completes, so
-    an interrupted download leaves no file for the resolver to find.
+    Network and filesystem failures propagate unchanged. It writes to the
+    path it is given and nothing else: the caller,
+    :func:`turkic_translit.lid.fetch.download_verified`, hands it a
+    ``.part`` path the resolver never looks for, and promotes the file
+    only once its digest is checked, so an interrupted or wrong download
+    leaves no file for the resolver to find.
     """
 
     def fetch(self, url: str, destination: Path) -> int:
-        """Stream ``url`` to ``destination`` via a temporary sibling.
+        """Stream ``url`` to ``destination``.
 
         Args:
-            url: Canonical download location.
+            url: Download location taken from the model spec.
             destination: Absolute path to write.
 
         Returns:
             Number of bytes written.
         """
-        partial = destination.with_suffix(destination.suffix + ".part")
         written = 0
-        with urlopen(url) as response, partial.open("wb") as sink:
+        with urlopen(url) as response, destination.open("wb") as sink:
             while True:
                 chunk = response.read(1 << 20)
                 if not chunk:
                     break
                 sink.write(chunk)
                 written += len(chunk)
-        partial.replace(destination)
         return written
 
 
