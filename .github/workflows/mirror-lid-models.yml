@@ -1,0 +1,91 @@
+name: Mirror the LID models
+
+# The language-identification weights are downloaded from this project's
+# Hugging Face model repo, not from Meta's CDN where they were released.
+# On 2026-11-15 the demo Space was found crashed at startup: its download
+# of lid.176.bin from dl.fbaipublicfiles.com had failed certificate
+# verification, and a Space keeps no disk between restarts, so every
+# restart depended on that host being healthy.
+#
+# This workflow fills the mirror. Every fact it uses comes from the
+# registry through scripts/lid_mirror.py: the repo, and for each model
+# its filename, the SHA-256 of Meta's file and the URL Meta released it
+# at. It downloads each file from Meta, refuses one whose digest is not
+# the pinned one, uploads the rest with the card in .github/lid-mirror,
+# and then downloads each file back from the mirror and checks the
+# digest again, so a run that passes has shown the mirror serves the
+# bytes the package will accept.
+#
+# It runs by hand, once, and again only if a model is added or the card
+# changes: the files themselves never change, because their digests are
+# pinned.
+
+on:
+  workflow_dispatch:
+
+jobs:
+  mirror:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout main repo
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      # The package is installed without its dependencies because the
+      # registry needs none of them, only the package's own metadata.
+      # huggingface-hub is the version poetry.lock resolves.
+      - name: Install the registry and the Hub client
+        run: |
+          python -m pip install --no-deps .
+          python -m pip install "huggingface-hub==1.27.0"
+
+      - name: Download each model from Meta and check its digest
+        run: |
+          mkdir mirror
+          python -m scripts.lid_mirror --print-manifest > manifest.txt
+          cat manifest.txt
+          while read -r filename sha256 origin; do
+            curl -fSL --retry 3 -o "mirror/$filename" "$origin"
+            echo "$sha256  mirror/$filename" | sha256sum --check --strict
+          done < manifest.txt
+          cp .github/lid-mirror/README.md mirror/README.md
+
+      - name: Upload to the mirror
+        env:
+          HF_TOKEN: ${{ secrets.HF_TOKEN }}
+        run: |
+          REPO="$(python -m scripts.lid_mirror --print-repo)"
+          python -c "
+          import os
+          import sys
+
+          from huggingface_hub import HfApi
+
+          repo = sys.argv[1]
+          api = HfApi(token=os.environ['HF_TOKEN'])
+          # Public, because the package and the Space download anonymously.
+          api.create_repo(repo, repo_type='model', private=False, exist_ok=True)
+          api.upload_folder(
+              repo_id=repo,
+              repo_type='model',
+              folder_path='mirror',
+              commit_message='Mirror the LID models from Meta, digests checked',
+          )
+          print(f'Uploaded to https://huggingface.co/{repo}')
+          " "$REPO"
+
+      # What the package will do on its next download, done here: fetch
+      # each file from the mirror and require the pinned digest.
+      - name: Download each model back from the mirror and check its digest
+        run: |
+          REPO="$(python -m scripts.lid_mirror --print-repo)"
+          mkdir readback
+          while read -r filename sha256 origin; do
+            curl -fSL --retry 3 -o "readback/$filename" \
+              "https://huggingface.co/$REPO/resolve/main/$filename"
+            echo "$sha256  readback/$filename" | sha256sum --check --strict
+          done < manifest.txt
