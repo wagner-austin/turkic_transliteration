@@ -231,12 +231,18 @@ cat uz_raw.txt | turkic-filter-russian --mode drop > uz_clean.txt
 
 ## FastText language-identification model
 
-Russian-token filtering and language detection use FastText's `lid.176.bin`.
-The model is **not** committed (too large); it is downloaded automatically from
-the official Facebook AI link on first use and cached in the package directory —
-no manual step needed for pip installs, Hugging Face Spaces, or CI. Manual
-source if needed:
-https://dl.fbaipublicfiles.com/fasttext/supervised-models/lid.176.bin
+Russian-token filtering and language detection use FastText's `lid.176.bin`,
+and corpus filtering can use NLLB's `lid218e.bin`. Neither is committed (too
+large). Each is downloaded on first use from this project's Hugging Face mirror,
+[AustinWagner/turkic-translit-lid](https://huggingface.co/AustinWagner/turkic-translit-lid),
+and cached in the package directory, so pip installs, the Hugging Face Space and
+CI need no manual step. The mirror holds Meta's files byte for byte: the
+registry (`src/turkic_translit/lid/registry.py`) pins the SHA-256 of each, and a
+download with any other digest is deleted and refused
+(`TURKIC_LID_011_MODEL_DIGEST_MISMATCH`). Meta's originals, which the
+`mirror-lid-models` workflow copies from:
+https://dl.fbaipublicfiles.com/fasttext/supervised-models/lid.176.bin and
+https://dl.fbaipublicfiles.com/nllb/lid/lid218e.bin
 
 ## Logging & error reporting
 

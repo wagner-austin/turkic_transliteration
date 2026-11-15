@@ -2,6 +2,27 @@
 
 All notable changes to the Turkic Transliteration project will be documented in this file.
 
+## [0.5.13] - 2026-11-15
+
+### Fixed
+
+**The language-identification weights download from the project's own
+mirror, and only as the exact bytes Meta released.** On 2026-11-15 the demo
+Space was found in `RUNTIME_ERROR`: at startup its download of `lid.176.bin`
+from `dl.fbaipublicfiles.com` had failed certificate verification
+(`CERTIFICATE_VERIFY_FAILED`, certificate has expired), and the process
+exited. A Space keeps no disk between restarts, so every restart depended on
+Meta's CDN. Both models are now downloaded from the Hugging Face model repo
+`AustinWagner/turkic-translit-lid`, which the hand-run `mirror-lid-models`
+workflow fills from Meta and reads back. Each registry spec gains
+`origin_url`, Meta's location, and `sha256`, the digest of Meta's file,
+measured by streaming each original through `sha256sum`. `download_verified`
+writes to a `.part` file the resolver never looks for and promotes it only
+when it is not empty and has the pinned digest; any other download is deleted
+and raises `TURKIC_LID_011_MODEL_DIGEST_MISMATCH`
+(`LidModelDigestMismatchError`). `UrlDownloader` now writes exactly the path
+it is given, since staging and promotion moved to the caller.
+
 ## [0.5.12] - 2026-11-07
 
 ### Fixed
